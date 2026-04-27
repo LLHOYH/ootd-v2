@@ -44,7 +44,7 @@ export default function TodayScreen() {
 
         <TodaysPickCard
           combination={mockTodaysPick}
-          onTryAnother={() => router.push('/chat/stella')}
+          onTryAnother={() => router.push('/chats/stella')}
         />
 
         <CommunityStrip

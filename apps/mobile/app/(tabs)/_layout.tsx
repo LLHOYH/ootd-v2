@@ -10,11 +10,14 @@ const TAB_ROUTES: Record<BottomNavTab, string> = {
 };
 
 function resolveActive(segments: string[]): BottomNavTab {
-  const last = segments[segments.length - 1];
-  if (last === 'closet') return 'closet';
-  if (last === 'friends') return 'friends';
-  if (last === 'chats') return 'chats';
-  if (last === 'you') return 'you';
+  // Tab is the segment immediately after the `(tabs)` group, so chat detail
+  // pushes (`/chats/stella`) keep the Chats tab highlighted.
+  const tabsIndex = segments.indexOf('(tabs)');
+  const tab = tabsIndex >= 0 ? segments[tabsIndex + 1] : segments[0];
+  if (tab === 'closet') return 'closet';
+  if (tab === 'friends') return 'friends';
+  if (tab === 'chats') return 'chats';
+  if (tab === 'you') return 'you';
   return 'today';
 }
 
