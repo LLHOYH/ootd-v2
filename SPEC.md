@@ -926,7 +926,7 @@ The `/today` endpoint internally calls Stella with a one-shot prompt: "Given thi
 
 ### 10.5 Stella chat
 
-**Mockup:** `04 · STELLA`. **Route:** `/chat/stella`. **Type:** push (chat detail).
+**Mockup:** `04 · STELLA`. **Route:** `/chats/stella`. **Type:** push (chat detail).
 
 **Purpose.** Open-ended styling conversation with the AI stylist. Receives outfit suggestions as inline cards. Reached by tapping Stella's pinned row in the Chats inbox.
 
@@ -973,7 +973,7 @@ Each row: avatar (or stacked avatars for groups) · name · preview · timestamp
 
 ### 10.7 Chat with closet drawer
 
-**Mockup:** `CHAT · SEND FROM CLOSET`. **Route:** `/chat/[id]`. **Type:** push.
+**Mockup:** `CHAT · SEND FROM CLOSET`. **Route:** `/chats/[id]`. **Type:** push.
 
 **Purpose.** A conversation. Below the message list is a tabbed input area where the user can switch between keyboard, **closet drawer**, camera, and Stella suggestions.
 

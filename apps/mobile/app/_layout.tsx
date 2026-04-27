@@ -10,7 +10,6 @@ export default function RootLayout() {
         <ThemeProvider>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="chat/[id]" />
           </Stack>
         </ThemeProvider>
       </SafeAreaProvider>

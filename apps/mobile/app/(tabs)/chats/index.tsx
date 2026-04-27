@@ -13,7 +13,7 @@ import { mockThreads, type MockThread } from '@/components/chats/mocks';
  * Chats inbox — SPEC §10.6, mockup `08 · CHATS INBOX`.
  *
  * Three sections in fixed order: Pinned (Stella), Groups (incl. hangouts),
- * Direct. Tapping a row pushes to `/chat/[id]`. The "Ask Stella" chip is
+ * Direct. Tapping a row pushes to `/chats/[id]`. The "Ask Stella" chip is
  * suppressed when Stella's pinned row already carries an unread indicator
  * (the unread dot is the affordance, per CHANGES.md changeset 01).
  */
@@ -25,10 +25,10 @@ export default function ChatsScreen() {
   const stellaUnread = pinned.some((t) => t.id === 'stella' && t.unread > 0);
 
   const handleSelect = (thread: MockThread) => {
-    router.push(`/chat/${thread.id}` as never);
+    router.push(`/chats/${thread.id}` as never);
   };
 
-  const askStella = () => router.push('/chat/stella');
+  const askStella = () => router.push('/chats/stella');
 
   return (
     <Screen scroll>
