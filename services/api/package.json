@@ -2,11 +2,26 @@
   "name": "@mei/api",
   "version": "0.0.0",
   "private": true,
-  "description": "Mei main HTTP API — Lambda + API Gateway. See SPEC.md \u00a77.",
+  "description": "Mei main HTTP API — Lambda + API Gateway. See SPEC.md §7.",
+  "main": "dist/index.js",
   "scripts": {
-    "typecheck": "echo 'api typecheck — TODO when handlers land'"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "local": "tsx src/local/invoke.ts"
   },
   "dependencies": {
-    "@mei/types": "workspace:*"
+    "@aws-sdk/client-dynamodb": "^3.658.0",
+    "@aws-sdk/lib-dynamodb": "^3.658.0",
+    "@aws-sdk/client-s3": "^3.658.0",
+    "@aws-sdk/s3-request-presigner": "^3.658.0",
+    "@mei/types": "workspace:*",
+    "aws-jwt-verify": "^4.0.1",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^20.16.10",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
   }
 }
