@@ -1,0 +1,25 @@
+{
+  "name": "@mei/mock-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local mock server that serves SPEC.md §7 from in-memory data. Dev tool only.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/sensible": "^5.6.0",
+    "@mei/types": "workspace:*",
+    "fastify": "^4.28.1",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

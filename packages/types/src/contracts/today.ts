@@ -1,8 +1,8 @@
 // Today contracts — SPEC.md §7.2 "Today" (with shape from §10.1).
 
 import { z } from 'zod';
-import { zCombination, zOccasion, zWeatherTag } from '../entities';
-import { paginated, Pagination, zIso } from './shared';
+import { zCombination, zOccasion, zWeatherTag } from '../entities.js';
+import { paginated, Pagination, zIso } from './shared.js';
 
 // ---------- Sub-shapes for the aggregated /today payload ----------
 

@@ -1,8 +1,8 @@
 // Combinations contracts — SPEC.md §7.2 "Combinations".
 
 import { z } from 'zod';
-import { zCombination, zComboSource, zOccasion } from '../entities';
-import { paginated, Pagination } from './shared';
+import { zCombination, zComboSource, zOccasion } from '../entities.js';
+import { paginated, Pagination } from './shared.js';
 
 // ---------- GET /closet/combinations ----------
 
@@ -45,4 +45,4 @@ export const UpdateCombinationResponse = zCombination;
 export type UpdateCombinationResponse = z.infer<typeof UpdateCombinationResponse>;
 
 // ---------- DELETE /closet/combinations/{comboId} ----------
-export { EmptyResponse as DeleteCombinationResponse } from './shared';
+export { EmptyResponse as DeleteCombinationResponse } from './shared.js';

@@ -1,7 +1,7 @@
 // Friends contracts — SPEC.md §7.2 "Friends".
 
 import { z } from 'zod';
-import { zFriendRequest } from '../entities';
+import { zFriendRequest } from '../entities.js';
 
 // A trimmed-down public-facing user shape used in lists/search/suggestions.
 // Mirrors what's safe to expose without leaking private profile fields.
@@ -105,12 +105,12 @@ export type AcceptFriendRequestResponse = z.infer<
 >;
 
 // ---------- POST /friends/requests/{fromUserId}/decline ----------
-export { EmptyResponse as DeclineFriendRequestResponse } from './shared';
+export { EmptyResponse as DeclineFriendRequestResponse } from './shared.js';
 
 // ---------- DELETE /friends/requests/{toUserId} ----------
 // Cancel an outbound request.
-export { EmptyResponse as CancelFriendRequestResponse } from './shared';
+export { EmptyResponse as CancelFriendRequestResponse } from './shared.js';
 
 // ---------- DELETE /friends/{userId} ----------
 // Unfriend.
-export { EmptyResponse as UnfriendResponse } from './shared';
+export { EmptyResponse as UnfriendResponse } from './shared.js';

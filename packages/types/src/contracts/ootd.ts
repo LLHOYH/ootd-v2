@@ -1,8 +1,8 @@
 // OOTD contracts — SPEC.md §7.2 "OOTD".
 
 import { z } from 'zod';
-import { zCombination, zOOTDPost, zOOTDVisibility } from '../entities';
-import { paginated, Pagination } from './shared';
+import { zCombination, zOOTDPost, zOOTDVisibility } from '../entities.js';
+import { paginated, Pagination } from './shared.js';
 
 // ---------- POST /ootd ----------
 // Try-on photo generates async; response returns ootdId + status.
@@ -49,7 +49,7 @@ export const GetOotdResponse = zOOTDPost;
 export type GetOotdResponse = z.infer<typeof GetOotdResponse>;
 
 // ---------- DELETE /ootd/{ootdId} ----------
-export { EmptyResponse as DeleteOotdResponse } from './shared';
+export { EmptyResponse as DeleteOotdResponse } from './shared.js';
 
 // ---------- POST /ootd/{ootdId}/react ----------
 

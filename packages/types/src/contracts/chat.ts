@@ -1,8 +1,8 @@
 // Chat contracts — SPEC.md §7.2 "Chat".
 
 import { z } from 'zod';
-import { zChatMessage, zChatMessageKind, zChatThread } from '../entities';
-import { paginated, Pagination } from './shared';
+import { zChatMessage, zChatMessageKind, zChatThread } from '../entities.js';
+import { paginated, Pagination } from './shared.js';
 
 // ---------- GET /chat/threads ----------
 // Inbox: pinned, groups, hangouts, DMs.

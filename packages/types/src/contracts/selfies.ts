@@ -1,8 +1,8 @@
 // Selfies contracts — SPEC.md §7.2 "Selfies".
 
 import { z } from 'zod';
-import { zSelfie } from '../entities';
-import { zIso } from './shared';
+import { zSelfie } from '../entities.js';
+import { zIso } from './shared.js';
 
 // ---------- POST /me/selfies ----------
 // Returns a presigned PUT URL; client uploads directly to S3.
@@ -29,4 +29,4 @@ export type ListSelfiesResponse = z.infer<typeof ListSelfiesResponse>;
 
 // ---------- DELETE /me/selfies/{selfieId} ----------
 // No body. Empty response.
-export { EmptyResponse as DeleteSelfieResponse } from './shared';
+export { EmptyResponse as DeleteSelfieResponse } from './shared.js';

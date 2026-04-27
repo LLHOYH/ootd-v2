@@ -5,7 +5,7 @@ import {
   zUser,
   zGender,
   zClimateProfile,
-} from '../entities';
+} from '../entities.js';
 
 // ---------- Auth tokens (Cognito-shaped) ----------
 
@@ -87,4 +87,4 @@ export type UpdateMeResponse = z.infer<typeof UpdateMeResponse>;
 
 // ---------- DELETE /me ----------
 // No body. Empty response.
-export { EmptyResponse as DeleteMeResponse } from './shared';
+export { EmptyResponse as DeleteMeResponse } from './shared.js';
