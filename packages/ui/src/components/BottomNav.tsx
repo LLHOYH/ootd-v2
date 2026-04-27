@@ -1,9 +1,9 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Home, Shirt, Sparkles, MessageCircle, User } from 'lucide-react-native';
+import { Home, Shirt, Users, MessageCircle, User } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export type BottomNavTab = 'today' | 'closet' | 'stella' | 'chats' | 'you';
+export type BottomNavTab = 'today' | 'closet' | 'friends' | 'chats' | 'you';
 
 export interface BottomNavProps {
   active: BottomNavTab;
@@ -20,7 +20,7 @@ interface ItemConfig {
 const ITEMS: ItemConfig[] = [
   { key: 'today', label: 'Today', Icon: Home },
   { key: 'closet', label: 'Closet', Icon: Shirt },
-  { key: 'stella', label: 'Stella', Icon: Sparkles },
+  { key: 'friends', label: 'Friends', Icon: Users },
   { key: 'chats', label: 'Chats', Icon: MessageCircle },
   { key: 'you', label: 'You', Icon: User },
 ];
@@ -39,13 +39,8 @@ export function BottomNav({ active, onSelect, style }: BottomNavProps) {
       ]}
     >
       {ITEMS.map(({ key, label, Icon }) => {
-        const isCenter = key === 'stella';
         const isActive = key === active;
-        const tint = isCenter
-          ? '#FFFFFF'
-          : isActive
-          ? theme.color.brand
-          : theme.color.text.tertiary;
+        const tint = isActive ? theme.color.brand : theme.color.text.tertiary;
 
         return (
           <Pressable
@@ -56,16 +51,8 @@ export function BottomNav({ active, onSelect, style }: BottomNavProps) {
             accessibilityState={{ selected: isActive }}
             style={styles.item}
           >
-            {isCenter ? (
-              <View style={[styles.center, { backgroundColor: theme.color.brand }]}>
-                <Icon size={20} color={tint} strokeWidth={1.6} />
-              </View>
-            ) : (
-              <>
-                <Icon size={22} color={tint} strokeWidth={1.6} />
-                <Text style={[styles.label, { color: tint }]}>{label}</Text>
-              </>
-            )}
+            <Icon size={22} color={tint} strokeWidth={1.6} />
+            <Text style={[styles.label, { color: tint }]}>{label}</Text>
           </Pressable>
         );
       })}
@@ -93,18 +80,5 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: '500',
-  },
-  center: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -16,
-    shadowColor: '#D4537E',
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 16,
-    elevation: 6,
   },
 });

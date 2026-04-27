@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Screen, useTheme } from '@mei/ui';
 
 import { Header } from '@/components/today/Header';
@@ -21,6 +22,7 @@ import {
 
 export default function TodayScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Setup banner shows only when fewer than 5 selfies AND user hasn't dismissed.
@@ -40,7 +42,10 @@ export default function TodayScreen() {
 
         <CalendarStrip events={mockEvents} />
 
-        <TodaysPickCard combination={mockTodaysPick} />
+        <TodaysPickCard
+          combination={mockTodaysPick}
+          onTryAnother={() => router.push('/chat/stella')}
+        />
 
         <CommunityStrip
           looks={mockCommunityLooks}

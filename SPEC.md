@@ -51,18 +51,17 @@ The **Coordinate** action — on a friend's OOTD post or via a Hangout group —
 
 ## 2. Information architecture
 
-### 2.1 Tab bar (5 tabs)
+### 2.1 Tab bar (5 flat tabs)
 
 ```
-┌──────────────────────────────────────────────┐
-│  Today  │  Closet  │  ✦  │  Chats  │  You    │
-└──────────────────────────────────────────────┘
-                      ↑
-              raised pink CTA
-              opens Stella
+┌──────────────────────────────────────────────────┐
+│  Today  │  Closet  │  Friends  │  Chats  │  You  │
+└──────────────────────────────────────────────────┘
 ```
 
-Stella sits raised in the centre — the AI stylist is the hero action, always one tap away.
+Five flat tabs. **No raised center button.** Stella is not a top-level destination — she lives as a permanently-pinned thread at the top of the **Chats** tab. Tapping her opens a normal chat detail screen.
+
+This decision: Stella is a chat. Giving her a separate raised tab signaled "AI is the hero" but at the cost of making the nav lopsided and forcing a separate destination for something that's already a chat thread. Treating her as a pinned thread keeps the mental model consistent — whether you're talking to Stella, a friend, or a hangout group, it's all in Chats.
 
 ### 2.2 Screen inventory
 
@@ -71,27 +70,27 @@ P0/P1 ships **15 screens**. Each is specced in §10 and visualized in `mockup.ht
 | # | Screen | Tab | Type | Mockup label |
 |---|---|---|---|---|
 | 1 | Today | Today | tab root | `01 · TODAY` |
-| 2 | Closet (grid + Combinations) | Closet | tab root | `03 · CLOSET · COMBINATIONS` |
-| 3 | Closet AI Review | Closet | modal | `02 · CLOSET · AI REVIEW` |
-| 4 | Craft a look | Closet | push | `03 · CRAFT A LOOK` |
-| 5 | Stella chat | center | modal | `STELLA · AI STYLIST` |
-| 6 | Chats inbox | Chats | tab root | `CHAT · INBOX` |
-| 7 | Chat with closet drawer | Chats | push | `CHAT · SEND FROM CLOSET` |
-| 8 | Friends feed | Chats (top module) | push | `FRIENDS` |
-| 9 | Hangout group view | Chats | push | `HANGOUT GROUP` |
-| 10 | Wear this · Confirm & share | global | modal | `CONFIRM & SHARE` |
-| 11 | You / profile | You | tab root | `YOU` |
-| 12 | Add friends | You | push | `ADD FRIENDS` |
-| 13 | Create hangout | Chats | modal | `CREATE HANGOUT` |
-| 14 | Selfie upload | onboarding / settings | modal | `SELFIE UPLOAD` |
-| 15 | Public profile | global | push | `PUBLIC PROFILE VIEW` |
+| 2 | Closet (grid + Combinations) | Closet | tab root | `02 · CLOSET · COMBINATIONS` |
+| 3 | Closet AI Review | Closet | modal | `03 · CLOSET · AI REVIEW` |
+| 4 | Stella chat | Chats | push (chat detail) | `04 · STELLA` |
+| 5 | Craft a look | Closet | push | `05 · CRAFT A LOOK` |
+| 6 | Wear this · Confirm & share | global | modal | `06 · CONFIRM & SHARE` |
+| 7 | Chat with closet drawer | Chats | push | `07 · CHAT · CLOSET DRAWER` |
+| 8 | Chats inbox | Chats | tab root | `08 · CHATS INBOX` |
+| 9 | Friends feed | Friends | tab root | `09 · FRIENDS FEED` |
+| 10 | Hangout group view | Friends | push | `10 · HANGOUT GROUP` |
+| 11 | Create hangout | Friends | modal | `11 · CREATE HANGOUT` |
+| 12 | You / profile | You | tab root | `12 · YOU` |
+| 13 | Add friends | You | push | `13 · ADD FRIENDS` |
+| 14 | Selfie upload | onboarding / settings | modal | `14 · SELFIE UPLOAD` |
+| 15 | Public profile | global | push | `15 · PUBLIC PROFILE` |
 
 ### 2.3 Modal vs push
 
-- **Modals** (slide up, dismissible with ✕): Stella chat, Closet AI Review, Wear-this/Confirm, Selfie upload, Create hangout.
-- **Pushes** (slide left, dismissible with ←): Craft a look, Hangout group, Add friends, Public profile, Chat detail.
+- **Modals** (slide up, dismissible with ✕): Closet AI Review, Wear-this/Confirm, Selfie upload, Create hangout.
+- **Pushes** (slide left, dismissible with ←): Stella chat, Chat detail, Closet drawer chat, Craft a look, Hangout group, Add friends, Public profile.
 
-Modals are for transactional actions. Pushes are for navigation into deeper content.
+Modals are for transactional actions. Pushes are for navigation into deeper content. Stella chat is a push (not a modal) because she's a chat thread like any other.
 
 ---
 
@@ -276,7 +275,7 @@ Pastel palette (`cream`, `mauve`, `sage`, `blue`, `tan`) is used for clothing th
 | `Thumb` | Clothing item thumbnail | `item: ClosetItem`, `size: 'sm' \| 'md' \| 'lg'`, `selected?` |
 | `OutfitCard` | Composite of 3-4 thumbs | `combination: Combination`, `name?` |
 | `Bubble` | Chat bubble | `from: 'user' \| 'ai' \| 'friend'`, `children` |
-| `BottomNav` | Tab bar with raised center button | (consumes router) |
+| `BottomNav` | 5 flat tabs (Today, Closet, Friends, Chats, You) | (consumes router) |
 | `MetricCell` | Stat block | `value`, `label` |
 | `SettingRow` | Profile/settings list row | `icon`, `title`, `subtitle?`, `value?`, `onPress` |
 | `SectionHeader` | "title / action" pair | `title`, `action?` |
@@ -927,9 +926,9 @@ The `/today` endpoint internally calls Stella with a one-shot prompt: "Given thi
 
 ### 10.5 Stella chat
 
-**Mockup:** `STELLA · AI STYLIST`. **Route:** `/stella` (centre tab opens this). **Type:** modal.
+**Mockup:** `04 · STELLA`. **Route:** `/chat/stella`. **Type:** push (chat detail).
 
-**Purpose.** Open-ended styling conversation. Receives outfit suggestions as inline cards.
+**Purpose.** Open-ended styling conversation with the AI stylist. Receives outfit suggestions as inline cards. Reached by tapping Stella's pinned row in the Chats inbox.
 
 **Layout.**
 
@@ -943,26 +942,32 @@ The `/today` endpoint internally calls Stella with a one-shot prompt: "Given thi
 - Streaming response via SSE.
 - Quick replies are dynamic — Stella can return them in the response payload.
 - "Wear this" on a suggestion → Wear-this / Confirm & share modal.
+- Bottom-nav active state: **Chats** (not its own tab).
+
+**Other entry points.** Stella is also reachable via:
+- "Try another →" link on Today's Pick card.
+- Quick-action chip at the top of the Chats inbox (`✨ Ask Stella`).
+- Stella suggestions inside the Hangout group view.
 
 ---
 
 ### 10.6 Chats inbox
 
-**Mockup:** `CHAT · INBOX`. **Route:** `/(tabs)/chats`. **Type:** tab root.
+**Mockup:** `08 · CHATS INBOX`. **Route:** `/(tabs)/chats`. **Type:** tab root.
 
-**Purpose.** All conversations. Pinned (Stella), groups, hangouts, DMs.
+**Purpose.** All conversations — Stella, groups, hangouts, DMs.
 
 **Layout.**
 
 - Header: "Chats" + search + new-message edit icon.
-- (Optional) **Friends feed module** at top — see §10.8. **Decision: include here as the primary entry to OOTD feed.**
-- **PINNED** section — Stella always.
+- Optional: `✨ Ask Stella` quick-action chip immediately below the header for users who want to jump into Stella without scrolling. Disappears once Stella's row has unread indicator (the unread dot is the affordance).
+- **PINNED** section — Stella always. **Cannot be unpinned.** Pink-tinted avatar with sparkle icon. Treated as a normal thread under the hood — same `ChatThread` entity with `type: 'STELLA'`.
 - **GROUPS** section — including hangout chats. Hangout rows show pink dot when unread + member outfit avatars.
 - **DIRECT** section — DMs.
 
 Each row: avatar (or stacked avatars for groups) · name · preview · timestamp · unread dot.
 
-**Data needs.** `GET /chat/threads`.
+**Data needs.** `GET /chat/threads`. Stella's thread is auto-created on user signup so it always exists at the top.
 
 ---
 
@@ -990,9 +995,9 @@ Each row: avatar (or stacked avatars for groups) · name · preview · timestamp
 
 ### 10.8 Friends feed
 
-**Mockup:** `FRIENDS`. **Route:** `/friends` (entered from Chats header or as a top module on Chats). **Type:** push.
+**Mockup:** `09 · FRIENDS FEED`. **Route:** `/(tabs)/friends`. **Type:** tab root.
 
-**Purpose.** OOTD feed from friends + active hangouts strip + create-hangout CTA.
+**Purpose.** OOTD feed from friends + active hangouts strip + create-hangout CTA. Friends is now a top-level tab (replaces what was a module-inside-Chats in the prior design).
 
 **Layout.**
 
@@ -1321,7 +1326,7 @@ Goal: a user can sign up, photograph their closet, get a daily recommendation, c
 **Frontend**
 - Theme provider + tokens
 - Component primitives (`Screen`, `Card`, `Button`, `Chip`, `Avatar`, `Thumb`, `OutfitCard`, `Bubble`, `BottomNav`, `SettingRow`, `MetricCell`, `SectionHeader`)
-- BottomNav with 5 tabs (raised Stella centre)
+- BottomNav with 5 flat tabs (Today, Closet, Friends, Chats, You — no raised center)
 - Onboarding flow (§11.1 — selfie upload optional, closet seed optional)
 - Today, Closet (grid + Combinations), Stella, Chats inbox (DMs only), You
 - Closet AI Review modal
@@ -1380,7 +1385,7 @@ Goal: a user can sign up, photograph their closet, get a daily recommendation, c
 
 | ID | Question | Status |
 |---|---|---|
-| OQ-1 | Should Friends remain inside Chats as a top module, or be promoted to a 6th surface? | Spec assumes "inside Chats" for P0; revisit after first usability test. |
+| OQ-1 | Friends as a tab vs. inside Chats. | **Resolved.** Friends is its own top-level tab. Stella merged into Chats as a permanently-pinned thread. See §2.1. |
 | OQ-2 | Which try-on model to use for §9.3? | Defer to P1 spike. Build the API contract so the model is swappable. |
 | OQ-3 | "Fashion now" sourcing — RSS-only is the chosen path, but legal review needed before launch. | Punted to P2. |
 | OQ-4 | Multi-agent Stella vs single. | Defer; user research first. |
