@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mei/types": "workspace:*",
     "lucide-react-native": "^0.460.0"
   },
   "peerDependencies": {
