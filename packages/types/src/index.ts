@@ -1,5 +1,12 @@
 // Shared TypeScript types — see SPEC.md §6.2.
 // Source of truth: SPEC.md. If code disagrees, the spec wins until updated.
+//
+// Zod-validated entity schemas live in `./entities`, and runtime-validated
+// API request/response contracts (one per route in §7) live in `./contracts`.
+// The TS interfaces below are kept verbatim; the Zod versions are additive.
+
+export * from './entities';
+export * from './contracts';
 
 export type ClothingCategory =
   | 'DRESS' | 'TOP' | 'BOTTOM' | 'OUTERWEAR'
