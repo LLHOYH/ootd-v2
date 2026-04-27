@@ -2,8 +2,21 @@
   "name": "@mei/infra",
   "version": "0.0.0",
   "private": true,
-  "description": "AWS CDK app — data, api, async, cdn stacks. See SPEC.md \u00a74.",
+  "description": "AWS CDK app — data, api, async, cdn stacks. See SPEC.md §4.",
   "scripts": {
-    "synth": "echo 'cdk synth — TODO when stacks land'"
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "lint": "echo 'lint placeholder — wire eslint in a follow-up'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.165.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.0",
+    "aws-cdk": "^2.165.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
   }
 }

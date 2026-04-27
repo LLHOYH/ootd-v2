@@ -1,0 +1,8 @@
+cdk.out/
+dist/
+*.js
+*.d.ts
+!jest.config.js
+node_modules/
+.env
+.env.local
