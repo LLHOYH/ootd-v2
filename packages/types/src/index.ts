@@ -5,8 +5,8 @@
 // API request/response contracts (one per route in §7) live in `./contracts`.
 // The TS interfaces below are kept verbatim; the Zod versions are additive.
 
-export * from './entities';
-export * from './contracts';
+export * from './entities.js';
+export * from './contracts/index.js';
 
 export type ClothingCategory =
   | 'DRESS' | 'TOP' | 'BOTTOM' | 'OUTERWEAR'

@@ -1,8 +1,8 @@
 // Hangouts contracts — SPEC.md §7.2 "Hangouts".
 
 import { z } from 'zod';
-import { zHangout, zHangoutMember } from '../entities';
-import { zIso } from './shared';
+import { zHangout, zHangoutMember } from '../entities.js';
+import { zIso } from './shared.js';
 
 // ---------- POST /hangouts ----------
 
@@ -69,8 +69,8 @@ export const ShareHangoutOutfitResponse = z.object({
 export type ShareHangoutOutfitResponse = z.infer<typeof ShareHangoutOutfitResponse>;
 
 // ---------- POST /hangouts/{hangoutId}/leave ----------
-export { EmptyResponse as LeaveHangoutResponse } from './shared';
+export { EmptyResponse as LeaveHangoutResponse } from './shared.js';
 
 // ---------- DELETE /hangouts/{hangoutId} ----------
 // Owner-only cancel.
-export { EmptyResponse as CancelHangoutResponse } from './shared';
+export { EmptyResponse as CancelHangoutResponse } from './shared.js';

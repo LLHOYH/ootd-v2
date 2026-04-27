@@ -1,8 +1,8 @@
 // Public profile contracts — SPEC.md §7.2 "Public profile".
 
 import { z } from 'zod';
-import { zOOTDPost } from '../entities';
-import { paginated, Pagination } from './shared';
+import { zOOTDPost } from '../entities.js';
+import { paginated, Pagination } from './shared.js';
 
 // ---------- GET /users/{userId} ----------
 // Returns 404 if not discoverable and not friends.

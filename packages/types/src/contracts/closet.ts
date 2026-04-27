@@ -7,8 +7,8 @@ import {
   zItemStatus,
   zOccasion,
   zWeatherTag,
-} from '../entities';
-import { paginated, zIso, Pagination } from './shared';
+} from '../entities.js';
+import { paginated, zIso, Pagination } from './shared.js';
 
 // ---------- POST /closet/items/upload ----------
 // Returns N presigned PUT URLs for batch upload.
@@ -72,7 +72,7 @@ export const UpdateItemResponse = zClosetItem;
 export type UpdateItemResponse = z.infer<typeof UpdateItemResponse>;
 
 // ---------- DELETE /closet/items/{itemId} ----------
-export { EmptyResponse as DeleteItemResponse } from './shared';
+export { EmptyResponse as DeleteItemResponse } from './shared.js';
 
 // ---------- GET /closet/items/pending-review ----------
 

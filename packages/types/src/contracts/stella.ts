@@ -7,7 +7,7 @@ import {
   zOccasion,
   zStellaConversation,
   zStellaMessage,
-} from '../entities';
+} from '../entities.js';
 
 // ---------- POST /stella/conversations ----------
 // Start a new conversation; returns convoId.
@@ -101,4 +101,4 @@ export const StellaSseEvent = z.discriminatedUnion('event', [
 export type StellaSseEvent = z.infer<typeof StellaSseEvent>;
 
 // ---------- DELETE /stella/conversations/{convoId} ----------
-export { EmptyResponse as DeleteStellaConversationResponse } from './shared';
+export { EmptyResponse as DeleteStellaConversationResponse } from './shared.js';
