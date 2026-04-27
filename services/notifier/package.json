@@ -1,0 +1,9 @@
+{
+  "name": "@mei/notifier",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Push notifications — Expo Push, SQS-driven. See SPEC.md \u00a77.3.",
+  "dependencies": {
+    "@mei/types": "workspace:*"
+  }
+}

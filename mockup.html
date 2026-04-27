@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mei — Visual Reference</title>
+<style>
+:root {
+  --bg-page: #FAF8F2;
+  --bg-card: #FFFFFF;
+  --bg-screen: #FFFFFF;
+  --bg-secondary: #F5F3EE;
+  --bg-tertiary: #EDEAE3;
+  --text-primary: #1A1A1A;
+  --text-secondary: #5F5E5A;
+  --text-tertiary: #888780;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.15);
+  --pink: #D4537E;
+  --pink-strong: #993556;
+  --pink-bg: #FBEAF0;
+  --pink-on: #72243E;
+  --cream: #F2EAD9;
+  --mauve: #E5D5E0;
+  --sage: #D5DDD0;
+  --blue: #C5CFD9;
+  --tan: #DCC9B6;
+}
+[data-theme="dark"] {
+  --bg-page: #14110F;
+  --bg-card: #1F1B17;
+  --bg-screen: #1A1714;
+  --bg-secondary: #26221E;
+  --bg-tertiary: #332E29;
+  --text-primary: #F5F3EE;
+  --text-secondary: #B8B4AC;
+  --text-tertiary: #7A7670;
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
+  --pink: #ED93B1;
+  --pink-bg: #4B1528;
+  --pink-on: #F4C0D1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-page: #14110F;
+    --bg-card: #1F1B17;
+    --bg-screen: #1A1714;
+    --bg-secondary: #26221E;
+    --bg-tertiary: #332E29;
+    --text-primary: #F5F3EE;
+    --text-secondary: #B8B4AC;
+    --text-tertiary: #7A7670;
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.18);
+    --pink: #ED93B1;
+    --pink-bg: #4B1528;
+    --pink-on: #F4C0D1;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Inter, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 48px 32px 96px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 0.5px solid var(--border);
+}
+.brand-row { display: flex; align-items: baseline; gap: 14px; }
+.wordmark {
+  font-family: Georgia, "New York", serif;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+.brand-tag {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--pink-bg);
+  color: var(--pink-on);
+  font-weight: 500;
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+}
+.theme-toggle {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.theme-toggle:hover { border-color: var(--border-strong); }
+
+.toc {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+.toc a {
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.toc a:hover { border-color: var(--pink); color: var(--pink); }
+
+section { margin-top: 56px; }
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.section-num {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.4px;
+}
+.section-title {
+  font-family: Georgia, "New York", serif;
+  font-size: 26px;
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+.section-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-left: auto;
+  max-width: 480px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.screen-card {
+  display: flex;
+  flex-direction: column;
+}
+.screen-meta {
+  margin-top: 14px;
+}
+.screen-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.3px;
+}
+.screen-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 2px 0 4px;
+}
+.screen-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* phone shell */
+.phone {
+  background: #1a1a1c;
+  border-radius: 38px;
+  padding: 5px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+}
+[data-theme="dark"] .phone, :root:not([data-theme="light"]) .phone { box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .phone { box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+}
+.screen {
+  background: var(--bg-screen);
+  border-radius: 33px;
+  overflow: hidden;
+  height: 624px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  color: var(--text-primary);
+}
+.notch {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 14px;
+  background: #1a1a1c;
+  border-radius: 8px;
+  z-index: 10;
+}
+.sb {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 22px 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.sb-r { display: flex; gap: 4px; align-items: center; }
+.sb-bar { width: 3px; background: currentColor; border-radius: 1px; opacity: .9; }
+.sb-bat { width: 16px; height: 8px; border: 1px solid currentColor; border-radius: 2px; padding: 1px; opacity: .9; }
+.sb-bat::after { content: ''; display: block; width: 70%; height: 100%; background: currentColor; border-radius: 1px; }
+
+.body { flex: 1; padding: 8px 14px 4px; overflow: hidden; position: relative; }
+
+/* common typography inside screens */
+.h1-sc { font-size: 19px; font-weight: 500; margin: 0; line-height: 1.2; }
+.h2-sc { font-size: 15px; font-weight: 500; margin: 0; }
+.h3-sc { font-size: 13px; font-weight: 500; margin: 0; }
+.tiny-sc { font-size: 10px; color: var(--text-tertiary); }
+.cap-sc { font-size: 11px; color: var(--text-secondary); }
+
+.row { display: flex; align-items: center; }
+.col { display: flex; flex-direction: column; }
+
+.card-sc {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.card-pink-sc {
+  background: var(--pink-bg);
+  color: var(--pink-on);
+  border-radius: 12px;
+  padding: 12px;
+}
+.chip-sc {
+  font-size: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: transparent;
+  border: 0.5px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.chip-sc.act { background: var(--pink); color: white; border-color: var(--pink); }
+
+.bot-nav {
+  height: 60px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 6px 10px 10px;
+  border-top: 0.5px solid var(--border);
+  background: var(--bg-screen);
+}
+.nv {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  flex: 1;
+}
+.nv.act { color: var(--pink); }
+.nv-center {
+  background: var(--pink);
+  color: white;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -16px;
+}
+
+.av {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.btn-primary-sc {
+  background: var(--pink);
+  color: white;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+.btn-primary-sc.disabled { background: var(--pink-bg); color: var(--pink-on); opacity: .6; }
+.btn-ghost-sc {
+  background: transparent;
+  color: var(--text-primary);
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 0.5px solid var(--border-strong);
+  font-size: 12px;
+}
+
+.thumb-look {
+  aspect-ratio: 3/4;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-top: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+.section-h-sc {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 14px 0 8px;
+}
+.hstrip {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  padding-bottom: 2px;
+}
+
+.input-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+.btn-pill-sm {
+  font-size: 10px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 0.5px solid var(--pink);
+  color: var(--pink);
+  background: transparent;
+  font-weight: 500;
+}
+.btn-pill-sm.disabled { color: var(--text-tertiary); border-color: var(--border); }
+
+.bubble-ai {
+  background: var(--bg-secondary);
+  padding: 9px 13px;
+  border-radius: 14px 14px 14px 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  max-width: 78%;
+}
+.bubble-u {
+  background: var(--pink);
+  color: white;
+  padding: 9px 13px;
+  border-radius: 14px 14px 4px 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  max-width: 78%;
+  align-self: flex-end;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 4px;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 13px;
+}
+.set-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot {
+  aspect-ratio: 3/4;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.slot-empty { background: var(--bg-secondary); border: 1px dashed var(--border-strong); color: var(--text-tertiary); }
+.slot-filled { background: var(--cream); }
+
+.tile-pin {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.85);
+  color: #5C3F1F;
+  font-size: 8px;
+  font-weight: 500;
+}
+.tile-rm {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.45);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+footer {
+  margin-top: 96px;
+  padding-top: 24px;
+  border-top: 0.5px solid var(--border);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-hanger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9.5V8a2 2 0 1 1 2 2"/><path d="M12 9.5 3.5 16a1 1 0 0 0 .55 1.8h15.9a1 1 0 0 0 .55-1.8z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 8.6a5 5 0 0 0-8.8-3 5 5 0 0 0-8.8 3c0 5.4 8.8 10.4 8.8 10.4s8.8-5 8.8-10.4z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 19a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+    <symbol id="i-comment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-12.5 6.6L4 20l1.4-4.5A8 8 0 1 1 21 12z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3.5 20.5 8 8 20.5l-5.5 1 1-5.5z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4a3.5 3.5 0 0 1 0 7M21 20c0-2.3-1.3-4.3-3.3-5.3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3l2-3h8l2 3h3v12H3z"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 17 3-3v-3l4-4-6-6-4 4h-3l-3 3 6 6-5 5"/></symbol>
+    <symbol id="i-cog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></symbol>
+    <symbol id="i-mappin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 11h.01M10 11h.01M14 11h.01M18 11h.01M6 15h12"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 16-8-6 18-3-7z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1-.5-2 .5-1 1.5-1H17a4 4 0 0 0 4-4 9 9 0 0 0-9-9z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="11.5" cy="7" r="1"/><circle cx="16" cy="9" r="1"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14l-1 13H6zM9 7a3 3 0 1 1 6 0"/></symbol>
+    <symbol id="i-dress" viewBox="0 0 60 80" fill="currentColor"><path d="M22 8h16l-1 7 4 5-2 8 8 38H13l8-38-2-8 4-5z" opacity=".88"/></symbol>
+    <symbol id="i-top" viewBox="0 0 60 80" fill="currentColor"><path d="M20 12 14 22l5 5 3-2v33h16V25l3 2 5-5-6-10c-2 3-5 4-8 4s-6-1-8-4z" opacity=".88"/></symbol>
+    <symbol id="i-pants" viewBox="0 0 60 80" fill="currentColor"><path d="M18 10h24l-1 28-3 30h-7l-2-26h-1l-2 26h-7l-3-30z" opacity=".88"/></symbol>
+    <symbol id="i-shoe" viewBox="0 0 60 80" fill="currentColor"><path d="M10 50c0-8 4-14 14-14 6 0 9 3 14 6 4 2 8 3 12 3v10c0 3-2 5-5 5H14c-3 0-4-2-4-4z" opacity=".88"/></symbol>
+    <symbol id="i-bag2" viewBox="0 0 60 80" fill="currentColor"><path d="M14 28h32l-3 36H17z" opacity=".88"/><path d="M22 28v-4a8 8 0 0 1 16 0v4" stroke="currentColor" stroke-width="3" fill="none" opacity=".88"/></symbol>
+    <symbol id="i-figure" viewBox="0 0 100 160" fill="currentColor"><circle cx="50" cy="22" r="14" opacity=".85"/><path d="M30 50h40l4 12-3 8 6 30H23l6-30-3-8z" opacity=".85"/><path d="M30 100h40l-4 56h-12l-2-40h-4l-2 40H34z" opacity=".85"/></symbol>
+    <symbol id="i-fig-pose" viewBox="0 0 100 160" fill="currentColor"><circle cx="50" cy="20" r="13" opacity=".88"/><path d="M32 46h36l3 9-2 8 5 32H26l5-32-2-8z" opacity=".88"/><path d="M30 95h40l-4 60h-12l-2-44h-4l-2 44H34z" opacity=".88"/></symbol>
+  </defs>
+</svg>
+
+<div class="page">
+
+<header class="page-header">
+  <div>
+    <div class="brand-row">
+      <span class="wordmark">Mei</span>
+      <span class="brand-tag">visual reference</span>
+    </div>
+    <p class="subtitle">15 screens · all P0/P1 surfaces · light + dark mode</p>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <span id="theme-icon">☾</span>
+    <span id="theme-label">Dark</span>
+  </button>
+</header>
+
+<nav class="toc">
+  <a href="#core">Core loop</a>
+  <a href="#craft">Craft &amp; share</a>
+  <a href="#social">Social</a>
+  <a href="#profile">Profile &amp; onboarding</a>
+</nav>
+
+<section id="core">
+  <div class="section-head">
+    <span class="section-num">PART 01</span>
+    <h2 class="section-title">Core loop</h2>
+    <p class="section-desc">Today's pick, the closet, the AI review queue after upload, and Stella the AI stylist.</p>
+  </div>
+  <div class="grid">
+
+  <!-- 01 · TODAY -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div>
+        <div class="tiny-sc" style="margin-bottom: 1px;">Sun · 25 April</div>
+        <h1 class="h1-sc">Hi, Sophia</h1>
+      </div>
+      <div style="position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="15" height="15"><use href="#i-bell"/></svg><span style="position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--pink);"></span></div>
+    </div>
+
+    <div class="row" style="background: var(--pink-bg); color: var(--pink-on); padding: 7px 11px; border-radius: 10px; margin-top: 10px; gap: 8px;">
+      <svg width="14" height="14"><use href="#i-spark"/></svg>
+      <div style="flex: 1; font-size: 11px; font-weight: 500;">Add 5 selfies for try-on photos</div>
+      <svg width="14" height="14"><use href="#i-chev"/></svg>
+    </div>
+
+    <div class="card-sc" style="margin-top: 8px; display: flex; align-items: center; gap: 10px; padding: 8px 11px;">
+      <div style="width: 30px; height: 30px; border-radius: 8px; background: #FAC775; display: flex; align-items: center; justify-content: center; color: #854F0B;"><svg width="16" height="16"><use href="#i-sun"/></svg></div>
+      <div style="flex:1; font-size: 11px; font-weight: 500;">28° · Sunny · Singapore</div>
+    </div>
+
+    <div class="card-sc" style="margin-top: 6px; display: flex; align-items: center; gap: 10px; padding: 8px 11px;">
+      <div style="width: 30px; height: 30px; border-radius: 8px; background: var(--pink-bg); color: var(--pink-on); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-cal"/></svg></div>
+      <div style="flex:1; min-width: 0;"><div style="font-size: 11px; font-weight: 500;">11:00 · Brunch with Mei</div><div class="tiny-sc">Tiong Bahru · casual chic</div></div>
+    </div>
+
+    <div class="section-h-sc"><span class="h3-sc">Today's pick</span><span style="font-size: 10px; color: var(--pink); font-weight: 500;">Try another →</span></div>
+
+    <div class="card-pink-sc" style="padding: 10px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+        <div style="aspect-ratio: 1; border-radius: 8px; background: var(--cream); display: flex; align-items: center; justify-content: center;"><svg width="32" height="40" style="color: #B8A88E;"><use href="#i-dress"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 8px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="32" height="32" style="color: #6E5C49;"><use href="#i-shoe"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 8px; background: var(--mauve); display: flex; align-items: center; justify-content: center;"><svg width="26" height="32" style="color: #6B4F62;"><use href="#i-bag2"/></svg></div>
+      </div>
+      <div class="row" style="margin-top: 8px; gap: 6px;">
+        <button class="btn-primary-sc" style="flex: 1; padding: 8px; font-size: 11px;">Wear this on me</button>
+        <button class="btn-ghost-sc" style="padding: 7px 12px; font-size: 11px;">♡</button>
+      </div>
+    </div>
+
+    <div class="section-h-sc"><div><div class="h3-sc">What others are wearing</div><div class="tiny-sc">Singapore · 25–30 · today</div></div></div>
+
+    <div class="hstrip">
+      <div class="thumb-look" style="background: var(--cream); width: 70px; height: 90px;"><svg width="46" height="76" style="color: #99835D;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--mauve); width: 70px; height: 90px;"><svg width="46" height="76" style="color: #6B4F62;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--sage); width: 70px; height: 90px;"><svg width="46" height="76" style="color: #5A6B52;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--blue); width: 70px; height: 90px;"><svg width="46" height="76" style="color: #4A5663;"><use href="#i-fig-pose"/></svg></div>
+    </div>
+
+    <div class="section-h-sc"><div class="row" style="gap: 6px;"><svg width="14" height="14" style="color: var(--pink);"><use href="#i-trend"/></svg><div><div class="h3-sc">Fashion now</div><div class="tiny-sc">Paris FW · IG · editorials</div></div></div></div>
+
+    <div class="hstrip">
+      <div class="thumb-look" style="background: var(--pink-bg); width: 70px; height: 90px;"><svg width="46" height="76" style="color: var(--pink-on);"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--tan); width: 70px; height: 90px;"><svg width="46" height="76" style="color: #6E5840;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--cream); width: 70px; height: 90px;"><svg width="46" height="76" style="color: #99835D;"><use href="#i-fig-pose"/></svg></div>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv act"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">01 · TODAY</div>
+    <div class="screen-title">Today</div>
+    <div class="screen-desc">Daily entry point. Weather + calendar surface above the recommendation, then community looks and external trends below.</div>
+  </div>
+  </div>
+
+  <!-- 02 · CLOSET -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div><h1 class="h1-sc">My closet</h1><div class="tiny-sc" style="margin-top: 2px;">12 saved combinations</div></div>
+      <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-search"/></svg></div>
+    </div>
+
+    <div class="row" style="background: var(--bg-secondary); padding: 6px 9px; border-radius: 10px; margin-top: 10px; gap: 8px;">
+      <svg width="14" height="14" style="color: var(--pink);"><use href="#i-spark"/></svg>
+      <div style="flex: 1; font-size: 10px;">Stella tuning 3 photos · 2 min</div>
+      <div style="width: 32px; height: 3px; background: var(--pink-bg); border-radius: 2px; overflow: hidden;"><div style="width: 60%; height: 100%; background: var(--pink);"></div></div>
+    </div>
+
+    <div class="hstrip" style="margin-top: 12px;">
+      <span class="chip-sc">All</span><span class="chip-sc">Dresses</span><span class="chip-sc">Tops</span><span class="chip-sc">Bottoms</span><span class="chip-sc act">Combinations</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 12px;">
+
+    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 9px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--cream); display: flex; align-items: center; justify-content: center;"><svg width="20" height="26" style="color: #A89378;"><use href="#i-dress"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" style="color: #6E5C49;"><use href="#i-shoe"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--mauve); display: flex; align-items: center; justify-content: center;"><svg width="18" height="22" style="color: #6B4F62;"><use href="#i-bag2"/></svg></div>
+      </div>
+      <div style="font-size: 11px; font-weight: 500; margin-top: 7px;">Sunday brunch</div>
+      <div class="tiny-sc">3 items · 2d ago</div>
+    </div>
+
+    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 9px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--pink-bg); display: flex; align-items: center; justify-content: center;"><svg width="20" height="26" style="color: var(--pink-on);"><use href="#i-dress"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--mauve); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" style="color: #5C3F50;"><use href="#i-shoe"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center;"><svg width="18" height="22" style="color: #5F5E5A;"><use href="#i-bag2"/></svg></div>
+      </div>
+      <div style="font-size: 11px; font-weight: 500; margin-top: 7px;">Date night</div>
+      <div class="tiny-sc">4 items · 1w ago</div>
+    </div>
+
+    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 9px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--blue); display: flex; align-items: center; justify-content: center;"><svg width="22" height="26" style="color: #4A5663;"><use href="#i-top"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--blue); display: flex; align-items: center; justify-content: center;"><svg width="22" height="26" style="color: #3D4856;"><use href="#i-pants"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" style="color: #6E5840;"><use href="#i-shoe"/></svg></div>
+      </div>
+      <div style="font-size: 11px; font-weight: 500; margin-top: 7px;">Office Tue</div>
+      <div class="tiny-sc">3 items · 1w ago</div>
+    </div>
+
+    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 9px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--sage); display: flex; align-items: center; justify-content: center;"><svg width="20" height="26" style="color: #5A6B52;"><use href="#i-dress"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--cream); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" style="color: #99835D;"><use href="#i-shoe"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 6px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="18" height="22" style="color: #6E5840;"><use href="#i-bag2"/></svg></div>
+      </div>
+      <div style="font-size: 11px; font-weight: 500; margin-top: 7px;">Wedding guest</div>
+      <div class="tiny-sc">5 items · 2w ago</div>
+    </div>
+
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">02 · CLOSET · COMBINATIONS</div>
+    <div class="screen-title">Closet</div>
+    <div class="screen-desc">Filter chips toggle between item categories and saved Combinations. Processing banner shows AI tuning progress for newly uploaded items.</div>
+  </div>
+  </div>
+
+  <!-- 03 · CLOSET AI REVIEW -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px;"><div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div><div><div class="h2-sc">Review new items</div><div class="tiny-sc">1 of 12</div></div></div>
+      <span style="font-size: 11px; color: var(--pink); font-weight: 500;">Skip all</span>
+    </div>
+
+    <div style="background: var(--cream); border-radius: 14px; aspect-ratio: 4/5; margin-top: 14px; display: flex; align-items: center; justify-content: center; position: relative;">
+      <svg width="100" height="140" style="color: #A89378;"><use href="#i-dress"/></svg>
+      <div style="position: absolute; top: 8px; left: 8px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.85); color: #5C3F1F; font-size: 9px; font-weight: 500; display: flex; align-items: center; gap: 4px;"><svg width="9" height="9"><use href="#i-spark"/></svg>Tuned by Stella</div>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <div class="row" style="justify-content: space-between;">
+        <div class="h3-sc">Floral linen midi</div>
+        <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-edit"/></svg>
+      </div>
+      <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">Soft pink floral midi in breathable linen — made for warm brunches.</div>
+      <div style="display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap;">
+        <span class="chip-sc">Dress</span><span class="chip-sc">Pink</span><span class="chip-sc">Floral</span><span class="chip-sc">Casual</span>
+      </div>
+    </div>
+
+    <div class="row" style="gap: 6px; margin-top: 14px;">
+      <button class="btn-primary-sc" style="flex: 1; padding: 10px; font-size: 12px;">Save to closet</button>
+      <button class="btn-ghost-sc" style="padding: 9px 12px; font-size: 11px;">Re-tune</button>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">03 · CLOSET AI REVIEW</div>
+    <div class="screen-title">AI review · one item at a time</div>
+    <div class="screen-desc">After bulk upload, each tuned photo gets an auto-generated name + description that the user can edit before saving.</div>
+  </div>
+  </div>
+
+  <!-- 04 · STELLA -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body" style="display: flex; flex-direction: column;">
+
+    <div class="row" style="margin-top: 6px; gap: 10px;">
+      <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div>
+      <div style="flex: 1;">
+        <div style="display: flex; align-items: center; gap: 6px;"><h2 class="h2-sc">Stella</h2><svg width="14" height="14" style="color: var(--pink);"><use href="#i-spark"/></svg></div>
+        <div class="tiny-sc">Your AI stylist · online</div>
+      </div>
+    </div>
+
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; margin-top: 14px; overflow: hidden;">
+
+      <div class="bubble-ai">Morning, Sophia ☼ Brunch at 11 in Tiong Bahru — want me to put together a look?</div>
+      <div class="bubble-u">Yes! Casual but cute. It's hot today.</div>
+      <div class="bubble-ai">
+        <div>Got it. Pulling from your closet:</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 8px;">
+          <div style="aspect-ratio: 1; border-radius: 8px; background: var(--cream); display: flex; align-items: center; justify-content: center;"><svg width="28" height="36" style="color: #A89378;"><use href="#i-dress"/></svg></div>
+          <div style="aspect-ratio: 1; border-radius: 8px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" style="color: #6E5C49;"><use href="#i-shoe"/></svg></div>
+          <div style="aspect-ratio: 1; border-radius: 8px; background: var(--mauve); display: flex; align-items: center; justify-content: center;"><svg width="24" height="28" style="color: #6B4F62;"><use href="#i-bag2"/></svg></div>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px;">Linen midi + woven mules. Straw bag for the heat.</div>
+      </div>
+      <div class="bubble-u">Love it. What if it rains?</div>
+
+    </div>
+
+    <div style="display: flex; gap: 6px; margin-bottom: 8px; overflow: hidden;">
+      <span class="chip-sc">Show alternatives</span>
+      <span class="chip-sc">Different vibe</span>
+      <span class="chip-sc">Wear this</span>
+    </div>
+
+    <div class="row" style="gap: 8px; padding: 8px; background: var(--bg-secondary); border-radius: 999px;">
+      <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary);"><svg width="16" height="16"><use href="#i-plus"/></svg></div>
+      <span style="flex: 1; font-size: 12px; color: var(--text-tertiary);">Ask Stella anything…</span>
+      <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-mic"/></svg></div>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv act"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">04 · STELLA</div>
+    <div class="screen-title">Stella · AI stylist</div>
+    <div class="screen-desc">Opens from the raised center tab. Returns visual outfit cards drawn from the user's closet. Quick-reply chips above the input.</div>
+  </div>
+  </div>
+
+  </div>
+</section>
+
+<section id="craft">
+  <div class="section-head">
+    <span class="section-num">PART 02</span>
+    <h2 class="section-title">Craft &amp; share</h2>
+    <p class="section-desc">Manual outfit assembly, the studio try-on confirmation, and sending closet items inline in chat.</p>
+  </div>
+  <div class="grid">
+
+  <!-- 05 · CRAFT A LOOK -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div class="row" style="gap: 10px;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div>
+        <h1 class="h1-sc">Craft a look</h1>
+      </div>
+      <span style="font-size: 11px; color: var(--pink); font-weight: 500;">Save</span>
+    </div>
+
+    <div style="background: var(--pink-bg); border-radius: 12px; padding: 11px; margin-top: 12px;">
+      <div class="row" style="justify-content: space-between;">
+        <div style="font-size: 12px; font-weight: 500; color: var(--pink-on);">Untitled look</div>
+        <svg width="12" height="12" style="color: var(--pink-on);"><use href="#i-edit"/></svg>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 9px;">
+        <div style="aspect-ratio: 1; border-radius: 8px; background: var(--cream); display: flex; align-items: center; justify-content: center;"><svg width="22" height="28" style="color: #A89378;"><use href="#i-dress"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 8px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" style="color: #6E5C49;"><use href="#i-shoe"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 8px; background: var(--mauve); display: flex; align-items: center; justify-content: center;"><svg width="18" height="22" style="color: #6B4F62;"><use href="#i-bag2"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 8px; border: 1px dashed var(--pink); display: flex; align-items: center; justify-content: center; color: var(--pink);"><svg width="14" height="14"><use href="#i-plus"/></svg></div>
+      </div>
+    </div>
+
+    <div class="row" style="gap: 5px; margin-top: 12px; overflow: hidden;">
+      <span class="chip-sc act">Dresses</span>
+      <span class="chip-sc">Tops</span>
+      <span class="chip-sc">Bottoms</span>
+      <span class="chip-sc">Shoes</span>
+      <span class="chip-sc">Bags</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px;">
+      <div style="aspect-ratio: 3/4; border-radius: 10px; background: var(--cream); display: flex; align-items: flex-end; justify-content: center; padding-top: 8px; border: 2px solid var(--pink); position: relative;"><svg width="36" height="50" style="color: #A89378;"><use href="#i-dress"/></svg><div style="position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;"><svg width="10" height="10"><use href="#i-check"/></svg></div></div>
+      <div style="aspect-ratio: 3/4; border-radius: 10px; background: var(--pink-bg); display: flex; align-items: flex-end; justify-content: center; padding-top: 8px;"><svg width="36" height="50" style="color: var(--pink-on);"><use href="#i-dress"/></svg></div>
+      <div style="aspect-ratio: 3/4; border-radius: 10px; background: var(--mauve); display: flex; align-items: flex-end; justify-content: center; padding-top: 8px;"><svg width="36" height="50" style="color: #5C3F50;"><use href="#i-dress"/></svg></div>
+      <div style="aspect-ratio: 3/4; border-radius: 10px; background: var(--sage); display: flex; align-items: flex-end; justify-content: center; padding-top: 8px;"><svg width="36" height="50" style="color: #5A6B52;"><use href="#i-dress"/></svg></div>
+      <div style="aspect-ratio: 3/4; border-radius: 10px; background: var(--tan); display: flex; align-items: flex-end; justify-content: center; padding-top: 8px;"><svg width="36" height="50" style="color: #6E5840;"><use href="#i-dress"/></svg></div>
+      <div style="aspect-ratio: 3/4; border-radius: 10px; background: var(--blue); display: flex; align-items: flex-end; justify-content: center; padding-top: 8px;"><svg width="36" height="50" style="color: #4A5663;"><use href="#i-dress"/></svg></div>
+    </div>
+
+    <div style="position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; gap: 6px;">
+      <button class="btn-ghost-sc" style="flex: 1; padding: 11px; font-size: 12px;">Save combo</button>
+      <button class="btn-primary-sc" style="flex: 1.4; padding: 11px; font-size: 12px;">Try on me ✨</button>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">05 · CRAFT A LOOK</div>
+    <div class="screen-title">Craft a look</div>
+    <div class="screen-desc">Manual outfit assembly. Pink canvas at top with up to 4 slots; category chips switch the picker grid below. "Try on me" routes to Confirm &amp; share.</div>
+  </div>
+  </div>
+
+  <!-- 06 · CONFIRM & SHARE -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-x"/></svg></div>
+      <div style="display: flex; align-items: center; gap: 4px;"><svg width="11" height="11" style="color: var(--pink);"><use href="#i-spark"/></svg><span class="tiny-sc">Studio · by Stella</span></div>
+      <div style="width: 28px; height: 28px;"></div>
+    </div>
+
+    <div style="margin-top: 10px; background: var(--cream); border-radius: 14px; height: 200px; display: flex; align-items: flex-end; justify-content: center; position: relative; overflow: hidden;">
+      <svg width="100" height="170" style="color: #99835D; margin-bottom: -8px;"><use href="#i-fig-pose"/></svg>
+      <div style="position: absolute; top: 8px; left: 8px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.9); color: #5C3F1F; font-size: 9px; font-weight: 500;">Sunday brunch</div>
+      <div style="position: absolute; bottom: 8px; right: 8px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.9); color: #5C3F1F; font-size: 9px; font-weight: 500;">4 of 4 from your closet</div>
+    </div>
+
+    <div style="display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap;">
+      <span class="chip-sc">Linen midi</span><span class="chip-sc">Mules</span><span class="chip-sc">Straw bag</span>
+    </div>
+
+    <div style="margin-top: 12px; padding-top: 10px; border-top: 0.5px solid var(--border);">
+      <div class="row" style="justify-content: space-between; margin-bottom: 7px;">
+        <span class="cap-sc">Share with</span>
+        <span class="tiny-sc" style="color: var(--pink); font-weight: 500;">1 selected</span>
+      </div>
+
+      <div class="row" style="padding: 6px 4px; gap: 10px;">
+        <div class="av" style="background: var(--pink-bg); color: var(--pink-on);"><svg width="14" height="14"><use href="#i-users"/></svg></div>
+        <div style="flex: 1;"><div style="font-size: 11px; font-weight: 500;">Brunch crew</div><div class="tiny-sc">Today · 3 going</div></div>
+        <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;"><svg width="10" height="10"><use href="#i-check"/></svg></div>
+      </div>
+
+      <div class="row" style="padding: 6px 4px; gap: 10px;">
+        <div class="av" style="background: var(--cream); color: #5C3F1F;">M</div>
+        <div style="flex: 1;"><div style="font-size: 11px; font-weight: 500;">meili</div></div>
+        <div style="width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border-strong);"></div>
+      </div>
+
+      <div class="row" style="padding: 6px 4px; gap: 10px;">
+        <div class="av" style="background: var(--mauve); color: #5C3F50;">S</div>
+        <div style="flex: 1;"><div style="font-size: 11px; font-weight: 500;">serena_x</div></div>
+        <div style="width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border-strong);"></div>
+      </div>
+    </div>
+
+    <div style="position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+      <button class="btn-primary-sc" style="width: 100%; padding: 12px; font-size: 13px;">Confirm OOTD &amp; share</button>
+      <button class="btn-ghost-sc" style="width: 100%; padding: 9px; font-size: 11px;">Save look only</button>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv act"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">06 · CONFIRM &amp; SHARE</div>
+    <div class="screen-title">Wear this · Confirm &amp; share</div>
+    <div class="screen-desc">The studio try-on photo. Inline share targets — no second modal. "Save only" keeps the look private.</div>
+  </div>
+  </div>
+
+  <!-- 07 · CHAT WITH CLOSET DRAWER -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+
+    <div style="padding: 8px 14px 0; flex-shrink: 0;">
+      <div class="row" style="margin-top: 4px; gap: 10px;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div>
+        <div class="av" style="background: var(--tan); color: #5C3F1F;">M</div>
+        <div style="flex: 1;"><div style="font-size: 13px; font-weight: 500;">meili</div><div class="tiny-sc">@meilingj · online</div></div>
+      </div>
+    </div>
+
+    <div style="flex: 1; padding: 12px 14px 0; display: flex; flex-direction: column; gap: 7px; min-height: 0; overflow: hidden;">
+      <div style="font-size: 11px; padding: 7px 11px; border-radius: 12px 12px 12px 4px; background: var(--bg-secondary); max-width: 80%;">what r u wearing tonight?</div>
+      <div style="font-size: 11px; padding: 7px 11px; border-radius: 12px 12px 4px 12px; background: var(--pink); color: white; max-width: 80%; align-self: flex-end;">thinking this</div>
+      <div style="align-self: flex-end; max-width: 80%; background: var(--pink); border-radius: 12px 12px 4px 12px; padding: 5px;">
+        <div style="background: var(--pink-bg); border-radius: 8px; padding: 8px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+            <div style="aspect-ratio: 1; border-radius: 5px; background: var(--cream); display: flex; align-items: center; justify-content: center;"><svg width="18" height="22" style="color: #A89378;"><use href="#i-dress"/></svg></div>
+            <div style="aspect-ratio: 1; border-radius: 5px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" style="color: #6E5C49;"><use href="#i-shoe"/></svg></div>
+            <div style="aspect-ratio: 1; border-radius: 5px; background: var(--mauve); display: flex; align-items: center; justify-content: center;"><svg width="14" height="18" style="color: #6B4F62;"><use href="#i-bag2"/></svg></div>
+          </div>
+          <div style="font-size: 9px; color: var(--pink-on); margin-top: 5px; font-weight: 500;">Sunday brunch · from my closet</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-top: 0.5px solid var(--border); background: var(--bg-secondary); padding: 8px 12px;">
+      <div class="row" style="gap: 6px; padding: 4px 8px; background: var(--bg-screen); border-radius: 999px;">
+        <span style="flex: 1; font-size: 11px; color: var(--text-tertiary);">Message…</span>
+      </div>
+
+      <div class="row" style="gap: 14px; padding: 8px 4px 4px;">
+        <svg width="18" height="18" style="color: var(--text-secondary);"><use href="#i-keyboard"/></svg>
+        <div style="display: flex; align-items: center; gap: 4px; color: var(--pink);"><svg width="18" height="18"><use href="#i-hanger"/></svg><span style="font-size: 10px; font-weight: 500;">Closet</span></div>
+        <svg width="18" height="18" style="color: var(--text-secondary);"><use href="#i-camera"/></svg>
+        <svg width="18" height="18" style="color: var(--text-secondary);"><use href="#i-spark"/></svg>
+        <div style="margin-left: auto; width: 28px; height: 28px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-send"/></svg></div>
+      </div>
+
+      <div style="margin-top: 6px;">
+        <div class="row" style="gap: 4px; margin-bottom: 6px;">
+          <span class="chip-sc act" style="font-size: 9px;">All</span>
+          <span class="chip-sc" style="font-size: 9px;">Combinations</span>
+          <span class="chip-sc" style="font-size: 9px;">Dresses</span>
+          <span class="chip-sc" style="font-size: 9px;">Recent</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 5px;">
+          <div style="aspect-ratio: 3/4; border-radius: 7px; background: var(--cream); display: flex; align-items: flex-end; justify-content: center; padding-top: 6px; border: 2px solid var(--pink); position: relative;"><svg width="22" height="32" style="color: #A89378;"><use href="#i-dress"/></svg><div style="position: absolute; top: 3px; right: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;"><svg width="8" height="8"><use href="#i-check"/></svg></div></div>
+          <div style="aspect-ratio: 3/4; border-radius: 7px; background: var(--pink-bg); display: flex; align-items: flex-end; justify-content: center; padding-top: 6px;"><svg width="22" height="32" style="color: var(--pink-on);"><use href="#i-dress"/></svg></div>
+          <div style="aspect-ratio: 3/4; border-radius: 7px; background: var(--mauve); display: flex; align-items: flex-end; justify-content: center; padding-top: 6px;"><svg width="22" height="32" style="color: #5C3F50;"><use href="#i-top"/></svg></div>
+          <div style="aspect-ratio: 3/4; border-radius: 7px; background: var(--blue); display: flex; align-items: flex-end; justify-content: center; padding-top: 6px;"><svg width="22" height="32" style="color: #4A5663;"><use href="#i-pants"/></svg></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">07 · CHAT · CLOSET DRAWER</div>
+    <div class="screen-title">Chat with closet drawer</div>
+    <div class="screen-desc">Tapping the hanger icon swaps the keyboard for the user's closet. Items send as a card showing thumbs — recipient can tap to open the combination.</div>
+  </div>
+  </div>
+
+  </div>
+</section>
+
+<section id="social">
+  <div class="section-head">
+    <span class="section-num">PART 03</span>
+    <h2 class="section-title">Social</h2>
+    <p class="section-desc">Chat inbox, friends feed, and the hangout coordination flow — Mei's social hook.</p>
+  </div>
+  <div class="grid">
+
+  <!-- 08 · CHATS INBOX -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <h1 class="h1-sc">Chats</h1>
+      <div style="display: flex; gap: 6px;"><div style="width: 30px; height: 30px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-search"/></svg></div><div style="width: 30px; height: 30px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-edit"/></svg></div></div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 5px; margin-top: 14px; margin-bottom: 6px;"><svg width="10" height="10" style="color: var(--text-tertiary);"><use href="#i-pin"/></svg><span class="tiny-sc" style="letter-spacing: 0.3px;">PINNED</span></div>
+
+    <div class="row" style="padding: 9px 4px; gap: 11px; border-bottom: 0.5px solid var(--border);">
+      <div class="av" style="background: var(--pink-bg); color: var(--pink-on); width: 38px; height: 38px;"><svg width="18" height="18"><use href="#i-spark"/></svg></div>
+      <div style="flex: 1; min-width: 0;"><div class="row" style="justify-content: space-between;"><span style="font-size: 12px; font-weight: 500;">Stella</span><span class="tiny-sc">2m</span></div><div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Linen midi + woven mules. Straw bag…</div></div>
+    </div>
+
+    <div class="tiny-sc" style="margin-top: 14px; margin-bottom: 6px; letter-spacing: 0.3px;">GROUPS</div>
+
+    <div class="row" style="padding: 9px 4px; gap: 11px; border-bottom: 0.5px solid var(--border);">
+      <div style="position: relative; width: 38px; height: 38px; flex-shrink: 0;"><div class="av" style="background: var(--cream); color: #5C3F1F; position: absolute; top: 0; left: 0; width: 26px; height: 26px;">M</div><div class="av" style="background: var(--mauve); color: #5C3F50; position: absolute; bottom: 0; right: 0; width: 26px; height: 26px; border: 1.5px solid var(--bg-screen);">S</div></div>
+      <div style="flex: 1; min-width: 0;"><div class="row" style="justify-content: space-between;"><span style="font-size: 12px; font-weight: 500;">Brunch crew · 4</span><span class="tiny-sc" style="color: var(--pink); font-weight: 500;">10m</span></div><div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Mei: yes I'm wearing the cream linen!</div></div>
+      <div style="width: 7px; height: 7px; border-radius: 50%; background: var(--pink); flex-shrink: 0;"></div>
+    </div>
+
+    <div class="row" style="padding: 9px 4px; gap: 11px; border-bottom: 0.5px solid var(--border);">
+      <div style="position: relative; width: 38px; height: 38px; flex-shrink: 0;"><div class="av" style="background: var(--sage); color: #4A5C42; position: absolute; top: 0; left: 0; width: 26px; height: 26px;">J</div><div class="av" style="background: var(--blue); color: #3D4856; position: absolute; bottom: 0; right: 0; width: 26px; height: 26px; border: 1.5px solid var(--bg-screen);">A</div></div>
+      <div style="flex: 1; min-width: 0;"><div class="row" style="justify-content: space-between;"><span style="font-size: 12px; font-weight: 500;">Wedding squad · 6</span><span class="tiny-sc">1h</span></div><div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Sharing my closet picks for Sat…</div></div>
+    </div>
+
+    <div class="tiny-sc" style="margin-top: 14px; margin-bottom: 6px; letter-spacing: 0.3px;">DIRECT</div>
+
+    <div class="row" style="padding: 9px 4px; gap: 11px; border-bottom: 0.5px solid var(--border);">
+      <div class="av" style="background: var(--tan); color: #5C3F1F; width: 38px; height: 38px;">M</div>
+      <div style="flex: 1; min-width: 0;"><div class="row" style="justify-content: space-between;"><span style="font-size: 12px; font-weight: 500;">meili</span><span class="tiny-sc">3h</span></div><div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Loved your OOTD ♡</div></div>
+    </div>
+
+    <div class="row" style="padding: 9px 4px; gap: 11px;">
+      <div class="av" style="background: var(--mauve); color: #5C3F50; width: 38px; height: 38px;">S</div>
+      <div style="flex: 1; min-width: 0;"><div class="row" style="justify-content: space-between;"><span style="font-size: 12px; font-weight: 500;">serena_x</span><span class="tiny-sc">1d</span></div><div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Coffee tmrw?</div></div>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">08 · CHATS INBOX</div>
+    <div class="screen-title">Chats inbox</div>
+    <div class="screen-desc">Stella pinned at top, then groups, then 1-on-1s. The Friends feed lives in this tab as a top module (not shown here).</div>
+  </div>
+  </div>
+
+  <!-- 09 · FRIENDS FEED -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <h1 class="h1-sc">Friends</h1>
+      <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-bell"/></svg></div>
+    </div>
+
+    <div style="margin-top: 14px; padding: 14px; background: var(--pink-bg); color: var(--pink-on); border-radius: 14px;">
+      <div class="row" style="gap: 9px; align-items: center;">
+        <div style="width: 38px; height: 38px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20"><use href="#i-users"/></svg></div>
+        <div style="flex: 1;"><div style="font-size: 13px; font-weight: 500;">Plan a hangout</div><div style="font-size: 11px; opacity: .85; margin-top: 2px;">Coordinate looks with friends</div></div>
+        <div style="padding: 6px 11px; background: var(--pink); color: white; font-size: 11px; font-weight: 500; border-radius: 999px;">Create</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <div class="cap-sc" style="margin-bottom: 6px;">Active hangouts</div>
+      <div class="hstrip">
+        <div style="background: var(--bg-secondary); border-radius: 10px; padding: 8px 10px; min-width: 130px;">
+          <div style="font-size: 11px; font-weight: 500;">Brunch crew</div>
+          <div class="tiny-sc" style="margin-top: 1px;">Today · 11:00</div>
+          <div class="row" style="margin-top: 7px; gap: 0;">
+            <div class="av" style="background: var(--cream); color: #5C3F1F; width: 18px; height: 18px; font-size: 9px;">M</div>
+            <div class="av" style="background: var(--mauve); color: #5C3F50; width: 18px; height: 18px; font-size: 9px; margin-left: -4px; border: 1.5px solid var(--bg-secondary);">S</div>
+            <div class="av" style="background: var(--sage); color: #4A5C42; width: 18px; height: 18px; font-size: 9px; margin-left: -4px; border: 1.5px solid var(--bg-secondary);">J</div>
+            <span class="tiny-sc" style="margin-left: 5px;">+1</span>
+          </div>
+        </div>
+        <div style="background: var(--bg-secondary); border-radius: 10px; padding: 8px 10px; min-width: 130px;">
+          <div style="font-size: 11px; font-weight: 500;">Date night</div>
+          <div class="tiny-sc" style="margin-top: 1px;">Today · 19:00</div>
+          <div class="row" style="margin-top: 7px;">
+            <div class="av" style="background: var(--blue); color: #3D4856; width: 18px; height: 18px; font-size: 9px;">A</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; border-radius: 14px; overflow: hidden; background: var(--bg-secondary);">
+      <div class="row" style="padding: 9px 11px; gap: 8px;">
+        <div class="av" style="background: #C4A57B; color: #3F2A0F;">M</div>
+        <div style="flex: 1;"><div style="font-size: 11px; font-weight: 500;">meili</div><div class="tiny-sc">2h · Tiong Bahru</div></div>
+        <span style="font-size: 14px; color: var(--text-tertiary);">⋯</span>
+      </div>
+      <div style="aspect-ratio: 16/10; background: var(--cream); display: flex; align-items: center; justify-content: center; position: relative;">
+        <svg width="60" height="100" style="color: #99835D;"><use href="#i-figure"/></svg>
+        <div style="position: absolute; bottom: 6px; left: 6px; padding: 3px 7px; border-radius: 999px; background: rgba(255,255,255,.85); font-size: 9px; color: #5C3F1F; font-weight: 500;">Linen co-ord</div>
+      </div>
+      <div style="padding: 8px 11px;">
+        <div style="font-size: 11px;">Sunday brunch — this heat ☼</div>
+        <div class="row" style="gap: 12px; margin-top: 6px; color: var(--text-secondary);">
+          <div class="row" style="gap: 4px;"><svg width="12" height="12" style="color: var(--pink);"><use href="#i-heart"/></svg><span style="font-size: 10px;">24</span></div>
+          <div class="row" style="gap: 4px;"><svg width="12" height="12"><use href="#i-comment"/></svg><span style="font-size: 10px;">6</span></div>
+          <div style="margin-left: auto; padding: 3px 8px; border-radius: 999px; background: var(--pink-bg); color: var(--pink-on); font-size: 9px; font-weight: 500;">Coordinate ↗</div>
+        </div>
+      </div>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">09 · FRIENDS FEED</div>
+    <div class="screen-title">Friends feed</div>
+    <div class="screen-desc">Hero CTA to plan a hangout, active hangouts strip, and OOTD posts. Each post has a Coordinate action — Mei's social differentiator.</div>
+  </div>
+  </div>
+
+  <!-- 10 · HANGOUT GROUP -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div class="row" style="gap: 8px;"><div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div><div><div class="h2-sc">Brunch crew</div><div class="tiny-sc">Today · 11:00 · Tiong Bahru</div></div></div>
+      <span style="font-size: 14px; color: var(--text-tertiary);">⋯</span>
+    </div>
+
+    <div class="cap-sc" style="margin-top: 14px; margin-bottom: 6px;">Looks for today · 4 going</div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px;">
+      <div class="col" style="gap: 4px; align-items: center;">
+        <div class="thumb-look" style="background: var(--pink-bg); width: 100%; aspect-ratio: 3/4; border: 1.5px solid var(--pink);"><svg width="36" height="60" style="color: var(--pink-on);"><use href="#i-fig-pose"/></svg></div>
+        <div style="font-size: 9px; font-weight: 500;">You</div>
+        <div class="tiny-sc" style="color: var(--pink);">picking</div>
+      </div>
+      <div class="col" style="gap: 4px; align-items: center;">
+        <div class="thumb-look" style="background: var(--cream); width: 100%; aspect-ratio: 3/4;"><svg width="36" height="60" style="color: #99835D;"><use href="#i-fig-pose"/></svg></div>
+        <div style="font-size: 9px; font-weight: 500;">Mei</div>
+        <div class="tiny-sc" style="color: var(--pink); display: flex; align-items: center; gap: 2px;"><svg width="9" height="9"><use href="#i-check"/></svg>set</div>
+      </div>
+      <div class="col" style="gap: 4px; align-items: center;">
+        <div class="thumb-look" style="background: var(--bg-secondary); width: 100%; aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" style="color: var(--text-tertiary);"><use href="#i-clock"/></svg></div>
+        <div style="font-size: 9px; font-weight: 500;">Serena</div>
+        <div class="tiny-sc">pending</div>
+      </div>
+      <div class="col" style="gap: 4px; align-items: center;">
+        <div class="thumb-look" style="background: var(--bg-secondary); width: 100%; aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" style="color: var(--text-tertiary);"><use href="#i-clock"/></svg></div>
+        <div style="font-size: 9px; font-weight: 500;">Jas</div>
+        <div class="tiny-sc">pending</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; padding: 12px; background: var(--pink-bg); color: var(--pink-on); border-radius: 12px;">
+      <div class="row" style="gap: 6px;"><svg width="12" height="12"><use href="#i-spark"/></svg><span style="font-size: 11px; font-weight: 500;">Stella suggests for you</span></div>
+      <div style="font-size: 10px; opacity: .85; margin-top: 3px;">Match Mei's linen-cream palette</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 9px;">
+        <div style="aspect-ratio: 1; border-radius: 7px; background: var(--cream); display: flex; align-items: center; justify-content: center;"><svg width="22" height="28" style="color: #A89378;"><use href="#i-dress"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 7px; background: var(--tan); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" style="color: #6E5C49;"><use href="#i-shoe"/></svg></div>
+        <div style="aspect-ratio: 1; border-radius: 7px; background: var(--mauve); display: flex; align-items: center; justify-content: center;"><svg width="18" height="22" style="color: #6B4F62;"><use href="#i-bag2"/></svg></div>
+      </div>
+      <button class="btn-primary-sc" style="width: 100%; margin-top: 9px; padding: 8px; font-size: 11px;">Wear this</button>
+    </div>
+
+    <div style="margin-top: 12px; padding: 9px 11px; background: var(--bg-secondary); border-radius: 10px;">
+      <div class="row" style="justify-content: space-between;">
+        <span class="cap-sc">Group chat</span>
+        <span class="tiny-sc" style="color: var(--pink); font-weight: 500;">Open →</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-primary); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Mei: yes I'm wearing the cream linen!</div>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">10 · HANGOUT GROUP</div>
+    <div class="screen-title">Hangout group view</div>
+    <div class="screen-desc">Each member's outfit slot — visible only after they share. Stella suggests a coordinated look from your closet that matches who's already set.</div>
+  </div>
+  </div>
+
+  <!-- 11 · CREATE HANGOUT -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div class="row" style="gap: 10px;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-x"/></svg></div>
+        <h1 class="h1-sc">New hangout</h1>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <div class="cap-sc" style="margin-bottom: 5px;">Name</div>
+      <div style="padding: 9px 12px; background: var(--bg-secondary); border-radius: 10px; font-size: 13px; font-weight: 500;">Brunch crew</div>
+    </div>
+
+    <div class="row" style="gap: 8px; margin-top: 10px;">
+      <div class="card-sc" style="flex: 1; padding: 8px 10px;">
+        <div class="row" style="gap: 6px;"><svg width="12" height="12" style="color: var(--pink);"><use href="#i-cal"/></svg><div class="tiny-sc">When</div></div>
+        <div style="font-size: 11px; font-weight: 500; margin-top: 3px;">Today · 11:00</div>
+      </div>
+      <div class="card-sc" style="flex: 1; padding: 8px 10px;">
+        <div class="row" style="gap: 6px;"><svg width="12" height="12" style="color: var(--pink);"><use href="#i-mappin"/></svg><div class="tiny-sc">Where</div></div>
+        <div style="font-size: 11px; font-weight: 500; margin-top: 3px;">Tiong Bahru</div>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content: space-between; margin-top: 14px; margin-bottom: 8px;">
+      <span class="cap-sc">Invite friends</span>
+      <span class="tiny-sc" style="color: var(--pink); font-weight: 500;">3 of 12 selected</span>
+    </div>
+
+    <div class="input-search" style="padding: 7px 11px;">
+      <svg width="13" height="13" style="color: var(--text-tertiary);"><use href="#i-search"/></svg>
+      <span style="flex: 1; font-size: 11px; color: var(--text-tertiary);">Search friends</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px;">
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div style="position: relative;"><div class="av" style="background: var(--cream); color: #5C3F1F; width: 46px; height: 46px; font-size: 14px;">M</div><div style="position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg-screen);"><svg width="10" height="10"><use href="#i-check"/></svg></div></div>
+        <div style="font-size: 9px; font-weight: 500;">meili</div>
+      </div>
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div style="position: relative;"><div class="av" style="background: var(--mauve); color: #5C3F50; width: 46px; height: 46px; font-size: 14px;">S</div><div style="position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg-screen);"><svg width="10" height="10"><use href="#i-check"/></svg></div></div>
+        <div style="font-size: 9px; font-weight: 500;">serena</div>
+      </div>
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div style="position: relative;"><div class="av" style="background: var(--sage); color: #4A5C42; width: 46px; height: 46px; font-size: 14px;">J</div><div style="position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg-screen);"><svg width="10" height="10"><use href="#i-check"/></svg></div></div>
+        <div style="font-size: 9px; font-weight: 500;">jas</div>
+      </div>
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div class="av" style="background: var(--blue); color: #3D4856; width: 46px; height: 46px; font-size: 14px; opacity: .55;">A</div>
+        <div style="font-size: 9px; color: var(--text-secondary);">amelia</div>
+      </div>
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div class="av" style="background: var(--tan); color: #5C3F1F; width: 46px; height: 46px; font-size: 14px; opacity: .55;">L</div>
+        <div style="font-size: 9px; color: var(--text-secondary);">lily</div>
+      </div>
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div class="av" style="background: var(--cream); color: #5C3F1F; width: 46px; height: 46px; font-size: 14px; opacity: .55;">N</div>
+        <div style="font-size: 9px; color: var(--text-secondary);">noor</div>
+      </div>
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div class="av" style="background: var(--mauve); color: #5C3F50; width: 46px; height: 46px; font-size: 14px; opacity: .55;">P</div>
+        <div style="font-size: 9px; color: var(--text-secondary);">priya</div>
+      </div>
+      <div class="col" style="align-items: center; gap: 4px;">
+        <div class="av" style="background: var(--sage); color: #4A5C42; width: 46px; height: 46px; font-size: 14px; opacity: .55;">K</div>
+        <div style="font-size: 9px; color: var(--text-secondary);">kim</div>
+      </div>
+    </div>
+
+    <div style="position: absolute; left: 14px; right: 14px; bottom: 12px;">
+      <button class="btn-primary-sc" style="width: 100%; padding: 12px; font-size: 13px;">Send invites · 3 friends</button>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">11 · CREATE HANGOUT</div>
+    <div class="screen-title">Create hangout</div>
+    <div class="screen-desc">Single screen — name, when, where, friends. No multi-step wizard. Bottom CTA stays visible.</div>
+  </div>
+  </div>
+
+  </div>
+</section>
+
+<section id="profile">
+  <div class="section-head">
+    <span class="section-num">PART 04</span>
+    <h2 class="section-title">Profile &amp; onboarding</h2>
+    <p class="section-desc">Settings, friend graph, the read-only profile view, and selfie capture for try-on photos.</p>
+  </div>
+  <div class="grid">
+
+  <!-- 12 · YOU / PROFILE -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <h1 class="h1-sc">You</h1>
+      <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="16" height="16"><use href="#i-cog"/></svg></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; margin-top: 14px;">
+      <div style="width: 76px; height: 76px; border-radius: 50%; background: var(--pink-bg); display: flex; align-items: center; justify-content: center; color: var(--pink-on); font-size: 26px; font-weight: 500; font-family: Georgia, serif;">SC</div>
+      <div style="font-size: 16px; font-weight: 500; margin-top: 8px;">Sophia Chen</div>
+      <div class="tiny-sc" style="margin-top: 2px;">@sophiastyles · Singapore</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px;">
+      <div style="padding: 10px 6px; text-align: center; background: var(--bg-secondary); border-radius: 10px;"><div style="font-size: 16px; font-weight: 500;">84</div><div class="tiny-sc">Items</div></div>
+      <div style="padding: 10px 6px; text-align: center; background: var(--bg-secondary); border-radius: 10px;"><div style="font-size: 16px; font-weight: 500;">27</div><div class="tiny-sc">OOTDs</div></div>
+      <div style="padding: 10px 6px; text-align: center; background: var(--bg-secondary); border-radius: 10px;"><div style="font-size: 16px; font-weight: 500;">156</div><div class="tiny-sc">Friends</div></div>
+    </div>
+
+    <div style="margin-top: 16px;">
+
+    <div class="set-row">
+      <div class="set-icon" style="color: var(--pink);"><svg width="14" height="14"><use href="#i-user"/></svg></div>
+      <div style="flex: 1;"><div style="font-weight: 500;">Personal info</div><div class="tiny-sc">Name, gender, birthday</div></div>
+      <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-chev"/></svg>
+    </div>
+
+    <div class="set-row">
+      <div class="set-icon" style="color: var(--pink);"><svg width="14" height="14"><use href="#i-palette"/></svg></div>
+      <div style="flex: 1;"><div style="font-weight: 500;">Style preferences</div><div class="tiny-sc">Minimal · earth tones</div></div>
+      <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-chev"/></svg>
+    </div>
+
+    <div class="set-row">
+      <div class="set-icon" style="color: var(--pink);"><svg width="14" height="14"><use href="#i-globe"/></svg></div>
+      <div style="flex: 1;"><div style="font-weight: 500;">Climate &amp; location</div><div class="tiny-sc">Singapore · tropical</div></div>
+      <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-chev"/></svg>
+    </div>
+
+    <div class="set-row">
+      <div class="set-icon" style="color: var(--pink);"><svg width="14" height="14"><use href="#i-bell"/></svg></div>
+      <div style="flex: 1;"><div style="font-weight: 500;">Notifications</div></div>
+      <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-chev"/></svg>
+    </div>
+
+    <div class="set-row">
+      <div class="set-icon" style="color: var(--pink);"><svg width="14" height="14"><use href="#i-bag"/></svg></div>
+      <div style="flex: 1;"><div style="font-weight: 500;">Shopping &amp; brands</div></div>
+      <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-chev"/></svg>
+    </div>
+
+    <div class="set-row" style="border-bottom: none;">
+      <div class="set-icon" style="color: var(--pink);"><svg width="14" height="14"><use href="#i-lock"/></svg></div>
+      <div style="flex: 1;"><div style="font-weight: 500;">Privacy</div></div>
+      <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-chev"/></svg>
+    </div>
+
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">12 · YOU</div>
+    <div class="screen-title">Profile &amp; settings</div>
+    <div class="screen-desc">Avatar, stats, and the settings list. Personal info, style preferences, climate, notifications, shopping, privacy.</div>
+  </div>
+  </div>
+
+  <!-- 13 · ADD FRIENDS -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="gap: 10px; margin-top: 4px;">
+      <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div>
+      <h1 class="h1-sc">Add friends</h1>
+    </div>
+
+    <div class="input-search" style="margin-top: 12px;">
+      <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-search"/></svg>
+      <span style="flex: 1; font-size: 12px; color: var(--text-tertiary);">Search by @username or ID</span>
+    </div>
+
+    <div class="row" style="gap: 6px; margin-top: 12px;">
+      <span class="chip-sc act">Suggested</span>
+      <span class="chip-sc">Contacts</span>
+      <span class="chip-sc">Pending · 1</span>
+    </div>
+
+    <div class="cap-sc" style="margin-top: 12px; margin-bottom: 2px;">Same vibe · Singapore</div>
+
+    <div class="user-row">
+      <div class="av" style="background: var(--cream); color: #5C3F1F;">L</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 12px; font-weight: 500;">@lily.linen</div>
+        <div class="tiny-sc" style="margin-top: 1px;">Wears similar to you · 12 mutual</div>
+      </div>
+      <button class="btn-pill-sm">+ Add</button>
+    </div>
+
+    <div class="user-row">
+      <div class="av" style="background: var(--mauve); color: #5C3F50;">N</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 12px; font-weight: 500;">@noor.k</div>
+        <div class="tiny-sc" style="margin-top: 1px;">Saw their look on Today</div>
+      </div>
+      <button class="btn-pill-sm">+ Add</button>
+    </div>
+
+    <div class="user-row">
+      <div class="av" style="background: var(--sage); color: #4A5C42;">M</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 12px; font-weight: 500;">@meilingj</div>
+        <div class="tiny-sc" style="margin-top: 1px;">Knows 3 of your friends</div>
+      </div>
+      <button class="btn-pill-sm disabled">Pending</button>
+    </div>
+
+    <div class="cap-sc" style="margin-top: 12px; margin-bottom: 2px;">From your contacts</div>
+
+    <div class="user-row">
+      <div class="av" style="background: var(--tan); color: #5C3F1F;">SC</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 12px; font-weight: 500;">Serena Chen</div>
+        <div class="tiny-sc" style="margin-top: 1px;">@serena_x</div>
+      </div>
+      <button class="btn-pill-sm">+ Add</button>
+    </div>
+
+    <div class="user-row">
+      <div class="av" style="background: var(--blue); color: #3D4856;">JK</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 12px; font-weight: 500;">Jas Kang</div>
+        <div class="tiny-sc" style="margin-top: 1px;">@jaskstyles</div>
+      </div>
+      <button class="btn-pill-sm">+ Add</button>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">13 · ADD FRIENDS</div>
+    <div class="screen-title">Add friends</div>
+    <div class="screen-desc">Three lanes: search by @ID, suggested from "what others are wearing", and phone contacts.</div>
+  </div>
+  </div>
+
+  <!-- 14 · SELFIE UPLOAD -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div class="row" style="gap: 10px;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div>
+        <h1 class="h1-sc">Add your selfies</h1>
+      </div>
+      <span class="tiny-sc" style="color: var(--pink); font-weight: 500;">3 / 5</span>
+    </div>
+
+    <div class="cap-sc" style="margin-top: 8px; line-height: 1.45;">Stella uses these to create your studio try-on photos. Any 5 selfies that show your face and body work — different lighting and outfits help.</div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px;">
+
+      <div class="slot slot-filled">
+        <svg width="40" height="62" style="color: #99835D;"><use href="#i-fig-pose"/></svg>
+        <span class="tile-pin">1</span>
+        <div class="tile-rm"><svg width="9" height="9"><use href="#i-x"/></svg></div>
+      </div>
+
+      <div class="slot slot-filled" style="background: var(--mauve);">
+        <svg width="40" height="62" style="color: #5C3F50;"><use href="#i-fig-pose"/></svg>
+        <span class="tile-pin">2</span>
+        <div class="tile-rm"><svg width="9" height="9"><use href="#i-x"/></svg></div>
+      </div>
+
+      <div class="slot slot-filled" style="background: var(--sage);">
+        <svg width="40" height="62" style="color: #5A6B52;"><use href="#i-fig-pose"/></svg>
+        <span class="tile-pin">3</span>
+        <div class="tile-rm"><svg width="9" height="9"><use href="#i-x"/></svg></div>
+      </div>
+
+      <div class="slot slot-empty"><svg width="20" height="20"><use href="#i-plus"/></svg></div>
+      <div class="slot slot-empty"><svg width="20" height="20"><use href="#i-plus"/></svg></div>
+
+      <div class="slot" style="background: var(--pink-bg); color: var(--pink-on); display: flex; flex-direction: column; gap: 6px;">
+        <svg width="22" height="22"><use href="#i-camera"/></svg>
+        <span style="font-size: 10px; font-weight: 500;">Add</span>
+      </div>
+
+    </div>
+
+    <div class="card-sc" style="margin-top: 14px; padding: 10px;">
+      <div class="row" style="gap: 8px; align-items: flex-start;">
+        <svg width="14" height="14" style="color: var(--pink); margin-top: 1px;"><use href="#i-lock"/></svg>
+        <div>
+          <div style="font-size: 11px; font-weight: 500;">Private to you</div>
+          <div class="tiny-sc" style="margin-top: 2px; line-height: 1.4;">Selfies are used only to generate your try-on photos. Never shared. Delete anytime.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; gap: 6px;">
+      <button class="btn-ghost-sc" style="padding: 11px 14px; font-size: 12px;">Skip</button>
+      <button class="btn-primary-sc disabled" style="flex: 1; padding: 11px; font-size: 12px;">Add 2 more to finish</button>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">14 · SELFIE UPLOAD</div>
+    <div class="screen-title">Selfie upload</div>
+    <div class="screen-desc">Any 5 selfies showing face + body. Camera or library. Banner on Today disappears once 5 are uploaded.</div>
+  </div>
+  </div>
+
+  <!-- 15 · PUBLIC PROFILE -->
+  <div class="screen-card">
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="sb"><span>9:41</span><div class="sb-r"><span class="sb-bar" style="height:4px"></span><span class="sb-bar" style="height:6px"></span><span class="sb-bar" style="height:8px"></span><span class="sb-bat"></span></div></div>
+    <div class="body">
+
+    <div class="row" style="justify-content: space-between; margin-top: 4px;">
+      <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14"><use href="#i-back"/></svg></div>
+      <span style="font-size: 14px; color: var(--text-tertiary);">⋯</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; margin-top: 12px;">
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--cream); display: flex; align-items: center; justify-content: center; color: #5C3F1F; font-size: 22px; font-weight: 500; font-family: Georgia, serif;">L</div>
+      <div style="font-size: 15px; font-weight: 500; margin-top: 8px;">@lily.linen</div>
+      <div class="tiny-sc" style="margin-top: 2px; display: flex; align-items: center; gap: 4px;"><svg width="9" height="9"><use href="#i-mappin"/></svg>Singapore</div>
+
+      <div class="row" style="gap: 6px; margin-top: 12px;">
+        <button class="btn-primary-sc" style="padding: 8px 22px; font-size: 12px;">+ Add friend</button>
+        <button class="btn-ghost-sc" style="padding: 7px 12px; font-size: 12px;">Message</button>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 16px;">
+      <div style="padding: 8px 4px; text-align: center; background: var(--bg-secondary); border-radius: 10px;"><div style="font-size: 14px; font-weight: 500;">52</div><div class="tiny-sc">OOTDs</div></div>
+      <div style="padding: 8px 4px; text-align: center; background: var(--bg-secondary); border-radius: 10px;"><div style="font-size: 14px; font-weight: 500;">128</div><div class="tiny-sc">Friends</div></div>
+      <div style="padding: 8px 4px; text-align: center; background: var(--bg-secondary); border-radius: 10px;"><div style="font-size: 14px; font-weight: 500;">12</div><div class="tiny-sc">Mutual</div></div>
+    </div>
+
+    <div class="row" style="gap: 5px; margin-top: 14px;">
+      <span class="chip-sc act">Recent looks</span>
+      <span class="chip-sc">Style</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 12px;">
+      <div class="thumb-look" style="background: var(--cream);"><svg width="36" height="56" style="color: #99835D;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--pink-bg);"><svg width="36" height="56" style="color: var(--pink-on);"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--mauve);"><svg width="36" height="56" style="color: #5C3F50;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--sage);"><svg width="36" height="56" style="color: #5A6B52;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--tan);"><svg width="36" height="56" style="color: #6E5840;"><use href="#i-fig-pose"/></svg></div>
+      <div class="thumb-look" style="background: var(--blue);"><svg width="36" height="56" style="color: #4A5663;"><use href="#i-fig-pose"/></svg></div>
+    </div>
+
+    <div style="position: absolute; left: 14px; right: 14px; bottom: 12px;">
+      <div class="card-sc" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;">
+        <svg width="14" height="14" style="color: var(--text-tertiary);"><use href="#i-lock"/></svg>
+        <div class="tiny-sc" style="flex: 1;">Closet visible after they accept</div>
+      </div>
+    </div>
+
+    </div>
+    <div class="bot-nav">
+      <div class="nv"><svg width="20" height="20"><use href="#i-home"/></svg><span>Today</span></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-hanger"/></svg><span>Closet</span></div>
+      <div class="nv"><div class="nv-center"><svg width="20" height="20"><use href="#i-spark"/></svg></div></div>
+      <div class="nv"><svg width="20" height="20"><use href="#i-comment"/></svg><span>Chats</span></div>
+      <div class="nv act"><svg width="20" height="20"><use href="#i-user"/></svg><span>You</span></div>
+    </div>
+  </div></div>
+  <div class="screen-meta">
+    <div class="screen-label">15 · PUBLIC PROFILE</div>
+    <div class="screen-title">Public profile</div>
+    <div class="screen-desc">Read-only view of another user. Recent looks visible; closet stays hidden until friend request is accepted.</div>
+  </div>
+  </div>
+
+  </div>
+</section>
+
+
+<footer>
+  <p>Mei — design system v1. Generated alongside SPEC.md. View source for design tokens.</p>
+</footer>
+
+</div>
+
+<script>
+function toggleTheme() {
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : (current === 'light' ? 'dark' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
+  root.setAttribute('data-theme', next);
+  document.getElementById('theme-icon').textContent = next === 'dark' ? '☀' : '☾';
+  document.getElementById('theme-label').textContent = next === 'dark' ? 'Light' : 'Dark';
+}
+</script>
+
+</body>
+</html>

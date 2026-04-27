@@ -1,0 +1,9 @@
+{
+  "name": "@mei/infra",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AWS CDK app — data, api, async, cdn stacks. See SPEC.md \u00a74.",
+  "scripts": {
+    "synth": "echo 'cdk synth — TODO when stacks land'"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "mei",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Mei — digital wardrobe + AI stylist. See SPEC.md.",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "mobile": "pnpm --filter @mei/mobile",
+    "mobile:start": "pnpm --filter @mei/mobile start",
+    "mobile:web": "pnpm --filter @mei/mobile web"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3"
+  }
+}

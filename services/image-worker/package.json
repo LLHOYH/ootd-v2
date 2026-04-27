@@ -1,0 +1,9 @@
+{
+  "name": "@mei/image-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Closet photo cleanup, thumbnail gen, try-on composition. S3-event-driven. See SPEC.md \u00a79.",
+  "dependencies": {
+    "@mei/types": "workspace:*"
+  }
+}

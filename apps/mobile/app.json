@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Mei",
+    "slug": "mei",
+    "scheme": "mei",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.mei.ios"
+    },
+    "android": {
+      "package": "app.mei.android"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@mei/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Mei main HTTP API — Lambda + API Gateway. See SPEC.md \u00a77.",
+  "scripts": {
+    "typecheck": "echo 'api typecheck — TODO when handlers land'"
+  },
+  "dependencies": {
+    "@mei/types": "workspace:*"
+  }
+}
