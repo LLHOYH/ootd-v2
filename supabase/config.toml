@@ -1,0 +1,67 @@
+# Supabase project config for Mei
+#
+# Hosted target: ap-northeast-1 (Tokyo) per SPEC.md §13.1 — closest GA region
+# for Singapore users until ap-southeast-1 reaches GA. Set via the dashboard
+# at project creation; this file pins local-dev defaults only.
+
+project_id = "mei"
+
+[api]
+enabled = true
+port = 54321
+# Schemas to expose to PostgREST. `public` is the app schema.
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Pin a stable major version. 15 matches the current Supabase hosted default.
+major_version = 15
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost"
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+# Cap individual uploads at 50MiB — closet photos are ≤ ~10MiB; selfies ≤ ~5MiB.
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["mei://auth/callback"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# Apple + Google providers configured in the dashboard (env-driven, not local).
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+inspector_port = 8083
+
+[analytics]
+enabled = false
