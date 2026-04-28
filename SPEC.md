@@ -106,18 +106,21 @@ Modals are for transactional actions. Pushes are for navigation into deeper cont
 | State (client) | **Zustand** | Tiny, hook-based, no boilerplate. |
 | Persistence | **MMKV** | Faster than AsyncStorage; needed for chat caches and offline closet view. |
 | Styling | **NativeWind** | Tailwind syntax, themeable via tokens. |
-| Backend HTTP | **AWS Lambda + API Gateway** (Node 20, TS, Fastify-style handlers) | Lloyd's existing stack; pay-per-request fits a consumer app's bursty traffic. |
-| Database | **DynamoDB single-table** | Cheap, fast, matches the access patterns. Schema in §6. |
-| Object storage | **S3 + CloudFront** | Photos (closet, selfies, OOTDs, try-on outputs). |
-| Auth | **AWS Cognito** | Email + Apple + Google. Hosted UI for P0; custom UI in P1. |
+| Backend HTTP (CRUD) | **Supabase Edge Functions** (Deno, TS) **or** the same Render Node service that hosts Stella | Pay-per-request CRUD; long-lived for streaming. See §3.3 for the database rationale. |
+| Database | **Postgres (Supabase)** | Joins, transactions, foreign keys for the relational shape in §6.2. RLS in §12. |
+| Object storage | **Supabase Storage** | S3-compatible buckets + CDN + RLS-aware access. Replaces S3 + CloudFront + signed-URL plumbing. |
+| Auth | **Supabase Auth** | Email + Apple + Google + magic-link. Native RLS coupling — `auth.uid()` is available in every policy. |
+| Realtime | **Supabase Realtime** | Postgres-change subscriptions. Replaces the API Gateway WebSocket API previously planned for §7.3. |
+| Stella runtime | **Render** (small always-on Node container) | Long-lived streaming for SSE; sub-100ms cold starts; predictable cost. |
+| Async / batch | **AWS Lambda** (Node 20) | Image-worker (Storage webhook → Replicate → Storage) and notifier (Postgres `pg_notify` → Expo Push). Cold starts don't matter for batch. |
 | AI — chat & vision | **Anthropic Claude API** | Stella conversations and closet item auto-tagging. |
 | AI — try-on photo | **Replicate** or **fal.ai** (model TBD; see §9.3) | Compose user selfie + outfit into studio photo. |
 | AI — image cleanup | **Replicate** with background-removal + studio-light models | Used on closet item upload and OOTD generation. |
 | Push | **Expo Push Notifications** | One service for both platforms. |
-| Analytics | **PostHog** | Already in Lloyd's stack. Funnels for onboarding + daily Today open rate. |
+| Analytics | **PostHog** | Funnels for onboarding + daily Today open rate. |
 | Error tracking | **Sentry** | RN SDK, sourcemap upload via Expo. |
-| Infra | **AWS CDK** (TypeScript) | More control than Amplify as the app grows; same TS toolchain. |
-| CI/CD | **GitHub Actions + EAS Build** | EAS for iOS/Android binaries; Actions for Lambda deploys. |
+| Infra | **Supabase CLI migrations** + **Pulumi** (or hand-rolled Render/Lambda config) | Schema lives in `supabase/migrations/`. The two AWS Lambdas are small enough to deploy via CLI for v1. |
+| CI/CD | **GitHub Actions + EAS Build** | EAS for iOS/Android binaries; Actions for migrations + Lambda + Render deploys. |
 
 ### 3.2 Alternative: Next.js + PWA
 
@@ -130,16 +133,17 @@ Possible if mobile-first is too much for v1. Trade-offs:
 
 **Recommendation: ship Expo from the start.** The closet-capture and morning-notification loops are the product; PWA cripples both.
 
-### 3.3 Why DynamoDB single-table
+### 3.3 Why Postgres + RLS
 
-Mei's access patterns are hierarchical and known:
+Mei's data is highly relational. §6.2 lists six many-to-many or one-to-many relationships in the core schema (users ↔ closet items, items ↔ combinations, users ↔ friendships, OOTDs ↔ reactions, hangouts ↔ members, threads ↔ messages). Postgres does these natively via foreign keys; the friend feed in particular collapses to a single indexed query (`SELECT … JOIN friendships … ORDER BY created_at LIMIT 50`) instead of fanout-on-read.
 
-- "Get all closet items for user X"
-- "Get all combinations for user X"
-- "Get all hangouts user X is a member of"
-- "Get the latest 50 OOTDs from user X's friends"
+The bigger win is **Row-Level Security**. §12's privacy rules are dense — closet visibility scoped to friend graph, selfies owner-only, OOTD visibility narrowable not expandable, discoverability gating who appears in search, and so on. With RLS each rule becomes a single policy on the table. The database itself enforces it for every reader (Edge Function, Render service, realtime subscriber) — there's no failure mode where a buggy handler leaks data because privacy lives below the application layer.
 
-These are GSI-friendly. Relational (Postgres + Aurora Serverless) would also work and may feel more familiar — but for a v1 app that's read-heavy and bursty, single-table DDB is faster and cheaper. Schema in §6.
+Tradeoffs we're accepting:
+- **Lower scale ceiling than DynamoDB.** Postgres handles millions of users on a single node when indexed properly; we're nowhere near needing more.
+- **Two cloud vendors instead of one.** Supabase + Render + a thin AWS Lambda surface. Operational complexity is still lower than AWS-only because we're not hand-rolling auth, storage policies, or signed URLs.
+
+DynamoDB single-table remains a defensible choice for a different team profile (large eng org, deep AWS familiarity, write-heavy workloads at scale). For Mei pre-PMF, Postgres + RLS ships faster and is safer by construction. See `docs/CHANGES-02.md` for the full rationale.
 
 ---
 
@@ -195,22 +199,22 @@ mei/
 │   │   │   ├── friend/
 │   │   │   ├── chat/
 │   │   │   └── profile/
-│   │   ├── lib/                 # ddb client, s3 client, auth middleware
+│   │   ├── lib/                 # supabase client, auth middleware
 │   │   └── package.json
-│   ├── stylist/                 # Stella agent (separate Lambda — longer timeouts, cost isolation)
-│   ├── image-worker/            # closet-photo cleanup, thumbnail gen, try-on (S3-event-driven)
-│   └── notifier/                # push notification dispatch (SQS-driven)
+│   ├── mock-server/             # Fastify dev server, in-memory fixtures (localhost:4000)
+│   ├── stylist/                 # Stella agent — long-lived Node container on Render
+│   ├── image-worker/             # closet-photo cleanup, thumbnail gen, try-on (Supabase Storage webhook → Lambda)
+│   └── notifier/                # push notification dispatch (Postgres pg_notify → Lambda → Expo Push)
 │
-├── infra/                       # AWS CDK
-│   ├── bin/mei.ts
-│   ├── lib/
-│   │   ├── stacks/
-│   │   │   ├── data-stack.ts    # DDB, S3, Cognito
-│   │   │   ├── api-stack.ts     # API Gateway + Lambdas
-│   │   │   ├── async-stack.ts   # SQS, image-worker, notifier
-│   │   │   └── cdn-stack.ts     # CloudFront
-│   │   └── constructs/
-│   └── cdk.json
+├── supabase/                    # Postgres schema + RLS + auth + storage config
+│   ├── migrations/              # `supabase db push`-able migration files
+│   ├── seed.sql                 # local-dev seed
+│   └── config.toml              # `supabase init` config
+│
+├── infra/
+│   ├── lambdas/                 # Pulumi (or CLI) for image-worker + notifier Lambdas
+│   ├── render/                  # Render service config for stylist
+│   └── _archive/aws-cdk/        # the original AWS-native CDK stack, kept for reference
 │
 ├── pnpm-workspace.yaml
 ├── turbo.json
@@ -292,40 +296,186 @@ Pastel palette (`cream`, `mauve`, `sage`, `blue`, `tan`) is used for clothing th
 
 ## 6. Data model
 
-### 6.1 DynamoDB single-table
+### 6.1 Postgres schema
 
-One table: `mei-main`. PK + SK + 3 GSIs. Items are typed via the `_type` attribute.
+One Supabase project. Schema lives in `supabase/migrations/`. Tables map 1:1 to the entities in §6.2; types use `snake_case` columns; `auth.users.id` (UUID) is the foreign key on every owner column.
 
-#### Key patterns
+#### Tables (DDL sketch — not exhaustive, see migrations for the truth)
 
-| Entity | PK | SK | GSI1PK | GSI1SK | GSI2PK | GSI2SK |
-|---|---|---|---|---|---|---|
-| User profile | `USER#{userId}` | `PROFILE` | `USERNAME#{username}` | `USER` | — | — |
-| Closet item | `USER#{userId}` | `ITEM#{itemId}` | `USER#{userId}` | `ITEM_BY_CAT#{category}#{createdAt}` | — | — |
-| Combination | `USER#{userId}` | `COMBO#{comboId}` | `USER#{userId}` | `COMBO_BY_DATE#{createdAt}` | — | — |
-| Selfie | `USER#{userId}` | `SELFIE#{selfieId}` | — | — | — | — |
-| Friendship | `USER#{userIdA}` | `FRIEND#{userIdB}` | `USER#{userIdB}` | `FRIEND#{userIdA}` | — | — |
-| Friend request | `USER#{toUserId}` | `FRIEND_REQ#{fromUserId}` | `USER#{fromUserId}` | `FRIEND_REQ_OUT#{toUserId}` | — | — |
-| OOTD post | `USER#{userId}` | `OOTD#{ootdId}` | `OOTD_FEED#{userId}` | `OOTD#{createdAt}` | — | — |
-| Hangout | `HANGOUT#{hangoutId}` | `META` | `USER#{ownerId}` | `HANGOUT#{startsAt}` | — | — |
-| Hangout member | `HANGOUT#{hangoutId}` | `MEMBER#{userId}` | `USER#{userId}` | `HANGOUT_MEMBER#{startsAt}` | — | — |
-| Chat thread | `THREAD#{threadId}` | `META` | `USER#{userId}` | `THREAD#{lastMessageAt}` (one item per participant) | — | — |
-| Chat message | `THREAD#{threadId}` | `MSG#{messageId}` (sortable ULID) | — | — | — | — |
-| Stella conversation | `USER#{userId}` | `STELLA#{convoId}` | — | — | — | — |
-| Stella message | `STELLA#{convoId}` | `MSG#{messageId}` | — | — | — | — |
+```sql
+-- Profile data lives in a public.users table linked 1:1 to auth.users.
+create table public.users (
+  user_id          uuid primary key references auth.users(id) on delete cascade,
+  username         text unique not null,
+  display_name     text not null,
+  avatar_url       text,
+  gender           text check (gender in ('F','M','NB','PNS')),
+  birth_year       int,
+  country_code     text,
+  city             text,
+  style_preferences text[] not null default '{}',
+  climate_profile  text check (climate_profile in ('TROPICAL','TEMPERATE','ARID','COLD')),
+  discoverable     boolean not null default false,
+  contributes_to_community_looks boolean not null default false,
+  created_at       timestamptz not null default now(),
+  last_active_at   timestamptz not null default now()
+);
+
+create table public.closet_items (
+  item_id          uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references public.users(user_id) on delete cascade,
+  category         text not null check (category in ('DRESS','TOP','BOTTOM','OUTERWEAR','SHOE','BAG','ACCESSORY')),
+  name             text not null,
+  description      text not null default '',
+  colors           text[] not null default '{}',
+  fabric_guess     text,
+  occasion_tags    text[] not null default '{}',
+  weather_tags     text[] not null default '{}',
+  raw_storage_key  text,
+  tuned_storage_key text,
+  thumbnail_storage_key text,
+  status           text not null check (status in ('PROCESSING','READY','FAILED')),
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index closet_items_user_idx on public.closet_items (user_id, category, created_at desc);
+
+create table public.combinations (
+  combo_id         uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references public.users(user_id) on delete cascade,
+  name             text not null,
+  occasion_tags    text[] not null default '{}',
+  source           text not null check (source in ('STELLA','TODAY_PICK','CRAFTED','COORDINATED')),
+  created_at       timestamptz not null default now()
+);
+
+create table public.combination_items (
+  combo_id  uuid not null references public.combinations(combo_id) on delete cascade,
+  item_id   uuid not null references public.closet_items(item_id) on delete cascade,
+  position  int  not null,
+  primary key (combo_id, item_id)
+);
+
+create table public.friendships (
+  user_a uuid not null references public.users(user_id) on delete cascade,
+  user_b uuid not null references public.users(user_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_a, user_b),
+  check (user_a < user_b)  -- canonical ordering: store one row per pair
+);
+
+create table public.friend_requests (
+  from_user_id uuid not null references public.users(user_id) on delete cascade,
+  to_user_id   uuid not null references public.users(user_id) on delete cascade,
+  status       text not null check (status in ('PENDING','ACCEPTED','DECLINED','CANCELLED')),
+  created_at   timestamptz not null default now(),
+  primary key (from_user_id, to_user_id)
+);
+
+create table public.ootd_posts (
+  ootd_id      uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references public.users(user_id) on delete cascade,
+  combo_id     uuid not null references public.combinations(combo_id) on delete restrict,
+  caption      text,
+  location_name text,
+  try_on_storage_key text,
+  fallback_outfit_card_storage_key text,
+  visibility   text not null check (visibility in ('PUBLIC','FRIENDS','GROUP','DIRECT')),
+  visibility_targets uuid[] not null default '{}',
+  created_at   timestamptz not null default now()
+);
+create index ootd_user_created_idx on public.ootd_posts (user_id, created_at desc);
+
+create table public.ootd_reactions (
+  ootd_id  uuid not null references public.ootd_posts(ootd_id) on delete cascade,
+  user_id  uuid not null references public.users(user_id) on delete cascade,
+  type     text not null default '♡',
+  created_at timestamptz not null default now(),
+  primary key (ootd_id, user_id)
+);
+
+create table public.hangouts (
+  hangout_id    uuid primary key default gen_random_uuid(),
+  owner_id      uuid not null references public.users(user_id) on delete cascade,
+  name          text not null,
+  starts_at     timestamptz not null,
+  expires_at    timestamptz not null,
+  location_name text,
+  status        text not null check (status in ('ACTIVE','EXPIRED','CANCELLED')),
+  created_at    timestamptz not null default now()
+);
+
+create table public.hangout_members (
+  hangout_id    uuid not null references public.hangouts(hangout_id) on delete cascade,
+  user_id       uuid not null references public.users(user_id) on delete cascade,
+  role          text not null check (role in ('OWNER','MEMBER')),
+  invite_status text not null check (invite_status in ('INVITED','JOINED','DECLINED')),
+  shared_combo_id uuid references public.combinations(combo_id),
+  shared_at     timestamptz,
+  joined_at     timestamptz not null default now(),
+  primary key (hangout_id, user_id)
+);
+
+create table public.chat_threads (
+  thread_id    uuid primary key default gen_random_uuid(),
+  type         text not null check (type in ('DIRECT','GROUP','HANGOUT','STELLA')),
+  hangout_id   uuid references public.hangouts(hangout_id) on delete cascade,
+  name         text,
+  created_at   timestamptz not null default now()
+);
+
+create table public.chat_thread_participants (
+  thread_id    uuid not null references public.chat_threads(thread_id) on delete cascade,
+  user_id      uuid not null references public.users(user_id) on delete cascade,
+  unread_count int not null default 0,
+  last_read_at timestamptz,
+  primary key (thread_id, user_id)
+);
+
+create table public.chat_messages (
+  message_id   uuid primary key default gen_random_uuid(),  -- ulid stored as uuid for ordering
+  thread_id    uuid not null references public.chat_threads(thread_id) on delete cascade,
+  sender_id    uuid not null references public.users(user_id) on delete cascade,
+  kind         text not null check (kind in ('TEXT','CLOSET_ITEM','COMBINATION','OOTD','IMAGE')),
+  text         text,
+  ref_id       text,
+  created_at   timestamptz not null default now()
+);
+create index chat_messages_thread_idx on public.chat_messages (thread_id, created_at);
+
+create table public.stella_conversations (
+  convo_id        uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references public.users(user_id) on delete cascade,
+  title           text not null default '',
+  created_at      timestamptz not null default now(),
+  last_message_at timestamptz not null default now()
+);
+
+create table public.stella_messages (
+  message_id  uuid primary key default gen_random_uuid(),
+  convo_id    uuid not null references public.stella_conversations(convo_id) on delete cascade,
+  role        text not null check (role in ('USER','ASSISTANT')),
+  text        text,
+  tool_use_id text,
+  tool_name   text,
+  tool_result text,
+  created_at  timestamptz not null default now()
+);
+create index stella_messages_convo_idx on public.stella_messages (convo_id, created_at);
+```
 
 #### Access patterns covered
 
-- Get user profile → `Get { PK: USER#u1, SK: PROFILE }`
-- Resolve username to user → `Query GSI1 { GSI1PK: USERNAME#sophia }`
-- List all closet items for user → `Query { PK: USER#u1, SK begins_with ITEM# }`
-- List dresses only → `Query GSI1 { GSI1PK: USER#u1, GSI1SK begins_with ITEM_BY_CAT#DRESS# }`
-- List user's combinations newest-first → `Query GSI1 { GSI1PK: USER#u1, GSI1SK begins_with COMBO_BY_DATE# } ScanIndexForward=false`
-- List friends of user → `Query { PK: USER#u1, SK begins_with FRIEND# }`
-- Friend feed (latest OOTDs from friends): for each friendId, `Query GSI1 { GSI1PK: OOTD_FEED#fid }` and merge — capped at 50, fanout-on-read. Acceptable for v1; revisit if friend graphs exceed ~200 per user.
-- Hangouts user belongs to → `Query GSI1 { GSI1PK: USER#u1, GSI1SK begins_with HANGOUT_MEMBER# }`
-- Hangout details + members → `Query { PK: HANGOUT#h1 }`
-- Chat threads for user → `Query GSI1 { GSI1PK: USER#u1, GSI1SK begins_with THREAD# }`
+- Get user profile → `select * from users where user_id = auth.uid()`
+- Resolve username → `select user_id from users where username = $1`
+- List closet items → `select * from closet_items where user_id = auth.uid() order by created_at desc`
+- List dresses only → `… where user_id = auth.uid() and category = 'DRESS'` (uses `closet_items_user_idx`)
+- List combinations newest-first → `select * from combinations where user_id = auth.uid() order by created_at desc`
+- List friends → `select friend_id from get_friends(auth.uid())` (helper view that flips `user_a/user_b` into a unified `friend_id` column)
+- **Friend feed** → `select * from ootd_posts where user_id in (select friend_id from get_friends(auth.uid())) and visibility in ('PUBLIC','FRIENDS') order by created_at desc limit 50` — single indexed query, no fanout-on-read, no scale ceiling.
+- Hangouts user belongs to → `select h.* from hangouts h join hangout_members m on m.hangout_id = h.hangout_id where m.user_id = auth.uid()`
+- Hangout details + members → `select * from hangout_members where hangout_id = $1`
+- Chat threads for user → `select t.* from chat_threads t join chat_thread_participants p on p.thread_id = t.thread_id where p.user_id = auth.uid()`
 
 ### 6.2 TypeScript types (shipped in `packages/types`)
 
@@ -470,26 +620,23 @@ export interface StellaConversation {
 }
 ```
 
-### 6.3 S3 layout
+### 6.3 Supabase Storage layout
+
+Four buckets, all with platform encryption at rest. Object access is governed by RLS policies on `storage.objects`, not by signed-URL plumbing.
 
 ```
-mei-media/
-├── closet/
-│   └── {userId}/
-│       ├── raw/{itemId}.jpg         # original upload, server-side encrypted
-│       └── tuned/{itemId}.webp      # AI-cleaned, served via CDN
-├── selfies/
-│   └── {userId}/{selfieId}.jpg      # SSE-KMS, NEVER served via CDN
-├── ootd/
-│   └── {userId}/{ootdId}.webp       # try-on output OR fallback card
-└── thumbs/
-    └── {itemId}.webp                # 256px square, served via CDN
+closet-raw/      {user_id}/{item_id}.jpg     # original upload — owner-only RLS
+closet-tuned/    {user_id}/{item_id}.webp    # AI-cleaned — owner + friends RLS, served via CDN
+ootd/            {user_id}/{ootd_id}.webp    # try-on output OR fallback card — visibility-scoped RLS
+selfies/         {user_id}/{selfie_id}.jpg   # owner-only RLS, never CDN-cached, never accessed across users
 ```
 
-- **Closet `raw/`**: SSE-S3, kept for re-tuning. 30-day lifecycle to Glacier.
-- **Closet `tuned/` and `thumbs/`**: served via CloudFront, public-readable with signed URLs scoped to friend graph (see §12).
-- **Selfies**: SSE-KMS, never via CDN. Accessed by image-worker only via Lambda-signed URLs with 5-minute TTL.
-- **OOTD**: SSE-S3, signed URLs scoped to post visibility.
+- **`closet-raw`** — owner-only `select`. Kept for re-tuning. Lifecycle (Storage retention) → 30 days then archive tier.
+- **`closet-tuned`** — owner OR friend can `select`. Public CDN distribution; access is gated by RLS at the bucket policy layer.
+- **`ootd`** — read policy mirrors the post's `visibility` column on `ootd_posts` (PUBLIC / FRIENDS / GROUP / DIRECT). One join via a helper function.
+- **`selfies`** — owner-only `select`, owner-only `insert`. Image-worker reads via the service role key; never exposed to other authenticated users.
+
+Why no signed URLs: every request to Storage carries the user's JWT. RLS policies evaluate `auth.uid()` against the bucket's policies and either return the object or 404. No expiring URLs to sign, no CloudFront to provision, no signing key to rotate. (We can still issue time-limited signed URLs for share-out flows; we just don't need them as the *primary* access pattern.)
 
 ---
 
@@ -498,7 +645,7 @@ mei-media/
 ### 7.1 Conventions
 
 - Base URL: `https://api.mei.app/v1`
-- Auth: `Authorization: Bearer <Cognito ID token>` on every route except `/auth/*` and `/health`.
+- Auth: `Authorization: Bearer <Supabase access token>` on every route except `/auth/*` and `/health`. The Render service and image-worker Lambda both verify the token via Supabase's JWKS; RLS picks up `auth.uid()` from the same token.
 - JSON in/out. Timestamps are ISO-8601 strings.
 - Errors: `{ error: { code: string; message: string } }` with appropriate HTTP status.
 - Pagination: cursor-based via `?cursor=<opaque>&limit=<n>`. Responses include `nextCursor` when more.
@@ -625,7 +772,7 @@ mei-media/
 ### 7.3 Real-time
 
 - **Stella streaming responses:** SSE on `POST /stella/.../messages`.
-- **Chat live updates:** WebSocket via API Gateway WS API. Connect with bearer token; subscribe to `thread:{threadId}` and `user:{userId}` channels.
+- **Chat live updates:** Supabase Realtime channels. Client subscribes to inserts on `chat_messages` filtered by `thread_id = X` (one channel per open thread). Auth + RLS handle access — a user can only subscribe to threads they participate in.
 - **Push notifications:** server pushes to Expo for: new chat message, new friend request, hangout invite, friend posted OOTD, daily Today reminder.
 
 
@@ -636,7 +783,7 @@ mei-media/
 ### 8.1 Model & deployment
 
 - **Primary:** Anthropic Claude (Sonnet tier — current best balance of intelligence and cost for chat-with-tool-use). Test against the latest Sonnet release at the start of every milestone.
-- **Service:** isolated Lambda (`services/stylist`) with extended timeout (30s) and concurrency reservation. Streams responses via SSE.
+- **Service:** always-on Node container on Render (`services/stylist`). One service instance handles streaming SSE responses with no cold-start latency; auto-scales horizontally if request volume warrants it.
 - **Conversation persistence:** every user message + Stella response is stored in DDB under `STELLA#{convoId}`. Truncate context window by keeping system prompt + last 20 messages + a rolling summary.
 
 ### 8.2 System prompt (draft)
@@ -750,36 +897,35 @@ The `/today` endpoint internally calls Stella with a one-shot prompt: "Given thi
 ### 9.1 Closet item upload
 
 ```
-[client]                [api]                 [s3]              [image-worker]      [DDB]
-   │ POST /upload {count:N}                    │                       │              │
-   │ ─────────────────► │                      │                       │              │
-   │ ◄─ presigned URLs ─┤                      │                       │              │
-   │                                                                                   │
-   │ PUT raw photo  ──────────────────────────►│                                       │
-   │ POST /process    │                                                                │
-   │ ─────────────────►│                                                               │
-   │                   │ ── put job on SQS ─────────────────────────► │                │
-   │                                                                  │ fetch raw      │
-   │                                                                  │ ◄────────────  │
-   │                                                                  │                │
-   │                                                                  │ Claude vision  │
-   │                                                                  │  → name, desc, │
-   │                                                                  │     category,  │
-   │                                                                  │     colors,    │
-   │                                                                  │     occasion,  │
-   │                                                                  │     weather    │
-   │                                                                  │                │
-   │                                                                  │ Replicate:     │
-   │                                                                  │  bg-removal +  │
-   │                                                                  │  studio-light  │
-   │                                                                  │  → tuned.webp  │
-   │                                                                  │                │
-   │                                                                  │ sharp:         │
-   │                                                                  │  → thumb.webp  │
-   │                                                                  │                │
-   │                                                                  │ ─ write item ─►│
-   │                                                                  │ ─ push WS ───►│
-   │ ◄── ws: item ready ──────────────────────────────────────────────                 │
+[client]              [api]            [Storage]       [image-worker λ]      [Postgres]
+   │ POST /upload {count:N}              │                    │                  │
+   │ ─────────────────► │                │                    │                  │
+   │ ◄─ signed PUT URLs ┤  (insert closet_items rows: status=PROCESSING)         │
+   │                                     │                    │                  │
+   │ PUT raw photo ────────────────────► │                    │                  │
+   │  (Storage emits webhook on insert)                       │                  │
+   │                                     │ ─── webhook ─────► │                  │
+   │                                                          │ fetch raw via    │
+   │                                                          │ service-role key │
+   │                                                          │                  │
+   │                                                          │ Claude vision    │
+   │                                                          │  → name, desc,   │
+   │                                                          │    category,     │
+   │                                                          │    colors,       │
+   │                                                          │    occasion,     │
+   │                                                          │    weather       │
+   │                                                          │                  │
+   │                                                          │ Replicate:       │
+   │                                                          │  bg-removal +    │
+   │                                                          │  studio-light    │
+   │                                                          │  → tuned.webp    │
+   │                                                          │                  │
+   │                                                          │ sharp:           │
+   │                                                          │  → thumb.webp    │
+   │                                                          │                  │
+   │                                                          │ ─ update row ──► │
+   │                                                          │   status=READY   │
+   │ ◄── Realtime: closet_items UPDATE pushed to subscribers ──                  │
 ```
 
 - Status visible to client throughout: `PROCESSING` → `READY` (or `FAILED`).
@@ -788,9 +934,9 @@ The `/today` endpoint internally calls Stella with a one-shot prompt: "Given thi
 
 ### 9.2 Selfie upload
 
-- Direct PUT to S3 via presigned URL.
-- SSE-KMS at rest. Never served via CDN.
-- Image-worker only accesses via Lambda role + 5-minute presigned GETs.
+- Direct PUT to the `selfies` bucket via Supabase Storage signed-upload URL.
+- Platform encryption at rest. Owner-only RLS — no other authenticated user can `select` a selfie under any code path.
+- Image-worker reads via the service-role key when generating try-on photos. Service-role key never leaves the worker Lambda.
 - Stored as raw JPEG. No processing on upload.
 - Limit: 5 selfies per user. Replacing one deletes the prior.
 - Setup banner on Today hides once `User.selfieIds.length >= 5`. **Banner is dismissible and remembers the dismissal locally** (MMKV) — do not re-show after dismissal even if selfies < 5.
@@ -801,7 +947,7 @@ The `/today` endpoint internally calls Stella with a one-shot prompt: "Given thi
 - Input: 1 selfie (the most full-body) + the combination's tuned item images.
 - Model: TBD — leading candidates as of writing are Replicate's IDM-VTON, fal.ai's flux-virtual-try-on, or a fine-tuned Flux model. **Decision deferred — see §14, OQ-2.** Spec the API contract so the model is swappable.
 - Latency: target 8-15s. Show a generated-photo placeholder ("Stella is composing…") until ready.
-- Output: WebP at `ootd/{userId}/{ootdId}.webp`. Cached forever; same combo + same selfie = same cache key.
+- Output: WebP at `ootd/{user_id}/{ootd_id}.webp` in Supabase Storage. Cached forever; same combo + same selfie = same cache key.
 - Fallback (P0): an **OutfitCard** composite — 3-4 item thumbs in a brand-pink card. Shipped before try-on lands so the share flow works end-to-end.
 
 ### 9.4 Privacy guarantees
@@ -811,7 +957,7 @@ The `/today` endpoint internally calls Stella with a one-shot prompt: "Given thi
   - The owner.
   - Friends of the owner (when shown in OOTD posts or Hangout group views).
   - Hangout members (when the owner is sharing within that hangout).
-- All cross-user image reads go through a server-side authorization check before signing the CloudFront URL.
+- All cross-user image reads pass through Supabase Storage RLS at the bucket-policy layer — no app-level signing logic to forget. Policy bodies in §12 cite the friendship/hangout joins they perform.
 
 
 ---
@@ -1245,17 +1391,17 @@ If `lily.linen.discoverable === false`, the thumbnail in Today is anonymized (no
 
 ### 12.1 Selfies
 
-- Encrypted at rest (SSE-KMS).
-- Never served via CDN.
-- Never used for any purpose except generating that user's own try-on photos.
-- Deletable individually. Delete cascades to any cached try-on outputs that used the selfie.
+- Platform encryption at rest (Supabase Storage default).
+- Never served to any user other than the owner. **RLS policy:** `selfies_owner_only` on the `selfies` bucket — `select` and `insert` allowed only when `auth.uid() = owner`.
+- Image-worker reads via the service-role key when generating the user's own try-on photos. Service role never reaches a user device.
+- Deletable individually. Cascades to any cached try-on outputs that used the selfie via `on delete cascade` on the `ootd_posts.selfie_id` foreign key.
 
 ### 12.2 Closet items
 
-- Owner: full read/write.
-- Friends: can see tuned thumbnails when surfaced via OOTD posts or Hangout groups the owner shared into. Cannot enumerate the closet.
-- Public profile (non-friends): no closet visibility. Locked footer card explains.
-- "What others are wearing" surfaces try-on photos only — never raw closet items.
+- Owner: full read/write. **RLS:** `closet_items_owner_all` — `all` operations allowed when `auth.uid() = user_id`.
+- Friends: can `select` rows referenced by an OOTD post or hangout share they have access to. **RLS:** `closet_items_via_ootd` joins `closet_items → combination_items → combinations → ootd_posts` and grants `select` when the requester can see the OOTD per §12.3. Can never enumerate `closet_items` directly.
+- Public profile (non-friends): no closet visibility. The mobile UI shows a locked footer card; the database simply returns zero rows.
+- "What others are wearing" surfaces try-on photos from `ootd_posts` only — `closet_items` are never surfaced cross-user via this strip.
 
 ### 12.3 OOTD posts
 
@@ -1267,28 +1413,51 @@ Visibility is set at post-time and cannot be expanded later (only narrowed). Opt
 
 Hangout-shared OOTDs (`GROUP` to a hangoutId) do NOT auto-post to the public friends feed. The user must explicitly toggle "My feed" in Confirm & share.
 
+**RLS:** `ootd_posts_visibility` evaluates `visibility` against the requester:
+
+```sql
+create policy ootd_posts_visibility on public.ootd_posts for select using (
+  user_id = auth.uid()
+  or (visibility in ('PUBLIC','FRIENDS') and is_friend(auth.uid(), user_id))
+  or (visibility = 'GROUP'  and exists (
+        select 1 from public.hangout_members m
+        where m.user_id = auth.uid() and m.hangout_id = any(visibility_targets)))
+  or (visibility = 'DIRECT' and auth.uid() = any(visibility_targets))
+);
+```
+
+A trigger on `ootd_posts` blocks any `update` that would widen `visibility` (only `narrowing` transitions allowed: PUBLIC → FRIENDS → GROUP → DIRECT).
+
 ### 12.4 Hangouts
 
-- Members can see each other's shared outfits within the hangout.
-- A member's *closet* is not visible — only the specific combination they shared.
-- Owner can remove members. Members can leave.
-- Auto-expires 12h after `startsAt`. Owner can manually expire any time.
+- Members can see each other's shared outfits within the hangout. **RLS:** `hangout_members_visible_to_members` — `select` on `hangout_members` allowed when the requester is also in the hangout.
+- A member's *closet* is not visible — only the specific combination they shared (via `shared_combo_id`). The `closet_items_via_ootd` policy doesn't extend to hangout-shared items unless the owner also posted them as an OOTD with appropriate visibility.
+- Owner can remove members (delete on `hangout_members` allowed when `auth.uid() = hangouts.owner_id`). Members can leave (delete allowed when `auth.uid() = user_id`).
+- Auto-expires 12h after `starts_at`. Implemented as `pg_cron` job that flips `status` to `EXPIRED`. Owner can manually expire via an `update` that the policy permits.
 
 ### 12.5 Discoverability
 
 User toggle `discoverable: boolean`. Default: **off** for new users.
 
+**RLS:** `users_select_visible` — `select` on the `users` table allowed when:
+
+```sql
+auth.uid() = user_id
+or discoverable = true
+or is_friend(auth.uid(), user_id)
+```
+
 When `false`:
-- Profile is not returned by `/friends/search`.
+- Profile is not returned by `/friends/search` (the search query joins on the same policy).
 - Profile 404s on direct GET unless requester is a friend.
 - User does not appear in "What others are wearing".
 
 When `true`:
 - Profile is searchable.
-- `username + recent OOTDs` are visible to anyone via the Public profile view.
-- Closet remains private.
+- `username` + recent OOTDs are visible to anyone via the Public profile view.
+- Closet remains private (governed by §12.2's policy, not this one).
 
-A separate toggle `contributesToCommunityLooks: boolean` controls whether the user's try-on photos surface anonymously in others' Today screens. Independent from `discoverable` — a user can contribute anonymously without being discoverable.
+A separate toggle `contributes_to_community_looks: boolean` controls whether the user's try-on photos surface anonymously in others' Today screens. Independent from `discoverable` — a user can contribute anonymously without being discoverable.
 
 ### 12.6 "What others are wearing" anonymization
 
@@ -1300,7 +1469,7 @@ If `contributesToCommunityLooks === false` → look does not surface to others.
 
 ### 12.7 Friend graph visibility
 
-Closet thumbnails and tuned item photos require a friendship check on every cross-user read. CloudFront URLs are signed server-side per-request based on the requester's friend graph. URLs expire after 1 hour.
+Closet thumbnails and tuned item photos require a friendship check on every cross-user read. **Implementation:** the `closet-tuned` Storage bucket carries an RLS policy joining `storage.objects` to `closet_items` (by storage key) to `friendships` (by `user_id`). Any read request — direct download, CDN-cached, embedded in an OOTD render — is gated by the same policy. No application-level signing logic to forget; no expiring URLs to rotate.
 
 ---
 
@@ -1311,17 +1480,18 @@ Closet thumbnails and tuned item photos require a friendship check on every cros
 Goal: a user can sign up, photograph their closet, get a daily recommendation, chat with Stella, and post an OOTD to a friend.
 
 **Backend**
-- Cognito + `/auth/*`, `/me`
-- DDB single-table + types package
-- S3 buckets + IAM
-- Closet upload + processing pipeline (Claude vision + thumbnail; skip studio cleanup if Replicate setup is slow — ship raw + thumb only)
+- Supabase project provisioned in `ap-northeast-1` (Tokyo, closest GA region for SG users)
+- Postgres schema + RLS policies per §6.1 and §12, types generated into `@mei/types`
+- Supabase Auth wired (email + Apple + Google) — `/auth/*` and `/me` proxy to Auth where needed
+- Storage buckets per §6.3 with RLS
+- Closet upload + processing pipeline (Storage webhook → image-worker Lambda → Claude vision + thumbnail; skip studio cleanup if Replicate setup is slow — ship raw + thumb only)
 - `/closet/*`, `/closet/combinations/*`
 - `/today` (weather + calendar via OS perms; one-shot Stella for daily pick)
-- `/stella/*` (Sonnet, with full toolset)
+- `/stella/*` on the Render container (Sonnet, with full toolset)
 - `/ootd` create + feed (with **fallback OutfitCard** as the share image)
 - `/friends/*` (request, accept, list, search by username)
-- `/chat/threads/*` direct DMs only
-- Push for: friend request, OOTD reaction, daily Today reminder
+- `/chat/threads/*` direct DMs only — Realtime subscription on `chat_messages`
+- Push notifier Lambda triggered by `pg_notify` for: friend request, OOTD reaction, daily Today reminder
 
 **Frontend**
 - Theme provider + tokens
@@ -1393,6 +1563,8 @@ Goal: a user can sign up, photograph their closet, get a daily recommendation, c
 | OQ-6 | Closet auto-link from OOTD. | Defer; privacy review required before P2. |
 | OQ-7 | Default visibility setting for new users — `discoverable: false` is currently default. Should onboarding nudge users to opt in? | Spec says no nudge in P0. Revisit if friend-graph density is too low at scale. |
 | OQ-8 | Anonymous-only contribution path (§12.6). | P1 ship. |
+| OQ-9 | Render vs Fly.io for the Stella container. | **Default: Render.** Friendlier first-touch DX; auto-deploy from GitHub; predictable monthly billing. Revisit if SG-region latency becomes a measurable problem (Fly has finer region control). |
+| OQ-10 | Supabase region for the project. | **Default: `ap-northeast-1` (Tokyo)** — closest GA region for the primary user base in Singapore. Migrate to `ap-southeast-1` if/when Supabase ships it as GA. |
 
 ---
 
