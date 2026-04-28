@@ -2,12 +2,12 @@
   "name": "@mei/infra",
   "version": "0.0.0",
   "private": true,
-  "description": "AWS CDK app — data, api, async, cdn stacks. See SPEC.md §4.",
+  "description": "Mei infra (post-CHANGES-02). Holds the upcoming Lambda + Render configs; the original AWS CDK stack is archived under _archive/aws-cdk/ for reference.",
   "scripts": {
-    "synth": "cdk synth",
-    "diff": "cdk diff",
-    "lint": "echo 'lint placeholder — wire eslint in a follow-up'",
-    "typecheck": "tsc --noEmit"
+    "synth:archive": "cd _archive/aws-cdk && npx cdk synth",
+    "diff:archive": "cd _archive/aws-cdk && npx cdk diff",
+    "typecheck:archive": "cd _archive/aws-cdk && tsc --noEmit",
+    "typecheck": "echo 'no live infra to typecheck yet — see _archive/aws-cdk for the AWS CDK stack, or wait for feat/lambdas-deploy'"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.165.0",

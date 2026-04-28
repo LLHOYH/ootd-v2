@@ -1,96 +1,56 @@
 # @mei/infra
 
-AWS CDK (TypeScript v2) app for Mei. Stacks live under `lib/stacks/`.
+Mei's live infra. **Post `docs/CHANGES-02.md`** the platform moved from AWS-native (CDK + DDB + Cognito + S3 + CloudFront) to Supabase + Render, with a thin AWS Lambda surface for batch/async work. This package is the home for the still-needed AWS pieces.
 
-## Stacks
+## Layout
 
-| Stack | Status | Purpose |
-|---|---|---|
-| `data-stack` | shipping in this branch | DynamoDB single-table, S3 buckets, Cognito user pool + mobile client. |
-| `api-stack` | future branch | API Gateway + Lambda functions for `services/api`. |
-| `async-stack` | future branch | SQS queues, image-worker, notifier (consumes the DDB stream). |
-| `cdn-stack` | future branch | CloudFront distributions for `closet/tuned` and `ootd`. |
-
-This branch wires up `data-stack` only. The bin entry instantiates one `dev`
-instance; the `prod` instance is ready in commented form.
-
-## What `data-stack` creates
-
-- **DynamoDB** — `mei-main-{stage}` (single-table, PK+SK, GSI1, GSI2,
-  PITR on, NEW_AND_OLD_IMAGES stream). See `SPEC.md §6.1`.
-- **S3 buckets** (see `SPEC.md §6.3`):
-  - `mei-closet-raw-{stage}-{accountId}` — SSE-S3, versioned, 30-day
-    Glacier transition.
-  - `mei-closet-tuned-{stage}-{accountId}` — SSE-S3, CloudFront-friendly
-    (block public access + enforce SSL). The CDN branch will attach the OAC.
-  - `mei-selfies-{stage}-{accountId}` — SSE-KMS via dedicated key
-    (`alias/mei-selfies-{stage}`), no CDN, no lifecycle.
-  - `mei-ootd-{stage}-{accountId}` — SSE-S3, served via signed URLs.
-- **Cognito** — `mei-{stage}` user pool with email + username sign-in,
-  custom attrs (`birthYear`, `countryCode`, `city`), 10-char password
-  policy, MFA off (dev) / optional (prod), email-only recovery. One mobile
-  app client (SRP-only, no secret, 30-day refresh). Apple + Google IdPs
-  scaffolded but gated behind `appleConfigured` / `googleConfigured` props.
-
-## Outputs
-
-The stack exports (via `CfnOutput` + `exportName`):
-
-- `mei-{stage}-main-table-name`
-- `mei-{stage}-main-table-stream-arn`
-- `mei-{stage}-closet-raw-bucket`
-- `mei-{stage}-closet-tuned-bucket`
-- `mei-{stage}-selfies-bucket`
-- `mei-{stage}-selfies-kms-arn`
-- `mei-{stage}-ootd-bucket`
-- `mei-{stage}-user-pool-id`
-- `mei-{stage}-user-pool-client-id`
-
-The api-stack, async-stack, and cdn-stack will consume these via
-`Fn.importValue` once they land on their own branches.
-
-## Required env vars
-
-For `cdk synth` (no AWS creds needed; placeholders kick in):
-
-```bash
-# Optional — fall back to placeholders if unset.
-export CDK_DEFAULT_ACCOUNT=111111111111
-export CDK_DEFAULT_REGION=ap-northeast-1
+```
+infra/
+├── _archive/aws-cdk/      # the original AWS-native CDK stack (data-stack
+│                           #   for DDB + S3 + Cognito + KMS). NOT deployed.
+│                           #   Kept verbatim for reference and as the path
+│                           #   back if we ever swing off Supabase.
+├── lambdas/               # (coming in feat/image-worker, feat/notifier)
+│                           # CLI / Pulumi config for the two AWS Lambdas:
+│                           # image-worker (Storage webhook → Replicate)
+│                           # notifier (pg_notify → Expo Push)
+└── render/                # (coming in feat/stella-on-render)
+                            # Render service config for services/stylist
 ```
 
-For `cdk deploy` (NOT done in this branch):
+## What lives where now
+
+| Concern | Where |
+|---|---|
+| Database schema + RLS + Storage buckets | `supabase/migrations/` (top-level, not under `infra/`) |
+| Auth | Supabase project (configured via `supabase/config.toml`) |
+| API HTTP surface | `services/api` deployed alongside or as Edge Functions (see `feat/api-supabase-client`) |
+| Stella long-lived runtime | Render service (`infra/render/`, `services/stylist/Dockerfile`) |
+| Image cleanup async | AWS Lambda (`infra/lambdas/image-worker/`) |
+| Push dispatch | AWS Lambda (`infra/lambdas/notifier/`) |
+| CDN | Supabase Storage CDN (no separate CloudFront stack) |
+
+## The archived CDK stack
+
+The complete original CDK code (`MeiDataStack`) lives under `_archive/aws-cdk/`. You can still synth it for reference:
 
 ```bash
-export CDK_DEFAULT_ACCOUNT=<real account>
-export CDK_DEFAULT_REGION=<region>
-# Plus AWS_PROFILE / SSO creds.
+pnpm --filter @mei/infra synth:archive
+pnpm --filter @mei/infra diff:archive
+pnpm --filter @mei/infra typecheck:archive
 ```
 
-## Commands
+These are not part of any deploy path. They exist so we never have to reconstruct the AWS-native plan from scratch if we later decide to revisit it.
 
-```bash
-pnpm --filter @mei/infra synth       # cdk synth → cdk.out/
-pnpm --filter @mei/infra diff        # cdk diff against deployed state
-pnpm --filter @mei/infra typecheck   # tsc --noEmit
-```
+## Why Supabase instead
 
-No `cdk deploy` script is wired here on purpose — a human runs the
-deploy once accounts are bootstrapped.
+See `docs/CHANGES-02.md` for the full rationale. TL;DR: Mei's data is highly relational (six many-to-many or one-to-many relationships in `SPEC.md §6`), the privacy rules in §12 collapse from per-handler code into RLS policies, and the friend-feed scale ceiling that DynamoDB single-table imposed (`§6.1` "revisit if friend graphs exceed ~200 per user") goes away.
 
-## Open TODOs (left as comments in code)
+## What's coming
 
-- `cdn-stack`: attach CloudFront OAC + bucket policy for `closet/tuned`
-  and `ootd`.
-- Cognito hosted UI domain — uncomment once we want to claim
-  `mei-{stage}` as a Cognito-hosted prefix.
-- Apple + Google identity provider client IDs/secrets — pull from SSM /
-  Secrets Manager once the developer accounts are ready.
+Per `docs/feature-breakdown.md`:
 
-## Notes
-
-- No real account IDs or region literals are baked in — everything resolves
-  through CDK context or env vars.
-- `removalPolicy` is `DESTROY` in dev and `RETAIN` in prod.
-- The single-table stream is enabled now so the async-stack branch can
-  attach Lambda event sources without re-creating the table.
+- **Wave 2a** — `feat/supabase-schema`, `feat/supabase-auth`, `feat/supabase-storage`, `feat/supabase-types-gen`
+- **Wave 2b** — `feat/api-supabase-client`, `feat/stella-on-render`
+- **Wave 2c** — business endpoints
+- **Wave 2d** — `feat/image-worker`, `feat/notifier`, `feat/supabase-deploy-staging`
