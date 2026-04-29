@@ -20,6 +20,15 @@
 --
 -- Idempotent: every INSERT uses ON CONFLICT DO NOTHING so a developer can
 -- re-run after `supabase db reset` without first wiping rows.
+--
+-- Trigger coexistence: 0004_auth_user_sync.sql attaches a trigger to
+-- `auth.users` that auto-creates the matching `public.users` row. The seed
+-- below explicitly inserts both halves with hand-picked usernames + profile
+-- fields, so we disable user-defined triggers while loading. `replica` is the
+-- standard Postgres knob: it leaves system-internal triggers (FK cascades,
+-- etc.) intact while skipping user triggers. Reset at the bottom of the file.
+
+set session_replication_role = replica;
 
 ------------------------------------------------------------------------------
 -- 0. Auth users
@@ -312,3 +321,12 @@ insert into public.stella_messages (message_id, convo_id, role, text, created_at
   ('0000000a-0000-0000-0000-000000000004'::uuid, '00000009-0000-0000-0000-000000000001'::uuid, 'USER',      'Love it. What if it rains?',                                                                      now() - interval '90 minutes'),
   ('0000000a-0000-0000-0000-000000000005'::uuid, '00000009-0000-0000-0000-000000000001'::uuid, 'ASSISTANT', 'easy — swap the mules for your white sneakers and grab the olive trench. still cute, still you ♡', now() - interval '1 hour')
 on conflict (message_id) do nothing;
+
+------------------------------------------------------------------------------
+-- 99. Re-enable user triggers
+--
+-- See the comment at the top of this file for context. Future migrations or
+-- runtime inserts must go through the normal trigger pipeline.
+------------------------------------------------------------------------------
+
+set session_replication_role = origin;

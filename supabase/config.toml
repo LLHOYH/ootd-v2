@@ -56,7 +56,21 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 
-# Apple + Google providers configured in the dashboard (env-driven, not local).
+# Apple + Google OAuth — toggles wired so the local stack accepts the
+# providers, but client_id / secret are deferred until Lloyd provisions the
+# developer accounts. The hosted project pulls these from dashboard envs;
+# locally they come from `supabase/.env` if you want to test the flow.
+[auth.external.apple]
+enabled = false
+client_id = "env(SUPABASE_AUTH_APPLE_CLIENT_ID)" # TODO(secrets)
+secret    = "env(SUPABASE_AUTH_APPLE_SECRET)"    # TODO(secrets)
+redirect_uri = "mei://auth/callback"
+
+[auth.external.google]
+enabled = false
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)" # TODO(secrets)
+secret    = "env(SUPABASE_AUTH_GOOGLE_SECRET)"    # TODO(secrets)
+redirect_uri = "mei://auth/callback"
 
 [edge_runtime]
 enabled = true

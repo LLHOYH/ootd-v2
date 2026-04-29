@@ -69,7 +69,6 @@ function parseBody(
 function buildContext(
   event: APIGatewayProxyEventV2,
   region: string,
-  userPoolId: string,
 ): RequestContext {
   const method = event.requestContext.http.method.toUpperCase() as HttpMethod;
   const rawPath = event.rawPath || '/';
@@ -94,7 +93,6 @@ function buildContext(
     query,
     body,
     headers,
-    userPoolId,
     region,
   };
 }
@@ -139,10 +137,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (
   // Resolve env at request time, not module load — keeps cold-start error
   // surface focused on routes that actually need each var.
   const region = process.env.REGION ?? process.env.AWS_REGION ?? 'us-east-1';
-  const userPoolId = process.env.COGNITO_USER_POOL_ID ?? '';
 
   try {
-    const ctx = buildContext(event, region, userPoolId);
+    const ctx = buildContext(event, region);
     const matched = router.match(ctx.method, ctx.path);
     if (!matched) {
       return errorResponse(
