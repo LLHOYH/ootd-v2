@@ -43,12 +43,32 @@ export const config = {
     return required('BUCKET_OOTD');
   },
 
-  // Cognito.
-  get cognitoUserPoolId(): string {
-    return required('COGNITO_USER_POOL_ID');
+  // Supabase. Replaces Cognito (SPEC §3.1, §7.1).
+  //
+  //   SUPABASE_URL              project URL (https://<ref>.supabase.co or
+  //                             http://127.0.0.1:54321 for local).
+  //   SUPABASE_ANON_KEY         publishable key — fine to bundle into the
+  //                             mobile client; included here so the API can
+  //                             mint per-request RLS clients without holding
+  //                             the service key.
+  //   SUPABASE_SERVICE_ROLE_KEY service-role key — bypasses RLS. Used by
+  //                             admin paths (image-worker, notifier, the
+  //                             auth-trigger seed). Never log this.
+  //   SUPABASE_JWT_SECRET       HS256 signing secret. The auth middleware
+  //                             verifies user JWTs against this. Pull it from
+  //                             `supabase status` locally; from the dashboard
+  //                             "JWT Settings" panel on hosted.
+  get supabaseUrl(): string {
+    return required('SUPABASE_URL');
   },
-  get cognitoClientId(): string {
-    return required('COGNITO_CLIENT_ID');
+  get supabaseAnonKey(): string {
+    return required('SUPABASE_ANON_KEY');
+  },
+  get supabaseServiceRoleKey(): string {
+    return required('SUPABASE_SERVICE_ROLE_KEY');
+  },
+  get supabaseJwtSecret(): string {
+    return required('SUPABASE_JWT_SECRET');
   },
 
   /** Service version — surfaced in `/_health`. */

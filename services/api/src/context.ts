@@ -25,10 +25,11 @@ export interface RequestContext {
   body: unknown;
   /** Lower-cased header map. */
   headers: Record<string, string>;
-  /** Cognito `sub` claim — set by `requireAuth`. */
+  /** Supabase JWT `sub` claim — set by `requireAuth`. */
   userId?: string;
-  /** Configured Cognito user pool id (from env). */
-  userPoolId: string;
+  /** Raw bearer token after `requireAuth`. Used by handlers that need a
+   *  per-request RLS-scoped Supabase client (see `lib/supabase.ts`). */
+  accessToken?: string;
   /** AWS region. */
   region: string;
 }
