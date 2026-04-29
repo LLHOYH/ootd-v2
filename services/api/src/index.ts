@@ -7,9 +7,15 @@
 //   4. Translate ApiError / ZodError / unknown errors into the SPEC §7.1
 //      `{ error: { code, message } }` envelope.
 //
-// Adding routes: import the handler, append a `{ method, path, handler }`
-// entry to `routes` below. Wrap with `requireAuth` if the route is not in
-// the `/auth/*` or `/_health` allowlist (SPEC §7.1).
+// Adding routes: register them in `services/api/src/handlers/<domain>/index.ts`.
+// That domain's `RouteDef[]` is then concatenated into the global registry by
+// `services/api/src/handlers/index.ts`. This file does NOT need editing per
+// new endpoint — Wave 2c branches each touch only their own domain directory,
+// which keeps them conflict-free.
+//
+// Wrap business handlers as `requireAuth(attachSupabaseClient(handler))` so
+// that — by the time they run — both `ctx.userId` and `ctx.supabase` are set.
+// `_health` is in the public allowlist (SPEC §7.1).
 
 import type {
   APIGatewayProxyEventV2,
@@ -19,10 +25,10 @@ import type {
 } from 'aws-lambda';
 import { ZodError } from 'zod';
 
-import { defineRouter, type RouteDef } from './router';
+import { defineRouter } from './router';
 import { ApiError, internalErrorBody } from './errors';
 import type { Handler, HttpMethod, RequestContext } from './context';
-import { healthHandler } from './handlers/_health';
+import { routes } from './handlers';
 import { getSupabaseFor } from './lib/supabase';
 
 // ---------------------------------------------------------------------------
@@ -50,20 +56,15 @@ export function attachSupabaseClient(inner: Handler): Handler {
 }
 
 // ---------------------------------------------------------------------------
-// Route table — only `_health` for now. Business endpoints land in their own
-// branches per docs/feature-breakdown.md, and should register as
-// `requireAuth(attachSupabaseClient(handler))` so that — by the time the
-// handler runs — `ctx.userId` and `ctx.supabase` are both populated.
+// Route registry.
 //
-// As a safety net the dispatcher also wraps every registered handler with
-// an outer `attachSupabaseClient`, so any future flow which sets
-// `accessToken` outside `requireAuth` still gets a client without the
-// route author having to remember.
+// `routes` is the concatenation of every domain's RouteDef[] (see
+// handlers/index.ts). The dispatcher wraps every registered handler with
+// `attachSupabaseClient` as a safety net, so any flow that has set
+// `ctx.accessToken` (i.e. anything past `requireAuth`) gets `ctx.supabase`
+// populated automatically. Public routes — currently just `_health` — see
+// no token, so the wrapper is a transparent no-op for them.
 // ---------------------------------------------------------------------------
-const routes: RouteDef[] = [
-  { method: 'GET', path: '/_health', handler: healthHandler },
-];
-
 const router = defineRouter(
   routes.map((r) => ({ ...r, handler: attachSupabaseClient(r.handler) })),
 );

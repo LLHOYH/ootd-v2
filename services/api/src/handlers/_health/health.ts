@@ -4,8 +4,8 @@
 // `SERVICE_VERSION` (commit sha or release tag); locally it falls back to
 // 'dev' via `config.serviceVersion`.
 
-import type { Handler } from '../context';
-import { config } from '../lib/config';
+import type { Handler } from '../../context';
+import { config } from '../../lib/config';
 
 export const healthHandler: Handler = async () => {
   return {
