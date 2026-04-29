@@ -1,10 +1,10 @@
 // Tool dispatcher for the seven Stella tools.
 //
 // For this branch the integrations are intentionally thin:
-//   - DDB-backed tools query the single table using the SPEC §6.1 patterns
-//     and return whatever items they find (or [] / null).
-//   - get_weather returns a TODO placeholder for Singapore conditions; the
-//     real weather provider lands in a follow-up branch.
+//   - Postgres-backed tools query Supabase directly with the service-role
+//     client and return whatever rows they find (or [] / null).
+//   - get_weather returns a placeholder for Singapore conditions; the real
+//     weather provider lands in a follow-up branch.
 //   - get_calendar_events returns [].
 //   - suggest_outfit echoes the structured payload.
 //
@@ -12,27 +12,18 @@
 // MockProvider — the LLM exercises every code path even though the data is
 // thin or empty.
 
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  GetCommand,
-  QueryCommand,
-} from '@aws-sdk/lib-dynamodb';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ToolName } from './tools';
 
 export interface ToolContext {
   userId: string;
   convoId: string;
-  tableName: string;
-  region: string;
-  doc?: DynamoDBDocumentClient;
-}
-
-function getDoc(ctx: ToolContext): DynamoDBDocumentClient {
-  return (
-    ctx.doc ??
-    DynamoDBDocumentClient.from(new DynamoDBClient({ region: ctx.region }))
-  );
+  /**
+   * Service-role Supabase client. Optional so that mock-mode smoke tests
+   * can run with no DB at all — the tools that need it will short-circuit
+   * to empty results when it's missing.
+   */
+  supabase?: SupabaseClient;
 }
 
 // ---------- Individual handlers ----------
@@ -41,24 +32,20 @@ async function getClosetItems(
   input: { category?: string; weatherTag?: string },
   ctx: ToolContext,
 ): Promise<unknown> {
-  const doc = getDoc(ctx);
-  const res = await doc.send(
-    new QueryCommand({
-      TableName: ctx.tableName,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': `USER#${ctx.userId}`,
-        ':sk': 'ITEM#',
-      },
-    }),
-  );
-  let items = (res.Items ?? []) as Array<Record<string, unknown>>;
+  if (!ctx.supabase) return { items: [] };
+  let query = ctx.supabase
+    .from('closet_items')
+    .select('*')
+    .eq('user_id', ctx.userId);
   if (input.category) {
-    items = items.filter((i) => i.category === input.category);
+    query = query.eq('category', input.category);
   }
+  const { data, error } = await query;
+  if (error) throw error;
+  let items = (data ?? []) as Array<Record<string, unknown>>;
   if (input.weatherTag) {
     items = items.filter((i) => {
-      const tags = i.weatherTags as string[] | undefined;
+      const tags = i.weather_tags as string[] | undefined;
       return Array.isArray(tags) && tags.includes(input.weatherTag!);
     });
   }
@@ -96,32 +83,27 @@ async function getUserProfile(
   _input: Record<string, never>,
   ctx: ToolContext,
 ): Promise<unknown> {
-  const doc = getDoc(ctx);
-  const res = await doc.send(
-    new GetCommand({
-      TableName: ctx.tableName,
-      Key: { PK: `USER#${ctx.userId}`, SK: 'PROFILE' },
-    }),
-  );
-  return { profile: res.Item ?? null };
+  if (!ctx.supabase) return { profile: null };
+  const { data, error } = await ctx.supabase
+    .from('users')
+    .select('*')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (error) throw error;
+  return { profile: data ?? null };
 }
 
 async function getCombinations(
   _input: Record<string, never>,
   ctx: ToolContext,
 ): Promise<unknown> {
-  const doc = getDoc(ctx);
-  const res = await doc.send(
-    new QueryCommand({
-      TableName: ctx.tableName,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': `USER#${ctx.userId}`,
-        ':sk': 'COMBO#',
-      },
-    }),
-  );
-  return { combinations: res.Items ?? [] };
+  if (!ctx.supabase) return { combinations: [] };
+  const { data, error } = await ctx.supabase
+    .from('combinations')
+    .select('*')
+    .eq('user_id', ctx.userId);
+  if (error) throw error;
+  return { combinations: data ?? [] };
 }
 
 async function getHangoutState(
@@ -131,17 +113,13 @@ async function getHangoutState(
   if (!input.hangoutId) {
     return { error: 'hangoutId is required' };
   }
-  const doc = getDoc(ctx);
-  const res = await doc.send(
-    new QueryCommand({
-      TableName: ctx.tableName,
-      KeyConditionExpression: 'PK = :pk',
-      ExpressionAttributeValues: {
-        ':pk': `HANGOUT#${input.hangoutId}`,
-      },
-    }),
-  );
-  return { items: res.Items ?? [] };
+  if (!ctx.supabase) return { items: [] };
+  const { data, error } = await ctx.supabase
+    .from('hangouts')
+    .select('*')
+    .eq('hangout_id', input.hangoutId);
+  if (error) throw error;
+  return { items: data ?? [] };
 }
 
 async function suggestOutfit(

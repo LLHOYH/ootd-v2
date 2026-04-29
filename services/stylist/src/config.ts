@@ -1,19 +1,29 @@
-// Environment configuration for the Stella Lambda.
-// Required: TABLE_NAME, REGION. Optional: ANTHROPIC_API_KEY, STELLA_LLM_MODE.
+// Environment configuration for the Stella HTTP service.
 //
-// We throw early on missing required vars so the Lambda cold-start fails loudly
-// rather than producing a half-initialized agent. The factory consults the
-// optional vars to decide whether to instantiate Anthropic or fall back to
-// MockProvider.
+// Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET.
+// Optional: ANTHROPIC_API_KEY, STELLA_LLM_MODE, LOG_LEVEL.
+//
+// We throw early on missing required vars so the service fails to boot rather
+// than serving requests with a half-initialised agent. The factory consults
+// the optional vars to decide whether to instantiate Anthropic or fall back
+// to MockProvider.
+//
+// PORT is read in src/index.ts (transport-layer concern, not config).
 
 export type StellaLlmMode = 'real' | 'mock';
 
-export interface StellaConfig {
-  tableName: string;
-  region: string;
+export interface StylistConfig {
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  supabaseJwtSecret: string;
   anthropicApiKey?: string;
   llmMode: StellaLlmMode;
+  logLevel?: string;
 }
+
+// Back-compat alias — earlier code imported `StellaConfig`. Both names refer
+// to the same shape.
+export type StellaConfig = StylistConfig;
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -23,11 +33,13 @@ function requireEnv(name: string): string {
   return v;
 }
 
-export function loadConfig(): StellaConfig {
-  const tableName = requireEnv('TABLE_NAME');
-  const region = requireEnv('REGION');
+export function loadConfig(): StylistConfig {
+  const supabaseUrl = requireEnv('SUPABASE_URL');
+  const supabaseServiceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseJwtSecret = requireEnv('SUPABASE_JWT_SECRET');
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
   const rawMode = process.env.STELLA_LLM_MODE;
+  const logLevel = process.env.LOG_LEVEL;
 
   let llmMode: StellaLlmMode;
   if (rawMode === 'mock') {
@@ -41,9 +53,11 @@ export function loadConfig(): StellaConfig {
   }
 
   return {
-    tableName,
-    region,
+    supabaseUrl,
+    supabaseServiceRoleKey,
+    supabaseJwtSecret,
     anthropicApiKey,
     llmMode,
+    logLevel,
   };
 }

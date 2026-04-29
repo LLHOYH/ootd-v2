@@ -7,7 +7,7 @@
     "lib": ["ES2022"],
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node", "aws-lambda"],
+    "types": ["node"],
     "noEmit": false,
     "declaration": false
   },
