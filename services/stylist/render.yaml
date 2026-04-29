@@ -1,0 +1,32 @@
+# Render service definition for the Stella stylist.
+#
+# Committed for reproducibility, but Render only consumes this once the repo
+# is connected via the dashboard (this branch ships the config; wiring lives
+# in a follow-up). All secret-bearing env vars use `sync: false`, meaning
+# they must be set in the dashboard before deploy — nothing committed here
+# can leak credentials.
+#
+# Region: `singapore` is the closest Render region to current SG users.
+# Revisit when Tokyo lands on Render or when latency from JP becomes the
+# bottleneck.
+
+services:
+  - type: web
+    name: mei-stylist
+    runtime: docker
+    plan: starter
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: STELLA_LLM_MODE
+        value: real
+      - key: LOG_LEVEL
+        value: info

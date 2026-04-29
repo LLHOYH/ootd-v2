@@ -17,7 +17,7 @@ import { TOOLS } from './tools';
 import { executeTool, type ToolContext } from './toolHandlers';
 import {
   summarizeAndTruncate,
-  type ConversationStore,
+  type IConversationStore,
 } from '../store/conversationStore';
 import { costTracker, estimateCostUsd } from '../cost/tracker';
 
@@ -26,7 +26,7 @@ export interface RunStellaInput {
   convoId: string;
   userText: string;
   provider: LLMProvider;
-  store: ConversationStore;
+  store: IConversationStore;
   toolCtx: ToolContext;
   /** Cap the number of tool-use rounds to defend against runaway loops. */
   maxToolRounds?: number;

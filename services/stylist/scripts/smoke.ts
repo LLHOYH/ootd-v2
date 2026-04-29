@@ -1,20 +1,43 @@
 // Local smoke driver. Runs `runStella` against MockProvider with an
-// in-memory conversation store stand-in, printing the SSE event stream.
+// in-memory conversation store, printing the SSE event stream.
 //
-// No DDB, no API key. Exits 0 on success.
+// No DB, no API key. Exits 0 on success.
+//
+// The in-memory store implements `IConversationStore` directly. Tools that
+// would normally hit Supabase short-circuit to empty results because we
+// don't pass a `supabase` client through the tool context.
 
+import type { StellaConversation } from '@mei/types';
 import { MockProvider } from '../src/llm/mock';
 import { runStella } from '../src/agent/runStella';
-import type { StoredStellaMessage } from '../src/store/conversationStore';
+import type {
+  IConversationStore,
+  StoredStellaMessage,
+} from '../src/store/conversationStore';
 import type { ToolContext } from '../src/agent/toolHandlers';
 
-class InMemoryStore {
+class InMemoryStore implements IConversationStore {
+  private readonly convos = new Map<string, StellaConversation>();
   private readonly rows: StoredStellaMessage[] = [];
   private counter = 0;
 
+  async getConversation(
+    _userId: string,
+    convoId: string,
+  ): Promise<StellaConversation | null> {
+    return this.convos.get(convoId) ?? null;
+  }
+
+  async createConversation(
+    convo: StellaConversation,
+  ): Promise<StellaConversation> {
+    this.convos.set(convo.convoId, convo);
+    return convo;
+  }
+
   async appendMessage(
     convoId: string,
-    msg: Omit<StoredStellaMessage, 'messageId' | 'createdAt'> &
+    msg: Omit<StoredStellaMessage, 'messageId' | 'createdAt' | 'convoId'> &
       Partial<Pick<StoredStellaMessage, 'messageId' | 'createdAt'>>,
   ): Promise<StoredStellaMessage> {
     this.counter += 1;
@@ -37,35 +60,16 @@ class InMemoryStore {
   }
 }
 
-// In-memory tool ctx: the dispatcher will reach for DDB, so we monkey-patch
-// `executeTool` via a fake doc that short-circuits the queries. To keep the
-// smoke test self-contained we override the tool context with a doc client
-// stub that returns canned responses.
-const fakeDoc = {
-  send: async (cmd: { input: Record<string, unknown> }) => {
-    const { TableName: _tn, KeyConditionExpression: kce } =
-      cmd.input as { TableName: string; KeyConditionExpression?: string };
-    if (kce && kce.includes('begins_with(SK, :sk)')) {
-      return { Items: [] };
-    }
-    return { Item: null };
-  },
-} as unknown as ToolContext['doc'];
-
 async function main(): Promise<void> {
-  const store = new InMemoryStore() as unknown as {
-    appendMessage: InMemoryStore['appendMessage'];
-    listMessages: InMemoryStore['listMessages'];
-  };
-
+  const store = new InMemoryStore();
   const provider = new MockProvider();
 
+  // No `supabase` — tool handlers see `ctx.supabase === undefined` and
+  // return empty results. That's fine for the mock-provider smoke test:
+  // the LLM still exercises every tool branch.
   const toolCtx: ToolContext = {
     userId: 'user_test',
     convoId: 'convo_test',
-    tableName: 'mei-main',
-    region: 'us-east-1',
-    doc: fakeDoc,
   };
 
   console.log('--- Stella smoke test (mock provider) ---');
@@ -74,8 +78,7 @@ async function main(): Promise<void> {
     convoId: 'convo_test',
     userText: 'morning! what should I wear?',
     provider,
-    // The store interface used by runStella is structurally compatible.
-    store: store as never,
+    store,
     toolCtx,
   })) {
     console.log(JSON.stringify(ev));
