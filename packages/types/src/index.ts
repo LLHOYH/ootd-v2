@@ -8,6 +8,27 @@
 export * from './entities.js';
 export * from './contracts/index.js';
 
+export type { Database } from './db.js';
+// Convenience aliases for row types. After regen, callers import like:
+//   import type { Tables } from '@mei/types';
+//   type User = Tables<'users'>;
+//
+// While `db.ts` is the placeholder (`Database = unknown`), the constraint
+// below resolves to `keyof never` and these helpers always evaluate to
+// `never`. That's intentional — once the parent agent regenerates, the
+// `Database` type becomes the real shape and the helpers snap into place
+// without any source change here.
+import type { Database } from './db.js';
+
+type DbTables = Database extends { public: { Tables: infer T } } ? T : never;
+
+export type Tables<T extends keyof DbTables> =
+  DbTables[T] extends { Row: infer R } ? R : never;
+export type TablesInsert<T extends keyof DbTables> =
+  DbTables[T] extends { Insert: infer I } ? I : never;
+export type TablesUpdate<T extends keyof DbTables> =
+  DbTables[T] extends { Update: infer U } ? U : never;
+
 export type ClothingCategory =
   | 'DRESS' | 'TOP' | 'BOTTOM' | 'OUTERWEAR'
   | 'SHOE' | 'BAG' | 'ACCESSORY';
