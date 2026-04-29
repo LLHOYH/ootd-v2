@@ -27,10 +27,15 @@ values
 on conflict (id) do nothing;
 
 ------------------------------------------------------------------------------
--- 2. Enable RLS on storage.objects (Supabase enables by default — explicit).
+-- 2. RLS on storage.objects.
+--
+-- Supabase enables RLS on storage.objects by default and the table is owned
+-- by the `supabase_storage_admin` role, so an `ALTER TABLE … ENABLE RLS`
+-- here would error with `must be owner of table objects` when migrations
+-- run as the regular postgres role. Comment kept for traceability.
 ------------------------------------------------------------------------------
 
-alter table storage.objects enable row level security;
+-- alter table storage.objects enable row level security;  -- already enforced
 
 ------------------------------------------------------------------------------
 -- 3. closet-raw — owner-only SELECT/INSERT/DELETE.

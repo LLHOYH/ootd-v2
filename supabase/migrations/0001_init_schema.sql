@@ -293,6 +293,68 @@ $$;
 revoke all on function public.get_friends(uuid) from public;
 grant execute on function public.get_friends(uuid) to authenticated, service_role;
 
+-- 4.3 is_hangout_member(uid, hid) — membership check used by RLS policies.
+-- SECURITY DEFINER so the inner read of public.hangout_members runs as the
+-- function owner and is NOT re-evaluated by the same policy that calls this
+-- helper. Without it, any policy that reads hangout_members from inside a
+-- USING clause attached to hangout_members triggers infinite recursion.
+create or replace function public.is_hangout_member(p_user_id uuid, p_hangout_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.hangout_members m
+    where m.hangout_id = p_hangout_id and m.user_id = p_user_id
+  );
+$$;
+
+revoke all on function public.is_hangout_member(uuid, uuid) from public;
+grant execute on function public.is_hangout_member(uuid, uuid) to authenticated, service_role;
+
+-- 4.4 user_in_any_hangout(uid, hids[]) — same idea but for the GROUP
+-- visibility check on OOTDs, where visibility_targets is a uuid[] of hangout_ids.
+create or replace function public.user_in_any_hangout(p_user_id uuid, p_hangout_ids uuid[])
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.hangout_members m
+    where m.user_id = p_user_id
+      and m.hangout_id = any(p_hangout_ids)
+  );
+$$;
+
+revoke all on function public.user_in_any_hangout(uuid, uuid[]) from public;
+grant execute on function public.user_in_any_hangout(uuid, uuid[]) to authenticated, service_role;
+
+-- 4.5 combo_shared_in_user_hangout(uid, combo_id) — used by the combinations
+-- visibility policy: a combo is visible if it was shared into a hangout the
+-- requester is also a member of.
+create or replace function public.combo_shared_in_user_hangout(p_user_id uuid, p_combo_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.hangout_members m_share
+    join public.hangout_members m_self on m_self.hangout_id = m_share.hangout_id
+    where m_share.shared_combo_id = p_combo_id
+      and m_self.user_id = p_user_id
+  );
+$$;
+
+revoke all on function public.combo_shared_in_user_hangout(uuid, uuid) from public;
+grant execute on function public.combo_shared_in_user_hangout(uuid, uuid) to authenticated, service_role;
+
 -- 4.3 ootd_visibility_rank — used by the narrow-only trigger. Lower = more
 -- public; transitions are only allowed in the increasing direction.
 create or replace function public.ootd_visibility_rank(v public.ootd_visibility)

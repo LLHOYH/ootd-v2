@@ -98,11 +98,7 @@ create policy closet_items_via_ootd
           )
           or (
             p.visibility = 'GROUP'
-            and exists (
-              select 1 from public.hangout_members m
-              where m.user_id = auth.uid()
-                and m.hangout_id = any(p.visibility_targets)
-            )
+            and public.user_in_any_hangout(auth.uid(), p.visibility_targets)
           )
           or (
             p.visibility = 'DIRECT'
@@ -139,21 +135,12 @@ create policy combinations_via_ootd
         and (
           p.user_id = auth.uid()
           or (p.visibility in ('PUBLIC','FRIENDS') and public.is_friend(auth.uid(), p.user_id))
-          or (p.visibility = 'GROUP' and exists (
-                select 1 from public.hangout_members m
-                where m.user_id = auth.uid() and m.hangout_id = any(p.visibility_targets)))
+          or (p.visibility = 'GROUP' and public.user_in_any_hangout(auth.uid(), p.visibility_targets))
           or (p.visibility = 'DIRECT' and auth.uid() = any(p.visibility_targets))
         )
     )
     -- Or this combo was shared into a hangout the requester is in.
-    or exists (
-      select 1 from public.hangout_members m
-      where m.shared_combo_id = combinations.combo_id
-        and exists (
-          select 1 from public.hangout_members me
-          where me.hangout_id = m.hangout_id and me.user_id = auth.uid()
-        )
-    )
+    or public.combo_shared_in_user_hangout(auth.uid(), combinations.combo_id)
   );
 
 -- combination_items inherits combo visibility for SELECT; mutation is
@@ -262,10 +249,7 @@ create policy ootd_posts_visibility
   using (
     user_id = auth.uid()
     or (visibility in ('PUBLIC','FRIENDS') and public.is_friend(auth.uid(), user_id))
-    or (visibility = 'GROUP' and exists (
-          select 1 from public.hangout_members m
-          where m.user_id = auth.uid()
-            and m.hangout_id = any(visibility_targets)))
+    or (visibility = 'GROUP' and public.user_in_any_hangout(auth.uid(), visibility_targets))
     or (visibility = 'DIRECT' and auth.uid() = any(visibility_targets))
   );
 
@@ -334,10 +318,7 @@ create policy hangouts_visible_to_members
   to authenticated
   using (
     auth.uid() = owner_id
-    or exists (
-      select 1 from public.hangout_members m
-      where m.hangout_id = hangouts.hangout_id and m.user_id = auth.uid()
-    )
+    or public.is_hangout_member(auth.uid(), hangout_id)
   );
 
 -- Owner can update/delete the hangout. Auto-expiry runs as service_role via
@@ -368,10 +349,7 @@ create policy hangout_members_visible_to_members
   to authenticated
   using (
     auth.uid() = user_id
-    or exists (
-      select 1 from public.hangout_members m
-      where m.hangout_id = hangout_members.hangout_id and m.user_id = auth.uid()
-    )
+    or public.is_hangout_member(auth.uid(), hangout_id)
   );
 
 -- Owner can invite (insert) members; users can join themselves (self-row insert).
