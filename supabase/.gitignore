@@ -1,0 +1,4 @@
+# Supabase CLI local-dev artefacts. Generated when running `supabase start`
+# or `supabase db reset` against the local Docker stack.
+.branches/
+.temp/
