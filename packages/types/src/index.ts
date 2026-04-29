@@ -7,6 +7,7 @@
 
 export * from './entities.js';
 export * from './contracts/index.js';
+export * from './storage.js';
 
 export type { Database } from './db.js';
 // Convenience aliases for row types. After regen, callers import like:
