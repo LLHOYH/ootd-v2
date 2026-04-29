@@ -10,10 +10,6 @@
     "local": "tsx src/local/invoke.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.658.0",
-    "@aws-sdk/lib-dynamodb": "^3.658.0",
-    "@aws-sdk/client-s3": "^3.658.0",
-    "@aws-sdk/s3-request-presigner": "^3.658.0",
     "@mei/types": "workspace:*",
     "@supabase/supabase-js": "^2.45.4",
     "jose": "^5.9.6",
