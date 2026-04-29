@@ -4,6 +4,8 @@
 // Keep this minimal: anything route-specific (validated body, userId after
 // auth) is added by middleware.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export type HttpMethod =
   | 'GET'
   | 'POST'
@@ -30,6 +32,11 @@ export interface RequestContext {
   /** Raw bearer token after `requireAuth`. Used by handlers that need a
    *  per-request RLS-scoped Supabase client (see `lib/supabase.ts`). */
   accessToken?: string;
+  /** Per-request Supabase client minted from `accessToken`. Attached by the
+   *  dispatcher in `index.ts` after `requireAuth` runs, so RLS evaluates
+   *  `auth.uid()` against the caller's JWT. Undefined on unauthenticated
+   *  routes (e.g. `/_health`). */
+  supabase?: SupabaseClient;
   /** AWS region. */
   region: string;
 }

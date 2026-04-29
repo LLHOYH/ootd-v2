@@ -21,18 +21,52 @@ import { ZodError } from 'zod';
 
 import { defineRouter, type RouteDef } from './router';
 import { ApiError, internalErrorBody } from './errors';
-import type { HttpMethod, RequestContext } from './context';
+import type { Handler, HttpMethod, RequestContext } from './context';
 import { healthHandler } from './handlers/_health';
+import { getSupabaseFor } from './lib/supabase';
+
+// ---------------------------------------------------------------------------
+// Per-request Supabase client attachment.
+//
+// `requireAuth` (middleware/auth.ts) verifies the JWT and copies the bearer
+// token onto `ctx.accessToken`. Once that's set, every authenticated business
+// handler wants a Supabase client whose RLS evaluates `auth.uid()` against
+// the caller's JWT — i.e. `getSupabaseFor(ctx.accessToken)`.
+//
+// Rather than make every handler remember to mint that client, the
+// dispatcher wraps each registered handler with `attachSupabaseClient`. The
+// wrapper composes INSIDE `requireAuth` (`requireAuth(attachSupabaseClient(h))`)
+// so it sees the post-auth ctx with `accessToken` populated, mints the
+// client, and forwards. For unauthenticated routes (no `accessToken`),
+// it's a transparent no-op and `ctx.supabase` stays `undefined`.
+// ---------------------------------------------------------------------------
+export function attachSupabaseClient(inner: Handler): Handler {
+  return async (ctx: RequestContext) => {
+    if (ctx.accessToken && !ctx.supabase) {
+      ctx.supabase = getSupabaseFor(ctx.accessToken);
+    }
+    return inner(ctx);
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Route table — only `_health` for now. Business endpoints land in their own
-// branches per docs/feature-breakdown.md.
+// branches per docs/feature-breakdown.md, and should register as
+// `requireAuth(attachSupabaseClient(handler))` so that — by the time the
+// handler runs — `ctx.userId` and `ctx.supabase` are both populated.
+//
+// As a safety net the dispatcher also wraps every registered handler with
+// an outer `attachSupabaseClient`, so any future flow which sets
+// `accessToken` outside `requireAuth` still gets a client without the
+// route author having to remember.
 // ---------------------------------------------------------------------------
 const routes: RouteDef[] = [
   { method: 'GET', path: '/_health', handler: healthHandler },
 ];
 
-const router = defineRouter(routes);
+const router = defineRouter(
+  routes.map((r) => ({ ...r, handler: attachSupabaseClient(r.handler) })),
+);
 
 // ---------------------------------------------------------------------------
 // Helpers
