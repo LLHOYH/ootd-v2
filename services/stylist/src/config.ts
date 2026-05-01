@@ -1,7 +1,8 @@
 // Environment configuration for the Stella HTTP service.
 //
-// Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET.
-// Optional: ANTHROPIC_API_KEY, STELLA_LLM_MODE, LOG_LEVEL.
+// Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+// Optional: SUPABASE_JWT_SECRET (legacy HS256 fallback for older projects),
+//           ANTHROPIC_API_KEY, STELLA_LLM_MODE, LOG_LEVEL.
 //
 // We throw early on missing required vars so the service fails to boot rather
 // than serving requests with a half-initialised agent. The factory consults
@@ -15,7 +16,8 @@ export type StellaLlmMode = 'real' | 'mock';
 export interface StylistConfig {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
-  supabaseJwtSecret: string;
+  /** Legacy HS256 fallback. JWKS verification is the primary path. */
+  supabaseJwtSecret?: string;
   anthropicApiKey?: string;
   llmMode: StellaLlmMode;
   logLevel?: string;
@@ -36,7 +38,7 @@ function requireEnv(name: string): string {
 export function loadConfig(): StylistConfig {
   const supabaseUrl = requireEnv('SUPABASE_URL');
   const supabaseServiceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
-  const supabaseJwtSecret = requireEnv('SUPABASE_JWT_SECRET');
+  const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET;
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
   const rawMode = process.env.STELLA_LLM_MODE;
   const logLevel = process.env.LOG_LEVEL;
