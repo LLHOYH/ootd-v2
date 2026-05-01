@@ -1,14 +1,38 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Camera, Mic } from 'lucide-react-native';
+// Stella composer — pill input + send button.
+//
+// Was decorative-only in the mock build; now wired through `onSend`. The
+// mic + camera buttons stay decorative until voice + photo capture land.
+
+import { useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Camera, Send } from 'lucide-react-native';
 import { useTheme } from '@mei/ui';
 
-/**
- * Decorative composer — pill input + camera icon (left) + mic icon inside a
- * brand-pink circle (right). SPEC §10.5. Pressing send is a no-op until the
- * SSE wiring lands.
- */
-export function Composer() {
+export interface ComposerProps {
+  onSend: (text: string) => Promise<void> | void;
+  disabled?: boolean;
+}
+
+export function Composer({ onSend, disabled }: ComposerProps) {
   const theme = useTheme();
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const trimmed = value.trim();
+  const canSend = trimmed.length > 0 && !disabled && !busy;
+
+  const handleSend = async () => {
+    if (!canSend) return;
+    const text = trimmed;
+    setBusy(true);
+    setValue('');
+    try {
+      await onSend(text);
+    } catch {
+      setValue(text);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <View
@@ -32,34 +56,41 @@ export function Composer() {
         <Camera size={16} color={theme.color.text.secondary} strokeWidth={1.6} />
       </Pressable>
 
-      <Text
+      <TextInput
+        value={value}
+        onChangeText={setValue}
+        placeholder="Ask Stella anything…"
+        placeholderTextColor={theme.color.text.tertiary}
+        editable={!disabled}
+        onSubmitEditing={handleSend}
+        returnKeyType="send"
+        blurOnSubmit={false}
         style={[
-          styles.placeholder,
+          styles.input,
           {
-            color: theme.color.text.tertiary,
+            color: theme.color.text.primary,
             fontSize: theme.type.size.caption,
             fontWeight: theme.type.weight.regular as '400',
           },
         ]}
-        numberOfLines={1}
-      >
-        Ask Stella anything…
-      </Text>
+      />
 
       <Pressable
+        onPress={handleSend}
+        disabled={!canSend}
         accessibilityRole="button"
-        accessibilityLabel="Voice message"
+        accessibilityLabel="Send to Stella"
         hitSlop={8}
         style={({ pressed }) => [
-          styles.micBtn,
+          styles.sendBtn,
           {
-            backgroundColor: theme.color.brand,
+            backgroundColor: canSend ? theme.color.brand : theme.color.bg.tertiary,
             borderRadius: theme.radius.pill,
           },
           pressed && styles.pressed,
         ]}
       >
-        <Mic size={14} color="#FFFFFF" strokeWidth={1.6} />
+        <Send size={14} color={canSend ? '#FFFFFF' : theme.color.text.tertiary} strokeWidth={1.6} />
       </Pressable>
     </View>
   );
@@ -76,11 +107,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholder: {
+  input: {
     flex: 1,
+    padding: 0,
+    margin: 0,
     includeFontPadding: false,
   },
-  micBtn: {
+  sendBtn: {
     width: 28,
     height: 28,
     alignItems: 'center',

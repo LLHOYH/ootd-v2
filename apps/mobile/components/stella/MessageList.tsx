@@ -1,17 +1,22 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Bubble, useTheme } from '@mei/ui';
-import type { StellaMessage } from './mocks';
-import { OutfitSuggestionBubble } from './OutfitSuggestionBubble';
+import type { StellaUiMessage } from '@/lib/hooks/useStellaConversation';
 
 export interface MessageListProps {
-  messages: StellaMessage[];
+  messages: StellaUiMessage[];
+  /** Visible while Stella is mid-tool-call. e.g. "running list_closet…" */
+  assistantStatus?: string;
 }
 
 /**
- * Scrollable message list. Each message renders as a Bubble (text) or an
- * OutfitSuggestionBubble (embedded outfit card). SPEC §10.5.
+ * Scrollable Stella-conversation message list.
+ *
+ * For now we render text-only bubbles — outfit / closet / OOTD card bubbles
+ * land in feat/wire-stella-tools once we can resolve the referenced rows
+ * via the closet + ootd queries. Pending streaming-assistant rows show a
+ * subtle ▍ caret while waiting on more deltas.
  */
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, assistantStatus }: MessageListProps) {
   const theme = useTheme();
 
   return (
@@ -27,22 +32,25 @@ export function MessageList({ messages }: MessageListProps) {
       showsVerticalScrollIndicator={false}
     >
       {messages.map((msg) => {
-        if (msg.kind === 'outfit') {
-          return (
-            <View key={msg.id}>
-              <OutfitSuggestionBubble
-                caption={msg.caption}
-                combination={msg.combination}
-              />
-            </View>
-          );
-        }
+        const text = msg.text ?? '';
+        const isAssistant = msg.role === 'ASSISTANT';
+        const isStreamingEmpty = msg.pending && isAssistant && text.length === 0;
+        const display = isStreamingEmpty
+          ? '…'
+          : msg.pending && isAssistant
+            ? `${text}▍`
+            : text;
         return (
-          <Bubble key={msg.id} from={msg.from}>
-            {msg.text}
+          <Bubble key={msg.messageId} from={isAssistant ? 'ai' : 'user'}>
+            {display}
           </Bubble>
         );
       })}
+      {assistantStatus ? (
+        <View style={{ paddingHorizontal: theme.space.sm }}>
+          <Bubble from="ai">{assistantStatus}</Bubble>
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
