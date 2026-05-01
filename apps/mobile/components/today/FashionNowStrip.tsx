@@ -38,6 +38,9 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        // flexGrow: 0 — keeps the strip content-sized even when nested
+        // in a flex-column parent (defensive; see FilterChips comment).
+        style={{ flexGrow: 0 }}
         contentContainerStyle={{ gap: theme.space.sm, paddingRight: theme.space.lg }}
       >
         {items.map((item, i) => {
