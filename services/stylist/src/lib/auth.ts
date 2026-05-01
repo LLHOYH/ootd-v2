@@ -1,16 +1,17 @@
 // Bearer-token verification for the stylist HTTP service.
 //
-// Same shape as `services/api/src/middleware/auth.ts` — Supabase signs
-// access tokens with HS256 against the project's JWT secret. We verify
-// locally via `jose` rather than going out to a JWKS endpoint (HMAC, no
-// rotating public keys to fetch).
+// Supabase access tokens are now signed asymmetrically (ES256) by default
+// for new projects and verified against the project's JWKS at
+// `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`. Older projects still
+// using HS256 keep working: if `SUPABASE_JWT_SECRET` is set we attempt the
+// HMAC path as a fallback when JWKS verification rejects the algorithm.
 //
 // `requireBearer(req, cfg)` returns `{ userId, jwt }` on success, or throws
 // an `AuthError` (status 401) that the Fastify error handler translates
 // into a `{ error: { code, message } }` body per SPEC §7.1.
 
-import { jwtVerify } from 'jose';
-import type { JWTPayload } from 'jose';
+import { jwtVerify, createRemoteJWKSet } from 'jose';
+import type { JWTPayload, JWTVerifyGetKey } from 'jose';
 import type { FastifyRequest } from 'fastify';
 import type { StylistConfig } from '../config';
 
@@ -42,6 +43,17 @@ function secretBytes(secret: string): Uint8Array {
   return _secretBytes;
 }
 
+// Memoise the JWKS resolver — `jose` caches keys internally, but we still
+// want a single resolver per process to share the cache.
+let _jwks: JWTVerifyGetKey | undefined;
+function jwksFor(supabaseUrl: string): JWTVerifyGetKey {
+  if (!_jwks) {
+    const url = new URL(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`);
+    _jwks = createRemoteJWKSet(url);
+  }
+  return _jwks;
+}
+
 function extractBearer(req: FastifyRequest): string {
   const headers = req.headers;
   const raw =
@@ -71,14 +83,30 @@ export async function requireBearer(
   const token = extractBearer(req);
   let claims: SupabaseTokenClaims;
   try {
-    const { payload } = await jwtVerify(token, secretBytes(cfg.supabaseJwtSecret), {
+    // Primary: asymmetric verification via the project JWKS. Newer Supabase
+    // projects (kid-based ES256) all land here.
+    const { payload } = await jwtVerify(token, jwksFor(cfg.supabaseUrl), {
       audience: 'authenticated',
-      algorithms: ['HS256'],
+      algorithms: ['ES256', 'RS256', 'EdDSA'],
     });
     claims = payload as SupabaseTokenClaims;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Invalid token';
-    throw new AuthError('UNAUTHENTICATED', message);
+  } catch (jwksErr) {
+    // Fallback: legacy HS256 — only attempted when a JWT secret is configured.
+    if (cfg.supabaseJwtSecret && cfg.supabaseJwtSecret.length > 0) {
+      try {
+        const { payload } = await jwtVerify(token, secretBytes(cfg.supabaseJwtSecret), {
+          audience: 'authenticated',
+          algorithms: ['HS256'],
+        });
+        claims = payload as SupabaseTokenClaims;
+      } catch (hsErr) {
+        const message = hsErr instanceof Error ? hsErr.message : 'Invalid token';
+        throw new AuthError('UNAUTHENTICATED', message);
+      }
+    } else {
+      const message = jwksErr instanceof Error ? jwksErr.message : 'Invalid token';
+      throw new AuthError('UNAUTHENTICATED', message);
+    }
   }
   if (!claims.sub) {
     throw new AuthError('UNAUTHENTICATED', 'Token missing sub claim');
@@ -86,7 +114,8 @@ export async function requireBearer(
   return { userId: claims.sub, jwt: token };
 }
 
-/** Test seam — drop the memoised secret bytes. */
+/** Test seam — drop the memoised secret bytes + JWKS resolver. */
 export function __resetAuthForTests(): void {
   _secretBytes = undefined;
+  _jwks = undefined;
 }

@@ -4,14 +4,13 @@
 // SPEC §7.1: `Authorization: Bearer <Supabase access token>` on every route
 // except `/auth/*` and `/_health`.
 //
-// Supabase signs JWTs with HS256 against the project's JWT secret (config
-// SUPABASE_JWT_SECRET). We verify locally with `jose` instead of going out
-// to a JWKS endpoint — it's HMAC, not asymmetric, so there are no public
-// keys to rotate. A future migration to RS256 would add `createRemoteJWKSet`
-// here.
+// Supabase access tokens are signed asymmetrically (ES256) by default for new
+// projects and verified against the project's JWKS at
+// `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`. We keep an HS256 fallback
+// for legacy projects where `SUPABASE_JWT_SECRET` is the symmetric key.
 
-import { jwtVerify } from 'jose';
-import type { JWTPayload } from 'jose';
+import { jwtVerify, createRemoteJWKSet } from 'jose';
+import type { JWTPayload, JWTVerifyGetKey } from 'jose';
 
 import type { Handler, RequestContext } from '../context';
 import { ApiError } from '../errors';
@@ -33,11 +32,24 @@ function extractBearer(headers: Record<string, string>): string {
 // Memoise the encoded secret per warm container — TextEncoder().encode is
 // cheap but called on the hot path for every request, no point repeating.
 let _secretBytes: Uint8Array | undefined;
-function secretBytes(): Uint8Array {
+function secretBytes(secret: string): Uint8Array {
   if (!_secretBytes) {
-    _secretBytes = new TextEncoder().encode(config.supabaseJwtSecret);
+    _secretBytes = new TextEncoder().encode(secret);
   }
   return _secretBytes;
+}
+
+// Memoise the JWKS resolver too — `jose` caches the keys internally; this
+// just keeps the resolver itself singleton across the warm container.
+let _jwks: JWTVerifyGetKey | undefined;
+function jwksResolver(): JWTVerifyGetKey {
+  if (!_jwks) {
+    const url = new URL(
+      `${config.supabaseUrl.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`,
+    );
+    _jwks = createRemoteJWKSet(url);
+  }
+  return _jwks;
 }
 
 export interface SupabaseTokenClaims extends JWTPayload {
@@ -49,13 +61,26 @@ export interface SupabaseTokenClaims extends JWTPayload {
 
 async function verifyToken(token: string): Promise<SupabaseTokenClaims> {
   // `audience: 'authenticated'` rejects anon tokens — only signed-in users
-  // can call protected endpoints. `algorithms: ['HS256']` pins the algorithm
-  // so an attacker can't downgrade to `none`.
-  const { payload } = await jwtVerify(token, secretBytes(), {
-    audience: 'authenticated',
-    algorithms: ['HS256'],
-  });
-  return payload as SupabaseTokenClaims;
+  // can call protected endpoints. Algorithms pin the legal set so an
+  // attacker can't downgrade to `none`.
+  try {
+    // Primary path: asymmetric verification via the project's JWKS.
+    const { payload } = await jwtVerify(token, jwksResolver(), {
+      audience: 'authenticated',
+      algorithms: ['ES256', 'RS256', 'EdDSA'],
+    });
+    return payload as SupabaseTokenClaims;
+  } catch (jwksErr) {
+    // Fallback: legacy HS256. Only attempted if the project still exposes
+    // a shared secret — older Supabase projects, or self-hosted GoTrue.
+    const secret = process.env.SUPABASE_JWT_SECRET;
+    if (!secret) throw jwksErr;
+    const { payload } = await jwtVerify(token, secretBytes(secret), {
+      audience: 'authenticated',
+      algorithms: ['HS256'],
+    });
+    return payload as SupabaseTokenClaims;
+  }
 }
 
 /**
@@ -80,7 +105,8 @@ export function requireAuth(handler: Handler): Handler {
   };
 }
 
-/** Test seam — drop the memoised secret bytes. */
+/** Test seam — drop the memoised secret bytes + JWKS resolver. */
 export function __resetAuthForTests(): void {
   _secretBytes = undefined;
+  _jwks = undefined;
 }

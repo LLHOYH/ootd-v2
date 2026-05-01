@@ -54,10 +54,10 @@ export const config = {
   //   SUPABASE_SERVICE_ROLE_KEY service-role key — bypasses RLS. Used by
   //                             admin paths (image-worker, notifier, the
   //                             auth-trigger seed). Never log this.
-  //   SUPABASE_JWT_SECRET       HS256 signing secret. The auth middleware
-  //                             verifies user JWTs against this. Pull it from
-  //                             `supabase status` locally; from the dashboard
-  //                             "JWT Settings" panel on hosted.
+  //   SUPABASE_JWT_SECRET       Legacy HS256 signing secret — only present
+  //                             on older projects. New projects sign with
+  //                             ES256 and the auth middleware verifies via
+  //                             the JWKS endpoint instead. Optional.
   get supabaseUrl(): string {
     return required('SUPABASE_URL');
   },
@@ -67,8 +67,8 @@ export const config = {
   get supabaseServiceRoleKey(): string {
     return required('SUPABASE_SERVICE_ROLE_KEY');
   },
-  get supabaseJwtSecret(): string {
-    return required('SUPABASE_JWT_SECRET');
+  get supabaseJwtSecret(): string | undefined {
+    return optional('SUPABASE_JWT_SECRET');
   },
 
   /** Service version — surfaced in `/_health`. */
