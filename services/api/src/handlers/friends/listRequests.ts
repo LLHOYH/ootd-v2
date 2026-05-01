@@ -19,6 +19,7 @@ import type {
 } from '@mei/types';
 import { ApiError } from '../../errors';
 import { requireAuthCtx } from '../../lib/handlerCtx';
+import { getSupabaseAdmin } from '../../lib/supabase';
 import { mapFriendSummary, type UserSummaryRow } from './shared';
 
 type RequestRow = Tables<'friend_requests'>;
@@ -66,9 +67,19 @@ export const listRequestsHandler: Handler = async (ctx) => {
   for (const r of inbound) counterIds.add(r.from_user_id);
   for (const r of outbound) counterIds.add(r.to_user_id);
 
+  // Counterparties are loaded with the service-role client. The JWT-scoped
+  // client is gated by `users_select_visible`, which (correctly) hides
+  // non-friends with `discoverable=false`. But if A sends B a friend
+  // request, B has a legitimate need to see A's profile in the request row
+  // even though A may not be discoverable — otherwise the inbound list
+  // looks empty even when the rows exist. The set we enrich is bounded by
+  // request rows the caller is *already authorised to read* via
+  // friend_requests RLS, so this isn't a privilege escalation: it just
+  // surfaces the FriendSummary fields the caller already sees in the UI.
   const userById = new Map<string, UserSummaryRow>();
   if (counterIds.size > 0) {
-    const { data: users, error: usersErr } = await supabase
+    const admin = getSupabaseAdmin();
+    const { data: users, error: usersErr } = await admin
       .from('users')
       .select('user_id, username, display_name, avatar_url, city, country_code')
       .in('user_id', [...counterIds]);
@@ -83,9 +94,9 @@ export const listRequestsHandler: Handler = async (ctx) => {
   function withUser(row: RequestRow, otherId: string): FriendRequestWithUser | null {
     const u = userById.get(otherId);
     if (!u) {
-      // RLS may hide a user we're allowed to see the request for (e.g.
-      // a user who later toggled discoverable=false but is not yet a
-      // friend). Drop the row from the response rather than 500ing.
+      // The counterparty's row was deleted between request creation and
+      // this query (cascade from auth.users). Drop the row rather than
+      // 500ing; the request itself is now stale.
       return null;
     }
     return { ...mapBareRequest(row), user: mapFriendSummary(u) };
