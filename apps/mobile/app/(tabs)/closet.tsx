@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -19,19 +20,55 @@ import {
 import { ItemGrid } from '@/components/closet/ItemGrid';
 import { CombinationsGrid } from '@/components/closet/CombinationsGrid';
 import { Fab } from '@/components/closet/Fab';
+import { UploadSheet } from '@/components/closet/UploadSheet';
+import {
+  pickFromCamera,
+  pickFromLibrary,
+  uploadClosetItem,
+} from '@/lib/api/closetUpload';
 import { useCloset } from '@/lib/hooks/useCloset';
 
 /**
  * Closet — SPEC §10.2.
  *
  * Read-only against the live api Lambda. Filter chips narrow what the
- * grid renders client-side; the FAB stays decorative until
- * feat/wire-closet-upload (Wave 2d) wires camera → storage → image-worker.
+ * grid renders client-side; the FAB opens the upload sheet (camera /
+ * gallery) and routes the result through the api Lambda + image-worker
+ * pipeline (Wave 2d).
  */
 export default function ClosetScreen() {
   const theme = useTheme();
   const { state, refetch } = useCloset();
   const [filter, setFilter] = useState<FilterKey>('ALL');
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Common path for camera + gallery: pick → upload → close sheet → refetch.
+  const handlePick = useCallback(
+    async (source: 'camera' | 'library') => {
+      setSheetOpen(false);
+      try {
+        setUploading(true);
+        const photo =
+          source === 'camera'
+            ? await pickFromCamera()
+            : await pickFromLibrary();
+        if (!photo) return; // user cancelled
+        await uploadClosetItem(photo);
+        // Re-fetch — the row will be visible (PROCESSING) immediately, and
+        // (locally) flips to READY almost instantly when the dev-mode
+        // worker fire succeeds. Production: the row stays PROCESSING
+        // until the storage trigger / pg_net hits the worker.
+        await refetch();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Upload failed';
+        Alert.alert('Upload failed', msg);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [refetch],
+  );
 
   // ---- Loading: first paint -------------------------------------------------
   if (state.status === 'loading' || state.status === 'idle') {
@@ -96,7 +133,8 @@ export default function ClosetScreen() {
     // Opens Craft a look — wired in feat/wire-closet-edit.
   };
   const handleFabPress = () => {
-    // Bulk upload picker — wired in feat/wire-closet-upload.
+    if (uploading) return;
+    setSheetOpen(true);
   };
 
   return (
@@ -143,6 +181,41 @@ export default function ClosetScreen() {
       </View>
 
       <Fab onPress={handleFabPress} />
+
+      {uploading ? (
+        <View
+          style={[
+            styles.uploadingBanner,
+            {
+              backgroundColor: theme.color.bg.secondary,
+              borderRadius: theme.radius.pill,
+              paddingHorizontal: theme.space.md,
+              paddingVertical: 10,
+              gap: theme.space.sm,
+              right: theme.space.lg,
+              bottom: theme.space.lg + 56 + theme.space.sm,
+            },
+          ]}
+        >
+          <ActivityIndicator color={theme.color.brand} />
+          <Text
+            style={{
+              color: theme.color.text.primary,
+              fontSize: theme.type.size.tiny,
+              fontWeight: theme.type.weight.regular as '400',
+            }}
+          >
+            Uploading…
+          </Text>
+        </View>
+      ) : null}
+
+      <UploadSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onPickCamera={() => void handlePick('camera')}
+        onPickLibrary={() => void handlePick('library')}
+      />
     </Screen>
   );
 }
@@ -158,5 +231,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  uploadingBanner: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
