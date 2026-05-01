@@ -519,6 +519,41 @@ export type Database = {
           },
         ]
       }
+      push_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          last_seen_at: string
+          platform: Database["public"]["Enums"]["push_platform"]
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          platform: Database["public"]["Enums"]["push_platform"]
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          platform?: Database["public"]["Enums"]["push_platform"]
+          token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       selfies: {
         Row: {
           selfie_id: string
@@ -743,6 +778,7 @@ export type Database = {
         | "WORKOUT"
         | "BEACH"
       ootd_visibility: "PUBLIC" | "FRIENDS" | "GROUP" | "DIRECT"
+      push_platform: "ios" | "android" | "web"
       stella_message_role: "USER" | "ASSISTANT"
       weather_tag: "HOT" | "WARM" | "MILD" | "COLD" | "RAIN"
     }
@@ -1452,6 +1488,7 @@ export const Constants = {
         "BEACH",
       ],
       ootd_visibility: ["PUBLIC", "FRIENDS", "GROUP", "DIRECT"],
+      push_platform: ["ios", "android", "web"],
       stella_message_role: ["USER", "ASSISTANT"],
       weather_tag: ["HOT", "WARM", "MILD", "COLD", "RAIN"],
     },
