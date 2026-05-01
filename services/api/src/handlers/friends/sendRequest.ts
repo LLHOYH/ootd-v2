@@ -74,12 +74,14 @@ export const sendRequestHandler: Handler = async (ctx) => {
     );
   }
 
-  // 4. Idempotent insert. PK = (from_user_id, to_user_id), so a
-  //    re-send by the same caller hits the existing row. We use upsert
-  //    with ignoreDuplicates so we always end up with one row and an
-  //    explicit status='PENDING' on first send. Re-send while the row
-  //    is in DECLINED/CANCELLED won't reopen it — that's intentional;
-  //    the recipient should explicitly retry from their side.
+  // 4. Upsert into PENDING. PK is (from_user_id, to_user_id), so a re-send
+  //    by the same caller targets the existing row. We deliberately allow
+  //    re-opening a CANCELLED or DECLINED row back to PENDING: cancel /
+  //    decline are state on a single request, not a permanent block.
+  //    ALREADY_FRIENDS / INVERSE_REQUEST_EXISTS are checked above and
+  //    short-circuit before reaching this branch. The PK guarantees
+  //    one row per (from, to); the upsert is a no-op against a row
+  //    already in PENDING with the same content.
   const { data: upserted, error: upsertErr } = await supabase
     .from('friend_requests')
     .upsert(
@@ -88,7 +90,7 @@ export const sendRequestHandler: Handler = async (ctx) => {
         to_user_id: toUserId,
         status: 'PENDING',
       },
-      { onConflict: 'from_user_id,to_user_id', ignoreDuplicates: true },
+      { onConflict: 'from_user_id,to_user_id' },
     )
     .select('from_user_id, to_user_id, status, created_at')
     .maybeSingle();
@@ -96,23 +98,9 @@ export const sendRequestHandler: Handler = async (ctx) => {
     throw new ApiError(500, 'DB_ERROR', `Failed to send request: ${upsertErr.message}`);
   }
 
-  // ignoreDuplicates → the upsert returns no row when a row already
-  // existed. Re-fetch so the response always echoes the row.
-  let row = upserted as
+  const row = upserted as
     | { from_user_id: string; to_user_id: string; status: string; created_at: string }
     | null;
-  if (!row) {
-    const { data: existing, error: exErr } = await supabase
-      .from('friend_requests')
-      .select('from_user_id, to_user_id, status, created_at')
-      .eq('from_user_id', userId)
-      .eq('to_user_id', toUserId)
-      .maybeSingle();
-    if (exErr) {
-      throw new ApiError(500, 'DB_ERROR', `Failed to load request: ${exErr.message}`);
-    }
-    row = existing as typeof row;
-  }
   if (!row) {
     throw new ApiError(500, 'DB_ERROR', 'Failed to persist friend request');
   }
