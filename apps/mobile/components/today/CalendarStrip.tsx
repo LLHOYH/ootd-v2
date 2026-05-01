@@ -1,14 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CalendarDays } from 'lucide-react-native';
 import { Card, useTheme } from '@mei/ui';
-import type { MockEvent } from './mocks';
+import type { TodayEventCard } from './types';
 
 export interface CalendarStripProps {
-  events: MockEvent[];
-  onEventPress?: (event: MockEvent) => void;
+  events: TodayEventCard[];
+  onEventPress?: (event: TodayEventCard) => void;
 }
 
-const OCCASION_LABEL: Record<MockEvent['occasion'], string> = {
+const OCCASION_LABEL: Record<TodayEventCard['occasion'], string> = {
   CASUAL: 'casual',
   WORK: 'work',
   DATE: 'date night',

@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "local": "tsx src/local/invoke.ts"
+    "local": "tsx src/local/invoke.ts",
+    "serve": "tsx src/local/serve.ts"
   },
   "dependencies": {
     "@mei/types": "workspace:*",

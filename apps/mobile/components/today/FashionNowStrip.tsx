@@ -1,10 +1,10 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TrendingUp } from 'lucide-react-native';
 import { SectionHeader, useTheme } from '@mei/ui';
-import type { MockFashionItem } from './mocks';
+import type { TodayFashionItem } from './types';
 
 export interface FashionNowStripProps {
-  items: MockFashionItem[];
+  items: TodayFashionItem[];
 }
 
 const PALETTE_KEYS = ['mauve', 'tan', 'cream', 'sage', 'blue'] as const;
