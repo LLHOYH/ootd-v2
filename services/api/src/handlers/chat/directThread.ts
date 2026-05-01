@@ -20,6 +20,7 @@ import type { Handler } from '../../context';
 import { ApiError } from '../../errors';
 import { requireAuthCtx } from '../../lib/handlerCtx';
 import { validate } from '../../middleware/validate';
+import { getSupabaseAdmin } from '../../lib/supabase';
 
 type ThreadRow = Tables<'chat_threads'>;
 type ParticipantRow = Tables<'chat_thread_participants'>;
@@ -105,11 +106,21 @@ export const directThreadHandler: Handler = async (ctx) => {
     }
   }
 
-  // Create the thread + two participant rows. Two queries; if the
-  // participant insert fails the thread row stays as a stranded shell
-  // — acceptable for now; a follow-up Postgres function with an
-  // explicit transaction is the cleaner long-term fix.
-  const { data: newThread, error: createErr } = await supabase
+  // Create the thread + two participant rows via the service-role client.
+  // RLS on `chat_threads` requires the caller to be a participant before
+  // the row is visible (chat_threads_visible_to_participants), which means
+  // INSERT...RETURNING via the JWT-scoped client fails with 42501 on the
+  // post-insert SELECT — the participant row doesn't exist yet, so the
+  // newly inserted thread row is invisible to its own creator. Doing the
+  // pair as service-role avoids that chicken-and-egg, and the reachability
+  // gate above already enforced that the caller is allowed to DM the
+  // target.
+  //
+  // Two queries; if the participant insert fails the thread stays as a
+  // stranded shell — acceptable for now. A Postgres function with a real
+  // transaction is the cleaner long-term fix.
+  const admin = getSupabaseAdmin();
+  const { data: newThread, error: createErr } = await admin
     .from('chat_threads')
     .insert({ type: 'DIRECT' })
     .select('thread_id, type, hangout_id, name, last_message_at, created_at')
@@ -123,7 +134,7 @@ export const directThreadHandler: Handler = async (ctx) => {
   }
   const threadRow = newThread as ThreadRow;
 
-  const { error: partErr } = await supabase
+  const { error: partErr } = await admin
     .from('chat_thread_participants')
     .insert([
       { thread_id: threadRow.thread_id, user_id: userId, unread_count: 0 },

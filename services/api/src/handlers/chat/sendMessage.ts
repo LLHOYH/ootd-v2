@@ -18,6 +18,7 @@ import { SendChatMessageBody } from '@mei/types';
 import type { Handler } from '../../context';
 import { ApiError } from '../../errors';
 import { requireAuthCtx } from '../../lib/handlerCtx';
+import { getSupabaseAdmin } from '../../lib/supabase';
 import { validate } from '../../middleware/validate';
 
 type MessageRow = Tables<'chat_messages'>;
@@ -88,16 +89,20 @@ export const sendMessageHandler: Handler = async (ctx) => {
     );
   }
 
-  // 3. Bump unread_count for everyone else on the thread. Best-effort —
-  //    a transient failure here doesn't unwind the message insert (the
-  //    follow-up Postgres-trigger improvement noted at the top of this
-  //    file removes that asymmetry).
+  // 3. Bump unread_count for everyone else on the thread. Service-role,
+  //    because the participants RLS update policy
+  //    (`chat_thread_participants_update_self`) only allows a caller to
+  //    update their own participant row — bumping the *other* user's
+  //    counter via the JWT-scoped client silently no-ops. Best-effort —
+  //    a transient failure here doesn't unwind the message insert (a
+  //    follow-up Postgres trigger removes the asymmetry).
   //
   //    Postgrest doesn't support `unread_count = unread_count + 1` as a
   //    direct update expression; we read-then-write per row, scoped by
   //    thread_id and user_id <> sender. This stays bounded — DM threads
   //    have exactly two participants.
-  const { data: othersRows, error: othersErr } = await supabase
+  const admin = getSupabaseAdmin();
+  const { data: othersRows, error: othersErr } = await admin
     .from('chat_thread_participants')
     .select('user_id, unread_count')
     .eq('thread_id', threadId)
@@ -107,7 +112,7 @@ export const sendMessageHandler: Handler = async (ctx) => {
       Tables<'chat_thread_participants'>,
       'user_id' | 'unread_count'
     >[]) {
-      await supabase
+      await admin
         .from('chat_thread_participants')
         .update({ unread_count: other.unread_count + 1 })
         .eq('thread_id', threadId)

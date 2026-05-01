@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Sparkles } from 'lucide-react-native';
 import { Avatar, useTheme } from '@mei/ui';
-import type { MockMemberAvatar, MockThread } from './mocks';
+import type { ChatThreadMemberAvatar, ChatThreadRow } from './types';
 
 export interface ThreadRowProps {
-  thread: MockThread;
+  thread: ChatThreadRow;
   isLast?: boolean;
   onPress?: () => void;
 }
@@ -111,7 +111,7 @@ export function ThreadRow({ thread, isLast, onPress }: ThreadRowProps) {
   );
 }
 
-function ThreadLeading({ thread }: { thread: MockThread }) {
+function ThreadLeading({ thread }: { thread: ChatThreadRow }) {
   const theme = useTheme();
 
   if (thread.type === 'STELLA') {
@@ -146,11 +146,12 @@ function ThreadLeading({ thread }: { thread: MockThread }) {
       initials={thread.avatarInitials ?? thread.name.slice(0, 1).toUpperCase()}
       size={ROW_AVATAR}
       ringed={thread.avatarRing}
+      src={thread.avatarUrl}
     />
   );
 }
 
-function StackedAvatars({ members }: { members: MockMemberAvatar[] }) {
+function StackedAvatars({ members }: { members: ChatThreadMemberAvatar[] }) {
   const theme = useTheme();
   // Show up to 2 stacked avatars; mockup shows top-left + bottom-right.
   const top = members[0];
