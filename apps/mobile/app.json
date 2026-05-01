@@ -19,7 +19,14 @@
       "output": "single"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Mei needs to read photos so you can add items from your gallery.",
+          "cameraPermission": "Mei needs the camera so you can shoot a photo of a clothing item."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

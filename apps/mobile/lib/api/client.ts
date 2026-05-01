@@ -35,6 +35,22 @@ export function getStylistBaseUrl(): string {
 }
 
 /**
+ * Resolves the image-worker base URL from env. In production a Postgres
+ * trigger fires the worker via pg_net so the client never needs to know
+ * the worker URL — leave this unset. Local dev sets it so the upload
+ * flow can poke the worker directly after a successful PUT (storage
+ * triggers don't reach 127.0.0.1 from Supabase).
+ *
+ * Returns undefined when unset so callers can branch on "should I fire
+ * the worker myself" without sniffing string lengths.
+ */
+export function getImageWorkerUrl(): string | undefined {
+  const url = process.env.EXPO_PUBLIC_IMAGE_WORKER_URL;
+  if (!url || url.length === 0) return undefined;
+  return url.replace(/\/$/, '');
+}
+
+/**
  * Error thrown by `apiFetch` for any non-2xx response, network failure, or
  * malformed JSON. The `code` mirrors the SPEC §7.1 envelope where available;
  * `status` is the HTTP status (0 for transport errors).
