@@ -1,13 +1,11 @@
-// Typed wrappers for the api Lambda's `/closet` domain (SPEC §10.2).
-//
-// This PR only wires the read paths. Write paths (upload, confirm, patch,
-// delete) ship with feat/wire-closet-edit once the upload pipeline (Wave
-// 2d image-worker) lands.
+// Typed wrappers for the api Lambda's `/closet` domain (SPEC §10.2 + §10.10).
 
 import type {
+  ClothingCategory,
+  CreateCombinationBody,
+  CreateCombinationResponse,
   ListCombinationsResponse,
   ListItemsResponse,
-  ClothingCategory,
 } from '@mei/types';
 import { apiFetch } from './client';
 
@@ -42,4 +40,16 @@ export function fetchClosetCombinations(
     `/closet/combinations${qs ? `?${qs}` : ''}`,
     { signal: opts.signal },
   );
+}
+
+/** POST /closet/combinations — assemble a combo from selected items. */
+export function createCombination(
+  body: CreateCombinationBody,
+  opts: { signal?: AbortSignal } = {},
+): Promise<CreateCombinationResponse> {
+  return apiFetch<CreateCombinationResponse>('/closet/combinations', {
+    method: 'POST',
+    body,
+    signal: opts.signal,
+  });
 }

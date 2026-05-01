@@ -138,6 +138,14 @@ export default function ClosetScreen() {
   };
   const handleFabPress = () => {
     if (uploading) return;
+    // FAB is contextual: in the COMBINATIONS view it crafts a look; in
+    // every other view it opens the upload sheet for new items. The
+    // single-FAB pattern keeps the bottom-right slot legible — no
+    // dueling buttons.
+    if (filter === 'COMBINATIONS') {
+      router.push('/craft-a-look' as never);
+      return;
+    }
     setSheetOpen(true);
   };
 
@@ -184,7 +192,12 @@ export default function ClosetScreen() {
         </ScrollView>
       </View>
 
-      <Fab onPress={handleFabPress} />
+      <Fab
+        onPress={handleFabPress}
+        accessibilityLabel={
+          filter === 'COMBINATIONS' ? 'Craft a look' : 'Add closet item'
+        }
+      />
 
       {uploading ? (
         <View
