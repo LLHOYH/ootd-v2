@@ -1,11 +1,25 @@
-// Typed wrappers for the api Lambda's `/ootd` domain (SPEC §10.8).
+// Typed wrappers for the api Lambda's `/ootd` domain (SPEC §10.8 + §10.10).
 
 import type {
+  CreateOotdBody,
+  CreateOotdResponse,
   OotdFeedResponse,
   ReactOotdResponse,
   UnreactOotdResponse,
 } from '@mei/types';
 import { apiFetch } from './client';
+
+/** POST /ootd — share an outfit (SPEC §10.10 Wear this · Confirm & share). */
+export function createOotd(
+  body: CreateOotdBody,
+  opts: { signal?: AbortSignal } = {},
+): Promise<CreateOotdResponse> {
+  return apiFetch<CreateOotdResponse>('/ootd', {
+    method: 'POST',
+    body,
+    signal: opts.signal,
+  });
+}
 
 /** GET /ootd/feed — visibility-filtered feed for the caller. */
 export function fetchOotdFeed(
