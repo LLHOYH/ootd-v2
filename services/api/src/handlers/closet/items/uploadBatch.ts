@@ -48,12 +48,17 @@ export const uploadBatchHandler: Handler = async (ctx) => {
 
   // Bulk insert all rows. Defaults handle description, colors, tags.
   // `category` has no default → placeholder; image-worker overwrites it.
+  // `raw_storage_key` is set up-front so dangling rows (where the client
+  // never PUTs the photo) are still traceable + the image-worker pipeline
+  // can re-derive the storage path without having to peek at the upload
+  // event payload.
   const insertRows = itemIds.map((itemId) => ({
     item_id: itemId,
     user_id: userId,
     category: 'TOP' as const,
     name: '',
     status: 'PROCESSING' as const,
+    raw_storage_key: closetRawKey(userId, itemId).path,
   }));
 
   const { error: insertErr } = await supabase
