@@ -120,6 +120,12 @@ export default function TodayScreen() {
           <TodaysPickCard
             combination={data.todaysPick}
             onTryAnother={() => router.push('/chats/stella')}
+            onWear={() =>
+              router.push({
+                pathname: '/share',
+                params: { comboId: data.todaysPick!.comboId },
+              } as never)
+            }
           />
         ) : null}
 

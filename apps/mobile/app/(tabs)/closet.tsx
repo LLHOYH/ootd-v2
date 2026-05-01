@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Button, Screen, useTheme } from '@mei/ui';
 import type { ClosetItem, Combination } from '@mei/types';
 
@@ -38,6 +39,7 @@ import { useCloset } from '@/lib/hooks/useCloset';
  */
 export default function ClosetScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { state, refetch } = useCloset();
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -129,8 +131,10 @@ export default function ClosetScreen() {
   const handlePressItem = (_item: ClosetItem) => {
     // Item detail not in scope for this PR.
   };
-  const handlePressCombination = (_combo: Combination) => {
-    // Opens Craft a look — wired in feat/wire-closet-edit.
+  const handlePressCombination = (combo: Combination) => {
+    // Tap → Wear this · Confirm & share modal (SPEC §10.10).
+    // expo-router: relative push so query params survive cleanly.
+    router.push({ pathname: '/share', params: { comboId: combo.comboId } } as never);
   };
   const handleFabPress = () => {
     if (uploading) return;
