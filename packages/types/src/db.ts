@@ -697,6 +697,10 @@ export type Database = {
         Args: { p_hangout_id: string; p_user_id: string }
         Returns: boolean
       }
+      is_thread_participant: {
+        Args: { p_thread_id: string; p_user_id: string }
+        Returns: boolean
+      }
       ootd_visibility_rank: {
         Args: { v: Database["public"]["Enums"]["ootd_visibility"] }
         Returns: number
