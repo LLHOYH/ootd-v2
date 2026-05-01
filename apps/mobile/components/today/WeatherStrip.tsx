@@ -1,10 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Sun } from 'lucide-react-native';
 import { Card, useTheme } from '@mei/ui';
-import type { MockWeather } from './mocks';
+import type { TodayWeather } from './types';
 
 export interface WeatherStripProps {
-  weather: MockWeather;
+  weather: TodayWeather;
 }
 
 export function WeatherStrip({ weather }: WeatherStripProps) {

@@ -1,11 +1,11 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Avatar, SectionHeader, useTheme } from '@mei/ui';
-import type { MockCommunityLook } from './mocks';
+import type { TodayCommunityLook } from './types';
 
 export interface CommunityStripProps {
-  looks: MockCommunityLook[];
+  looks: TodayCommunityLook[];
   subtitle: string; // e.g. "Singapore · 25–30 · today"
-  onLookPress?: (look: MockCommunityLook) => void;
+  onLookPress?: (look: TodayCommunityLook) => void;
 }
 
 export function CommunityStrip({ looks, subtitle, onLookPress }: CommunityStripProps) {
