@@ -19,7 +19,7 @@
 //      we created).
 //
 // Pre-reqs:
-//   - image-worker running on http://127.0.0.1:8081
+//   - image-worker running on http://127.0.0.1:8090
 //     (pnpm --filter @mei/image-worker start, env from services/image-worker/.env)
 
 import { readFileSync } from 'node:fs';
@@ -42,7 +42,7 @@ function loadEnv(path: string): Record<string, string> {
 const env = loadEnv(resolve(__dirname, '..', 'services', 'api', '.env'));
 const SUPABASE_URL = env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY!;
-const IMAGE_WORKER_URL = process.env.IMAGE_WORKER_URL ?? 'http://127.0.0.1:8081';
+const IMAGE_WORKER_URL = process.env.IMAGE_WORKER_URL ?? 'http://127.0.0.1:8090';
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },

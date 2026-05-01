@@ -12,7 +12,7 @@ import { loadConfig } from './config';
 
 async function main(): Promise<void> {
   const cfg = loadConfig();
-  const port = Number(process.env.PORT ?? 8081);
+  const port = Number(process.env.PORT ?? 8090);
   const app = await buildServer(cfg);
   const url = await app.listen({ port, host: '0.0.0.0' });
   app.log.info({ url, mode: cfg.mode }, 'image-worker listening');
