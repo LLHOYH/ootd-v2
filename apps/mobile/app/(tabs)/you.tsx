@@ -6,6 +6,7 @@ import { ProfileBlock } from '@/components/you/ProfileBlock';
 import { StatsRow } from '@/components/you/StatsRow';
 import { SettingsList } from '@/components/you/SettingsList';
 import { useMyProfile } from '@/lib/hooks/useMyProfile';
+import { supabase } from '@/lib/supabase';
 
 /**
  * You / profile — SPEC §10.11.
@@ -85,6 +86,14 @@ export default function YouScreen() {
           profile={profile}
           onAddFriendsPress={() => router.push('/friends/add')}
           onSelfiesPress={() => router.push('/selfies')}
+          onSignOutPress={() => {
+            // Don't await — fire-and-forget; SessionProvider's
+            // onAuthStateChange listener fires, the gate in
+            // app/index.tsx redirects to /(auth)/sign-in, this screen
+            // unmounts. Errors here are extremely rare (network-only)
+            // and a stale local session resolves on next app launch.
+            void supabase.auth.signOut();
+          }}
         />
       </ScrollView>
     </Screen>

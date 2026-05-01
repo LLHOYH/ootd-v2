@@ -3,6 +3,7 @@ import {
   Bell,
   Camera,
   Lock,
+  LogOut,
   Mail,
   MapPin,
   Sparkles,
@@ -16,6 +17,7 @@ export interface SettingsListProps {
   profile: MyProfile;
   onAddFriendsPress?: () => void;
   onSelfiesPress?: () => void;
+  onSignOutPress?: () => void;
 }
 
 /**
@@ -26,6 +28,7 @@ export function SettingsList({
   profile,
   onAddFriendsPress,
   onSelfiesPress,
+  onSignOutPress,
 }: SettingsListProps) {
   const theme = useTheme();
   const noop = () => {};
@@ -170,6 +173,11 @@ export function SettingsList({
         title="Password"
         value="Change"
         onPress={noop}
+      />
+      <SettingRow
+        icon={LogOut}
+        title="Sign out"
+        onPress={onSignOutPress ?? noop}
       />
       <SettingRow
         icon={User}
