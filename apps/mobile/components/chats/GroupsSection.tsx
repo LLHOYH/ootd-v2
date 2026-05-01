@@ -1,11 +1,11 @@
 import { View } from 'react-native';
 import { SectionHeader } from '@mei/ui';
 import { ThreadRow } from './ThreadRow';
-import type { MockThread } from './mocks';
+import type { ChatThreadRow } from './types';
 
 export interface GroupsSectionProps {
-  threads: MockThread[];
-  onSelect: (thread: MockThread) => void;
+  threads: ChatThreadRow[];
+  onSelect: (thread: ChatThreadRow) => void;
 }
 
 /**
