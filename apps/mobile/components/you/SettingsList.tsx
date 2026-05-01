@@ -10,10 +10,10 @@ import {
   UserPlus,
 } from 'lucide-react-native';
 import { SectionHeader, SettingRow, useTheme } from '@mei/ui';
-import type { MockProfile } from './mocks';
+import type { MyProfile } from '@/lib/hooks/useMyProfile';
 
 export interface SettingsListProps {
-  profile: MockProfile;
+  profile: MyProfile;
   onAddFriendsPress?: () => void;
   onSelfiesPress?: () => void;
 }
@@ -49,13 +49,13 @@ export function SettingsList({
       <SettingRow
         icon={User}
         title="Gender"
-        value={profile.gender}
+        value={profile.gender ?? '—'}
         onPress={noop}
       />
       <SettingRow
         icon={User}
         title="Birth year"
-        value={String(profile.birthYear)}
+        value={profile.birthYear != null ? String(profile.birthYear) : '—'}
         onPress={noop}
       />
 
@@ -134,7 +134,7 @@ export function SettingsList({
       <SettingRow
         icon={Camera}
         title="View selfies"
-        subtitle={`${profile.selfieCount} of 5 uploaded`}
+        subtitle={`${profile.counts.selfies} of 5 uploaded`}
         onPress={onSelfiesPress ?? noop}
       />
       <SettingRow

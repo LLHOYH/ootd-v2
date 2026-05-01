@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Avatar, useTheme } from '@mei/ui';
-import type { MockProfile } from './mocks';
+import type { MyProfile } from '@/lib/hooks/useMyProfile';
 
 export interface ProfileBlockProps {
-  profile: MockProfile;
+  profile: MyProfile;
 }
 
 /**

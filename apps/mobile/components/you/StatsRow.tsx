@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 import { MetricCell, useTheme } from '@mei/ui';
-import type { MockProfile } from './mocks';
+import type { MyProfile } from '@/lib/hooks/useMyProfile';
 
 export interface StatsRowProps {
-  profile: MockProfile;
+  profile: MyProfile;
 }
 
 /**
@@ -14,9 +14,9 @@ export function StatsRow({ profile }: StatsRowProps) {
 
   return (
     <View style={[styles.row, { gap: theme.space.sm, marginTop: theme.space.md + 2 }]}>
-      <MetricCell value={profile.itemCount} label="Items" style={styles.cell} />
-      <MetricCell value={profile.ootdCount} label="OOTDs" style={styles.cell} />
-      <MetricCell value={profile.friendCount} label="Friends" style={styles.cell} />
+      <MetricCell value={profile.counts.items} label="Items" style={styles.cell} />
+      <MetricCell value={profile.counts.ootds} label="OOTDs" style={styles.cell} />
+      <MetricCell value={profile.counts.friends} label="Friends" style={styles.cell} />
     </View>
   );
 }
