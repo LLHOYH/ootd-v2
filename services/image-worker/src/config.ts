@@ -8,7 +8,10 @@
 //           IMAGE_WORKER_WEBHOOK_SECRET (HMAC secret to verify Supabase
 //             database webhooks; if unset, signature checks are skipped —
 //             intended for local dev only),
-//           PORT (default 8081), LOG_LEVEL (default info).
+//           PORT (default 8090 — 8081 is Expo's web port; keep them
+//             apart so the worker and the mobile dev server can both
+//             run on the same machine),
+//           LOG_LEVEL (default info).
 
 export type ImageWorkerMode = 'real' | 'mock';
 

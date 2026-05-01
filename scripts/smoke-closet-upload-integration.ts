@@ -15,7 +15,7 @@
 //
 // Pre-reqs:
 //   - api running on http://127.0.0.1:3001
-//   - image-worker running on http://127.0.0.1:8081
+//   - image-worker running on http://127.0.0.1:8090
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -39,7 +39,7 @@ const SUPABASE_URL = env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY!;
 const API_URL = process.env.API_URL ?? 'http://127.0.0.1:3001';
-const IMAGE_WORKER_URL = process.env.IMAGE_WORKER_URL ?? 'http://127.0.0.1:8081';
+const IMAGE_WORKER_URL = process.env.IMAGE_WORKER_URL ?? 'http://127.0.0.1:8090';
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
