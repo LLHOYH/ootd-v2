@@ -16,11 +16,22 @@
 import { supabase } from '../supabase';
 
 const DEFAULT_API_URL = 'http://127.0.0.1:3001';
+const DEFAULT_STYLIST_URL = 'http://127.0.0.1:8080';
 
 /** Resolves the api base URL from env, with a localhost fallback for dev. */
 export function getApiBaseUrl(): string {
   const url = process.env.EXPO_PUBLIC_API_URL;
   return url && url.length > 0 ? url.replace(/\/$/, '') : DEFAULT_API_URL;
+}
+
+/**
+ * Resolves the stylist (Stella SSE) base URL from env, with a localhost
+ * fallback. The stylist runs on Render in production, so this is a
+ * different host than the api Lambda.
+ */
+export function getStylistBaseUrl(): string {
+  const url = process.env.EXPO_PUBLIC_STYLIST_URL;
+  return url && url.length > 0 ? url.replace(/\/$/, '') : DEFAULT_STYLIST_URL;
 }
 
 /**
