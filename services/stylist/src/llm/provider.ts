@@ -7,15 +7,30 @@
 export type AnthropicMessageRole = 'user' | 'assistant' | 'tool';
 
 /**
+ * Content block types that an assistant message can carry. When the model
+ * emits both text and tool_use blocks in the same turn, we represent the
+ * whole turn as a single ProviderMessage whose `content` is the array of
+ * blocks in emission order. Anthropic requires that assistant turn shape
+ * so the next user turn's tool_result blocks have a tool_use to reference.
+ */
+export type ProviderContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: unknown };
+
+/**
  * One message in the rolling conversation context handed to the provider.
- * For tool turns we emit role `'tool'` carrying a tool_use_id and the JSON
- * result; the provider implementation maps this onto the Anthropic
- * `tool_result` content-block shape.
+ *
+ *   role 'user'      → plain user text in `content` (string).
+ *   role 'assistant' → either a text-only string OR an array of mixed
+ *                      text + tool_use blocks for turns where the model
+ *                      called tools.
+ *   role 'tool'      → tool_result; `content` is the JSON result string,
+ *                      `tool_use_id` references the assistant turn that
+ *                      emitted the matching tool_use block.
  */
 export interface ProviderMessage {
   role: AnthropicMessageRole;
-  // Plain assistant/user text. For tool turns this is the JSON result string.
-  content: string;
+  content: string | ProviderContentBlock[];
   tool_use_id?: string;
   tool_name?: string;
 }

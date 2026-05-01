@@ -11,7 +11,11 @@
 
 import { ulid } from 'ulid';
 import type { StellaSseEvent } from '@mei/types';
-import type { LLMProvider, ProviderMessage } from '../llm/provider';
+import type {
+  LLMProvider,
+  ProviderContentBlock,
+  ProviderMessage,
+} from '../llm/provider';
 import { STELLA_SYSTEM_PROMPT } from './systemPrompt';
 import { TOOLS } from './tools';
 import { executeTool, type ToolContext } from './toolHandlers';
@@ -125,9 +129,12 @@ export async function* runStella(
       }
     }
 
-    // Persist the assistant turn so far. If the model emitted tool_use
-    // blocks, we record them so a future replay rebuilds the same
-    // provider-message shape.
+    // Persist the assistant turn so far + push it back into the rolling
+    // context. The Anthropic API requires that an assistant turn whose
+    // tool_use blocks are referenced by a subsequent tool_result must
+    // carry those tool_use blocks as part of its content array. Pushing
+    // text-only here and tool_results next would leave the tool_result
+    // tool_use_ids dangling — Claude responds 400.
     if (assistantText.length > 0 || pendingToolCalls.length > 0) {
       if (assistantText.length > 0) {
         // Each round writes its own row; real summarization will collapse
@@ -137,12 +144,26 @@ export async function* runStella(
           text: assistantText,
         });
       }
-      // Push assistant + tool turns into the rolling context for the next
-      // round.
+
+      // Build the assistant turn as a single message with text +
+      // tool_use blocks in emission order.
+      const assistantBlocks: ProviderContentBlock[] = [];
       if (assistantText.length > 0) {
-        messages.push({ role: 'assistant', content: assistantText });
+        assistantBlocks.push({ type: 'text', text: assistantText });
+      }
+      for (const tc of pendingToolCalls) {
+        assistantBlocks.push({
+          type: 'tool_use',
+          id: tc.toolUseId,
+          name: tc.name,
+          input: tc.input,
+        });
+      }
+      if (assistantBlocks.length > 0) {
+        messages.push({ role: 'assistant', content: assistantBlocks });
         assistantText = '';
       }
+
       for (const tc of pendingToolCalls) {
         const result = await executeTool(tc.name, tc.input, toolCtx);
         const resultJson = JSON.stringify(result);

@@ -181,8 +181,13 @@ export class ConversationStore implements IConversationStore {
  *   "system prompt + last 20 messages + a rolling summary".
  * Real summarization is a follow-up; for now we just take the last 20 turns.
  *
- * Tool turns become role='tool' on the provider side; everything else is
- * passed through as text.
+ * Tool turns become role='tool' on the provider side. Assistant text and
+ * assistant tool_use are stored as separate rows; we combine each
+ * assistant text row with the immediately-following tool_use rows into a
+ * single ProviderMessage whose content is an array of text + tool_use
+ * blocks. That matches what runStella pushes during the live loop AND
+ * what the Anthropic API requires when subsequent tool_result blocks
+ * reference these tool_use ids.
  */
 export function summarizeAndTruncate(
   messages: StoredStellaMessage[],
@@ -190,20 +195,71 @@ export function summarizeAndTruncate(
 ): ProviderMessage[] {
   const recent = messages.slice(-maxTurns);
   const out: ProviderMessage[] = [];
-  for (const m of recent) {
-    if (m.toolUseId && m.toolResult !== undefined) {
+  let i = 0;
+  while (i < recent.length) {
+    const m = recent[i]!;
+
+    // Tool result row → role='tool'.
+    if (
+      m.role === 'ASSISTANT' &&
+      m.toolUseId &&
+      m.toolResult !== undefined &&
+      // Tool-use carrier rows ship with text === '' AND a toolUseId.
+      // Tool-result-only rows also have text === '' but were inserted
+      // separately. The deciding factor is whether toolResult is set.
+      m.toolResult !== null
+    ) {
       out.push({
         role: 'tool',
         content: m.toolResult,
         tool_use_id: m.toolUseId,
-        tool_name: m.toolName,
+        ...(m.toolName ? { tool_name: m.toolName } : {}),
       });
+      i++;
       continue;
     }
-    out.push({
-      role: m.role === 'ASSISTANT' ? 'assistant' : 'user',
-      content: m.text,
-    });
+
+    // Assistant text row. Look ahead for any contiguous tool_use rows
+    // and fold them into a structured assistant message.
+    if (m.role === 'ASSISTANT') {
+      const blocks: Array<
+        | { type: 'text'; text: string }
+        | { type: 'tool_use'; id: string; name: string; input: unknown }
+      > = [];
+      if (m.text.length > 0) blocks.push({ type: 'text', text: m.text });
+      let j = i + 1;
+      while (j < recent.length) {
+        const nx = recent[j]!;
+        // A tool_use carrier has toolUseId set but toolResult === undefined
+        // (the result is stored on a separate, later row).
+        if (
+          nx.role === 'ASSISTANT' &&
+          nx.toolUseId &&
+          nx.toolResult === undefined
+        ) {
+          blocks.push({
+            type: 'tool_use',
+            id: nx.toolUseId,
+            name: nx.toolName ?? 'unknown',
+            input: {},
+          });
+          j++;
+          continue;
+        }
+        break;
+      }
+      if (blocks.length === 1 && blocks[0]!.type === 'text') {
+        out.push({ role: 'assistant', content: blocks[0]!.text });
+      } else if (blocks.length > 0) {
+        out.push({ role: 'assistant', content: blocks });
+      }
+      i = j;
+      continue;
+    }
+
+    // User row.
+    out.push({ role: 'user', content: m.text });
+    i++;
   }
   return out;
 }

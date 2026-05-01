@@ -64,13 +64,33 @@ function toAnthropicMessages(
       const block = {
         type: 'tool_result' as const,
         tool_use_id: m.tool_use_id ?? '',
-        content: m.content,
+        content: typeof m.content === 'string' ? m.content : '',
       };
       if (last && last.role === 'user' && Array.isArray(last.content)) {
         last.content.push(block);
       } else {
         out.push({ role: 'user', content: [block] });
       }
+      continue;
+    }
+
+    // Assistant or user. Content is either a plain string OR a structured
+    // array of text + tool_use blocks (the assistant case after a turn
+    // that called tools — see ProviderContentBlock).
+    if (Array.isArray(m.content)) {
+      out.push({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content.map((b) =>
+          b.type === 'text'
+            ? { type: 'text' as const, text: b.text }
+            : {
+                type: 'tool_use' as const,
+                id: b.id,
+                name: b.name,
+                input: (b.input ?? {}) as Record<string, unknown>,
+              },
+        ),
+      });
       continue;
     }
     out.push({
