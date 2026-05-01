@@ -30,10 +30,16 @@ export function FilterChips({ active, onChange }: FilterChipsProps) {
   const theme = useTheme();
 
   return (
+    // `flexGrow: 0` is critical: a horizontal ScrollView inside a flex
+    // column otherwise expands to fill available vertical space (visible
+    // on web via react-native-web; also bites on iOS/Android when the
+    // parent has flex pressure). That pushes the grid below it to the
+    // wrong vertical position. With `flexGrow: 0` the strip sizes to its
+    // content like a normal row.
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ marginTop: theme.space.md }}
+      style={{ marginTop: theme.space.md, flexGrow: 0 }}
       contentContainerStyle={[styles.row, { gap: theme.space.sm }]}
     >
       {FILTER_OPTIONS.map((opt) => (

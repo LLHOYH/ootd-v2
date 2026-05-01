@@ -32,6 +32,10 @@ export function CommunityStrip({ looks, subtitle, onLookPress }: CommunityStripP
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        // flexGrow: 0 — keeps the strip content-sized even when nested
+        // in a flex-column parent (e.g. on web where ScrollView would
+        // otherwise inflate vertically).
+        style={{ flexGrow: 0 }}
         contentContainerStyle={{ gap: theme.space.sm, paddingRight: theme.space.lg }}
       >
         {looks.map((look) => (
