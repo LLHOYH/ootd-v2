@@ -17,11 +17,6 @@ import type {
   Combination,
   Tables,
 } from '@mei/types';
-import {
-  closetRawKey,
-  closetTunedKey,
-  thumbnailKey,
-} from '@mei/types';
 import { signDownloadUrl } from '../../lib/storage';
 
 // ---------------------------------------------------------------------------
@@ -78,25 +73,54 @@ export async function mapClosetItem(
 ): Promise<ClosetItem> {
   const base = mapClosetItemRaw(row);
 
+  // Use the row's actual storage_key columns rather than recomputing
+  // paths via closetRawKey() / closetTunedKey() / thumbnailKey(). Those
+  // helpers hardcode the file extension (.jpg / .webp) which is fine
+  // for the production image-worker (sharp re-encodes to webp) but
+  // fragile to seed scripts or future workers that pick a different
+  // extension. The DB column is the source of truth.
+  //
+  // We swallow signing failures per-key so a stale storage_key (e.g. the
+  // row points at an object that's since been deleted) doesn't 500 the
+  // whole listing. The UI will render the row without an image, which
+  // is the right degraded experience.
+  const sign = async (
+    bucket: 'closet-raw' | 'closet-tuned',
+    path: string,
+    set: (url: string) => void,
+  ): Promise<void> => {
+    try {
+      const url = await signDownloadUrl({ bucket, path });
+      set(url);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[closet] signed-URL failed for ${bucket}/${path}: ${
+          err instanceof Error ? err.message : 'unknown'
+        }`,
+      );
+    }
+  };
+
   const tasks: Promise<void>[] = [];
   if (row.raw_storage_key) {
     tasks.push(
-      signDownloadUrl(closetRawKey(row.user_id, row.item_id)).then((url) => {
-        base.rawPhotoUrl = url;
+      sign('closet-raw', row.raw_storage_key, (u) => {
+        base.rawPhotoUrl = u;
       }),
     );
   }
   if (row.tuned_storage_key) {
     tasks.push(
-      signDownloadUrl(closetTunedKey(row.user_id, row.item_id)).then((url) => {
-        base.tunedPhotoUrl = url;
+      sign('closet-tuned', row.tuned_storage_key, (u) => {
+        base.tunedPhotoUrl = u;
       }),
     );
   }
   if (row.thumbnail_storage_key) {
     tasks.push(
-      signDownloadUrl(thumbnailKey(row.user_id, row.item_id)).then((url) => {
-        base.thumbnailUrl = url;
+      sign('closet-tuned', row.thumbnail_storage_key, (u) => {
+        base.thumbnailUrl = u;
       }),
     );
   }
