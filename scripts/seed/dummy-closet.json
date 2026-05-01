@@ -1,0 +1,180 @@
+{
+  "$comment": "Dummy data spec for the seed script. The script reads this file, looks up the user by email, wipes their existing closet/combos/OOTDs, and inserts a fresh set referencing the photos in ./photos/.",
+
+  "targetEmail": "llhoyh01@gmail.com",
+
+  "profile": {
+    "displayName": "Lloyd",
+    "city": "Tokyo",
+    "countryCode": "JP",
+    "climateProfile": "TEMPERATE",
+    "stylePreferences": ["minimal", "monochrome", "tailored", "linen", "earth tones"],
+    "discoverable": true,
+    "contributesToCommunityLooks": true
+  },
+
+  "items": [
+    {
+      "key": "dress_white_linen",
+      "photo": "dress_01_white_linen.jpg",
+      "category": "DRESS",
+      "name": "White linen midi",
+      "description": "Sleeveless A-line in soft cream linen. Light + breathable.",
+      "colors": ["#F2EAD9", "#FFFFFF"],
+      "occasionTags": ["BRUNCH", "CASUAL", "BEACH"],
+      "weatherTags": ["HOT", "WARM"]
+    },
+    {
+      "key": "dress_black_cocktail",
+      "photo": "dress_02_black_cocktail.jpg",
+      "category": "DRESS",
+      "name": "Black cocktail dress",
+      "description": "Fitted knee-length sheath in matte black.",
+      "colors": ["#1A1A1A"],
+      "occasionTags": ["EVENING", "DATE"],
+      "weatherTags": ["MILD"]
+    },
+    {
+      "key": "dress_floral_summer",
+      "photo": "dress_03_floral_summer.jpg",
+      "category": "DRESS",
+      "name": "Floral summer dress",
+      "description": "Tea-length wrap in dusty mauve floral.",
+      "colors": ["#E5D5E0", "#D5DDD0"],
+      "occasionTags": ["BRUNCH", "DATE", "WEDDING"],
+      "weatherTags": ["WARM", "HOT"]
+    },
+    {
+      "key": "dress_red_midi",
+      "photo": "dress_04_red_midi.jpg",
+      "category": "DRESS",
+      "name": "Red midi dress",
+      "description": "Bias-cut crepe midi in deep red.",
+      "colors": ["#8B1A1A"],
+      "occasionTags": ["EVENING", "DATE", "WEDDING"],
+      "weatherTags": ["MILD", "WARM"]
+    },
+    {
+      "key": "dress_blue_denim",
+      "photo": "dress_05_blue_denim.jpg",
+      "category": "DRESS",
+      "name": "Denim shirt dress",
+      "description": "Belted shirt dress in washed indigo denim.",
+      "colors": ["#3D4856"],
+      "occasionTags": ["CASUAL", "BRUNCH"],
+      "weatherTags": ["MILD", "WARM"]
+    },
+    {
+      "key": "top_white_blouse",
+      "photo": "top_01_white_blouse.jpg",
+      "category": "TOP",
+      "name": "White silk blouse",
+      "description": "Relaxed silk blouse with hidden placket.",
+      "colors": ["#FFFFFF"],
+      "occasionTags": ["WORK", "BRUNCH", "EVENING"],
+      "weatherTags": ["MILD", "WARM"]
+    },
+    {
+      "key": "top_striped_tee",
+      "photo": "top_02_striped_tee.jpg",
+      "category": "TOP",
+      "name": "Navy striped tee",
+      "description": "Cotton breton tee, navy + cream stripes.",
+      "colors": ["#3D4856", "#F2EAD9"],
+      "occasionTags": ["CASUAL", "BRUNCH", "BEACH"],
+      "weatherTags": ["WARM", "MILD"]
+    },
+    {
+      "key": "bottom_jeans",
+      "photo": "bottom_01_jeans.jpg",
+      "category": "BOTTOM",
+      "name": "Indigo straight jeans",
+      "description": "Mid-rise straight leg in raw indigo.",
+      "colors": ["#2A3540"],
+      "occasionTags": ["CASUAL", "WORK", "BRUNCH"],
+      "weatherTags": ["MILD", "COLD"]
+    },
+    {
+      "key": "outerwear_trench",
+      "photo": "outerwear_01_trench.jpg",
+      "category": "OUTERWEAR",
+      "name": "Camel trench coat",
+      "description": "Belted single-breasted trench in camel cotton-poly.",
+      "colors": ["#DCC9B6"],
+      "occasionTags": ["WORK", "CASUAL", "DATE"],
+      "weatherTags": ["MILD", "COLD", "RAIN"]
+    },
+    {
+      "key": "shoes_heels",
+      "photo": "shoes_01_heels.jpg",
+      "category": "SHOE",
+      "name": "Black leather heels",
+      "description": "Pointed-toe slingbacks, mid heel.",
+      "colors": ["#1A1A1A"],
+      "occasionTags": ["WORK", "EVENING", "DATE", "WEDDING"],
+      "weatherTags": ["MILD"]
+    }
+  ],
+
+  "combinations": [
+    {
+      "name": "Sunday brunch",
+      "source": "STELLA",
+      "occasionTags": ["BRUNCH"],
+      "items": ["dress_white_linen", "shoes_heels"]
+    },
+    {
+      "name": "Date night",
+      "source": "CRAFTED",
+      "occasionTags": ["DATE", "EVENING"],
+      "items": ["dress_black_cocktail", "shoes_heels"]
+    },
+    {
+      "name": "Summer wedding guest",
+      "source": "STELLA",
+      "occasionTags": ["WEDDING"],
+      "items": ["dress_floral_summer", "shoes_heels"]
+    },
+    {
+      "name": "Office Tuesday",
+      "source": "TODAY_PICK",
+      "occasionTags": ["WORK"],
+      "items": ["top_white_blouse", "bottom_jeans", "shoes_heels", "outerwear_trench"]
+    },
+    {
+      "name": "Easy weekend",
+      "source": "CRAFTED",
+      "occasionTags": ["CASUAL", "BRUNCH"],
+      "items": ["top_striped_tee", "bottom_jeans"]
+    },
+    {
+      "name": "Rainy day uniform",
+      "source": "CRAFTED",
+      "occasionTags": ["WORK", "CASUAL"],
+      "items": ["top_white_blouse", "bottom_jeans", "outerwear_trench"]
+    }
+  ],
+
+  "ootdPosts": [
+    {
+      "combinationName": "Sunday brunch",
+      "visibility": "PUBLIC",
+      "caption": "linen + heels for omotesando ☼",
+      "locationName": "Omotesando, Tokyo",
+      "ageDays": 1
+    },
+    {
+      "combinationName": "Office Tuesday",
+      "visibility": "FRIENDS",
+      "caption": "back to the office ♡",
+      "locationName": "Marunouchi",
+      "ageDays": 3
+    },
+    {
+      "combinationName": "Easy weekend",
+      "visibility": "PUBLIC",
+      "caption": "tee + jeans, simple as that",
+      "ageDays": 7
+    }
+  ]
+}
