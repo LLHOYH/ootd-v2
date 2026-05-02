@@ -15,7 +15,8 @@
     "mobile": "pnpm --filter @mei/mobile",
     "mobile:start": "pnpm --filter @mei/mobile start",
     "mobile:web": "pnpm --filter @mei/mobile web",
-    "seed": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed.ts"
+    "seed": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed.ts",
+    "seed:all": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed-multiuser.ts"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
