@@ -33,3 +33,4 @@ cdk.out
 # Claude Code local-only
 .claude/settings.local.json
 
+scripts/seed/photos-cache/
