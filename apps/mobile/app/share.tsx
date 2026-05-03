@@ -37,6 +37,7 @@ import type { Combination, OOTDVisibility } from '@mei/types';
 import { ApiError } from '@/lib/api/client';
 import { createOotd } from '@/lib/api/ootd';
 import { fetchClosetCombinations } from '@/lib/api/closet';
+import { useClosetItemMap } from '@/lib/hooks/useClosetItemMap';
 import { useSession } from '@/lib/auth/SessionProvider';
 
 // Visibility lanes wired in this PR. GROUP / DIRECT live behind a
@@ -49,6 +50,7 @@ export default function ShareScreen() {
   const params = useLocalSearchParams<{ comboId?: string; comboJson?: string }>();
   const { session } = useSession();
   const me = session?.user.id;
+  const itemMap = useClosetItemMap();
 
   // The caller (Today screen) can hand us the combination directly via
   // `comboJson` to skip the network round-trip. The /closet/combinations
@@ -222,7 +224,10 @@ export default function ShareScreen() {
               </View>
             ) : (
               <>
-                <OutfitCard combination={combo} />
+                <OutfitCard
+                  combination={combo}
+                  items={itemMap.resolve(combo.itemIds)}
+                />
 
                 {/* Caption */}
                 <View style={{ gap: 6 }}>

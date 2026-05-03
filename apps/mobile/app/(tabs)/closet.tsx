@@ -28,6 +28,7 @@ import {
   uploadClosetItem,
 } from '@/lib/api/closetUpload';
 import { useCloset } from '@/lib/hooks/useCloset';
+import { invalidateClosetItemMap } from '@/lib/hooks/useClosetItemMap';
 
 /**
  * Closet — SPEC §10.2.
@@ -61,6 +62,9 @@ export default function ClosetScreen() {
         // (locally) flips to READY almost instantly when the dev-mode
         // worker fire succeeds. Production: the row stays PROCESSING
         // until the storage trigger / pg_net hits the worker.
+        // Also drop the shared item-map cache so other screens (Today's
+        // Pick, Wear-this) pick up the new row on their next render.
+        invalidateClosetItemMap();
         await refetch();
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Upload failed';
@@ -184,6 +188,7 @@ export default function ClosetScreen() {
           {filter === 'COMBINATIONS' ? (
             <CombinationsGrid
               combinations={combinations}
+              items={items}
               onPressCombination={handlePressCombination}
             />
           ) : (
