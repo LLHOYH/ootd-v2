@@ -23,6 +23,9 @@
     "services:image-worker": "scripts/dev.sh image-worker",
     "services:notifier": "scripts/dev.sh notifier",
     "services:health": "for u in http://127.0.0.1:3001/_health http://127.0.0.1:8080/health http://127.0.0.1:8090/health http://127.0.0.1:8082/health; do printf '%s -> ' \"$u\"; curl -fsS -m 2 \"$u\" || echo 'unreachable'; echo; done",
+    "mobile:target:lan": "scripts/mobile-target.sh lan",
+    "mobile:target:localhost": "scripts/mobile-target.sh localhost",
+    "mobile:target:ngrok": "scripts/ngrok-tunnel.sh",
     "test:web": "echo 'Run in three terminals: 1) pnpm services   2) pnpm seed:all   3) pnpm mobile:web   See docs/TESTING.md.'"
   },
   "devDependencies": {

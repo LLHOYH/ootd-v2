@@ -119,32 +119,82 @@ Opens Expo's web bundler on `http://localhost:8081`. Sign in as any
 
 ---
 
-## iPhone — Expo Go
+## Phone access strategies
 
-Same backend, but the mobile client needs to reach your Mac over Wi-Fi
-instead of `localhost`.
+The web bundle gets `EXPO_PUBLIC_*_URL` values inlined at build time.
+On your phone, `127.0.0.1` resolves to the *phone* — not your Mac.
+Pick one of three approaches before opening the bundle on your phone:
 
-### 1. Find your Mac's LAN IP
+| Strategy | Use when | Cost |
+|---|---|---|
+| **LAN swap** (`pnpm mobile:target:lan`) | Phone on the same Wi-Fi as the Mac | Free, fastest |
+| **ngrok** (`pnpm mobile:target:ngrok`) | Phone on cellular, hotel Wi-Fi, or remote tester | Needs paid ngrok plan for 4 simultaneous tunnels |
+| **Tailscale** (manual) | Want LAN-feel from anywhere, no per-tunnel limits | Free for personal use; install on both devices |
+
+LAN is the right default. ngrok and Tailscale shine when you can't
+share a network.
+
+### A) LAN swap
 
 ```bash
-ipconfig getifaddr en0    # Wi-Fi
-# or: ipconfig getifaddr en1  for Ethernet
+pnpm mobile:target:lan          # auto-detects your Mac's IP, patches .env
+# then in the Expo terminal: Ctrl+C and re-run pnpm mobile:web
 ```
 
-Example: `192.168.1.42`.
+To reverse:
 
-### 2. Point the mobile app at your Mac
-
-Edit `apps/mobile/.env` and replace every `127.0.0.1` with that IP:
-
-```
-EXPO_PUBLIC_API_URL=http://192.168.1.42:3001
-EXPO_PUBLIC_STYLIST_URL=http://192.168.1.42:8080
-EXPO_PUBLIC_IMAGE_WORKER_URL=http://192.168.1.42:8090
+```bash
+pnpm mobile:target:localhost
 ```
 
-`EXPO_PUBLIC_SUPABASE_URL` stays pointing at hosted Supabase — don't
-change that one.
+The script reads `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_STYLIST_URL`,
+`EXPO_PUBLIC_IMAGE_WORKER_URL` and swaps just the host part.
+`EXPO_PUBLIC_SUPABASE_URL` is untouched — it points at hosted Supabase.
+
+If the auto-detect picks the wrong interface (uncommon — happens with
+multiple active networks), pass the IP explicitly:
+
+```bash
+scripts/mobile-target.sh lan 10.0.0.42
+```
+
+Then on your phone:
+
+- Same Wi-Fi as the Mac
+- **Safari** → `http://<MAC_IP>:8081`  (Expo's web URL)
+- **Expo Go** → scan the QR code printed by `pnpm mobile:start`
+
+### B) ngrok (different network or remote tester)
+
+One-time setup:
+
+```bash
+brew install ngrok/ngrok/ngrok
+cp scripts/ngrok.yml.example scripts/ngrok.yml
+# paste your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+```
+
+Then:
+
+```bash
+pnpm services                   # backend must be live first
+pnpm mobile:target:ngrok        # opens 4 tunnels + patches .env
+# in another terminal: Ctrl+C and re-run pnpm mobile:web
+```
+
+The script:
+1. Verifies all four backend services are up
+2. Backs up `apps/mobile/.env` to `*.pre-ngrok.bak`
+3. Starts `ngrok start --all` for the four tunnels
+4. Polls ngrok's local API for the public URLs
+5. Patches `apps/mobile/.env` with them
+6. On Ctrl+C: kills the tunnels and reverts the `.env` swap
+
+Caveat: ngrok's free tier allows 1 simultaneous tunnel. Four tunnels
+need a paid plan ($8/mo as of 2026). Cheaper alternatives:
+- **Cloudflared tunnels** — free, a bit more setup
+- **Tailscale** — free for personal use; gives you a stable
+  `100.x.x.y` IP per device that works from anywhere as if on LAN
 
 ### 3. Boot backend + seed (same as Mac)
 

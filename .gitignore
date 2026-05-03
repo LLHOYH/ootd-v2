@@ -34,3 +34,5 @@ cdk.out
 .claude/settings.local.json
 
 scripts/seed/photos-cache/
+scripts/ngrok.yml
+*.pre-ngrok.bak
