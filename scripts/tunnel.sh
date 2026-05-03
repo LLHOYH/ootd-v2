@@ -42,12 +42,21 @@ if grep -q 'authtoken: REPLACE_ME' "$CFG"; then
 fi
 
 # Pull the static domain out of the config so we can echo it post-
-# launch and verify it isn't the placeholder.
-DOMAIN="$(grep -E '^\s*domain:' "$CFG" | head -1 | sed -E 's/.*domain:[[:space:]]*//;s/[[:space:]]*$//')"
+# launch and verify it isn't the placeholder. Accept both v2
+# (`hostname:`) and v3 (`domain:`) syntax — different ngrok 3.x
+# agents accept different config schemas.
+DOMAIN="$(grep -E '^\s*(hostname|domain):' "$CFG" | head -1 | sed -E 's/.*(hostname|domain):[[:space:]]*//;s/[[:space:]]*$//')"
+# Be forgiving about the value — the ngrok dashboard shows the domain
+# as a clickable `https://...` URL, so people naturally paste it with
+# the scheme. Strip scheme + trailing slash so the post-launch echo
+# doesn't print `https://https://...`.
+DOMAIN="${DOMAIN#http://}"
+DOMAIN="${DOMAIN#https://}"
+DOMAIN="${DOMAIN%/}"
 if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "REPLACE_ME.ngrok-free.dev" ]; then
   echo "$CFG has no static domain configured. Reserve one at" >&2
   echo "  https://dashboard.ngrok.com/cloud-edge/domains" >&2
-  echo "and replace the 'domain:' line under tunnels.proxy." >&2
+  echo "and set tunnels.proxy.hostname (v2) or tunnels.proxy.domain (v3)." >&2
   exit 1
 fi
 

@@ -86,11 +86,21 @@ case "$mode" in
       echo "scripts/ngrok.yml is missing. Copy from ngrok.yml.example first." >&2
       exit 1
     fi
-    domain="$(grep -E '^\s*domain:' "$cfg" | head -1 | sed -E 's/.*domain:[[:space:]]*//;s/[[:space:]]*$//')"
+    # Accept both v2 (`hostname:`) and v3 (`domain:`) syntax so users
+    # who set up either config flavour can use the same script.
+    domain="$(grep -E '^\s*(hostname|domain):' "$cfg" | head -1 | sed -E 's/.*(hostname|domain):[[:space:]]*//;s/[[:space:]]*$//')"
+    # Be forgiving about the value — the ngrok dashboard shows the
+    # domain as a clickable `https://...` URL, so people naturally
+    # paste it with the scheme. Strip scheme + trailing slash so we
+    # don't end up composing URLs like `https://https://...`.
+    domain="${domain#http://}"
+    domain="${domain#https://}"
+    domain="${domain%/}"
     if [ -z "$domain" ] || [ "$domain" = "REPLACE_ME.ngrok-free.dev" ]; then
       echo "scripts/ngrok.yml has no static domain configured." >&2
       echo "Reserve one at https://dashboard.ngrok.com/cloud-edge/domains" >&2
-      echo "and set tunnels.proxy.domain in scripts/ngrok.yml." >&2
+      echo "and set tunnels.proxy.hostname (v2) or tunnels.proxy.domain (v3)" >&2
+      echo "in scripts/ngrok.yml." >&2
       exit 1
     fi
     api_url="https://${domain}/api"
