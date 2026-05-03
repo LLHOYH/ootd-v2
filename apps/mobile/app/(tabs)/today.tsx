@@ -20,6 +20,7 @@ import {
 
 import { useToday } from '@/lib/hooks/useToday';
 import { useProfileSummary } from '@/lib/hooks/useProfileSummary';
+import { useClosetItemMap } from '@/lib/hooks/useClosetItemMap';
 import { postAnotherPick } from '@/lib/api/today';
 import { ApiError } from '@/lib/api/client';
 
@@ -28,6 +29,10 @@ export default function TodayScreen() {
   const router = useRouter();
   const { state, refetch } = useToday();
   const profile = useProfileSummary();
+  // Closet items keyed by id. Used to render real photos in Today's Pick.
+  // Loads in parallel with the /today payload — if it's slow the card
+  // gracefully falls back to pastel placeholders.
+  const itemMap = useClosetItemMap();
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // ---- Today's pick: local overrides --------------------------------------
@@ -208,6 +213,7 @@ export default function TodayScreen() {
         {currentPick ? (
           <TodaysPickCard
             combination={currentPick}
+            items={itemMap.resolve(currentPick.itemIds)}
             saved={isSaved}
             picking={picking}
             errorMessage={pickError}

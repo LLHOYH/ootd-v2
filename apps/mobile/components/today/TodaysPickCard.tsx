@@ -1,10 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import { Card, OutfitCard, Button, SectionHeader, useTheme } from '@mei/ui';
-import type { Combination } from '@mei/types';
+import type { ClosetItem, Combination } from '@mei/types';
 
 export interface TodaysPickCardProps {
   combination: Combination;
+  /** Resolved items aligned with `combination.itemIds`. Forwarded straight to
+   * OutfitCard so the slots render real photos instead of pastel rectangles.
+   * Pass `undefined` while items are still loading — OutfitCard falls back to
+   * the placeholder, which doubles as the image loading state. */
+  items?: (ClosetItem | undefined)[];
   /** True when the user has tapped the heart for this combo. Renders a filled
    * heart instead of an outline. State is owned by the parent so it can later
    * be persisted to the server without changing this component's shape. */
@@ -23,6 +28,7 @@ export interface TodaysPickCardProps {
 
 export function TodaysPickCard({
   combination,
+  items,
   saved = false,
   picking = false,
   errorMessage = null,
@@ -71,6 +77,7 @@ export function TodaysPickCard({
         <View style={picking ? styles.dim : undefined}>
           <OutfitCard
             combination={combination}
+            items={items}
             style={{ backgroundColor: 'transparent', padding: 0 }}
           />
         </View>
