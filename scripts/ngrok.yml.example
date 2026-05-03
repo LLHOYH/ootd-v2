@@ -1,4 +1,4 @@
-# Mei — ngrok config.
+# Mei — ngrok config (v2 syntax — works on all ngrok 3.x agents).
 #
 # Two modes; pick one block and delete the other.
 #
@@ -11,21 +11,28 @@
 #      https://dashboard.ngrok.com/cloud-edge/domains
 #      (you'll see one already provisioned for free accounts —
 #      something like "horse-witty-fox.ngrok-free.dev").
-#   3. Replace REPLACE_ME and the `domain:` line below.
+#   3. Replace REPLACE_ME and the `hostname:` line below.
 #   4. Run `pnpm tunnel` (boots the proxy on :8000 and ngrok at once).
 #   5. Patch apps/mobile/.env once via `pnpm mobile:target:ngrok-static`
 #      — now the env stays put forever; ngrok always serves at the
 #      same URL.
+#
+# v3 note: ngrok v3 config files use `version: "3"` + an `endpoints:`
+# block. Some 3.x agents in the wild still only accept v1/v2 config
+# even though the binary is 3.x — symptom is the error
+#   "unknown version '3'. valid versions are: [1 2]"
+# v2 syntax (this file) sidesteps that and works everywhere.
 
-version: "3"
-agent:
-  authtoken: REPLACE_ME
+version: "2"
+authtoken: REPLACE_ME
 
 tunnels:
   proxy:
     proto: http
     addr: 8000
-    domain: REPLACE_ME.ngrok-free.dev   # your reserved domain
+    # Your reserved domain. v2 calls this `hostname`. Both
+    # ngrok-free.dev and custom domains work here.
+    hostname: REPLACE_ME.ngrok-free.dev
 
 # ─────────────────────────────────────────────────────────────────────
 # Alternative: MULTI-TUNNEL (one tunnel per service).
