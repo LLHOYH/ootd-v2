@@ -10,8 +10,12 @@
 #
 # Each service has its own `.env`; this script sources them in
 # subshells so vars don't bleed into your terminal afterwards. Logs go
-# to /tmp/<service>.log and a multiplexed tail prints to the screen
-# so you can watch all four at once. Ctrl+C kills everything cleanly.
+# to /tmp/mei-<service>.log and a multiplexed tail prints to the
+# screen so you can watch all four at once. Ctrl+C kills everything
+# cleanly.
+#
+# Compatible with bash 3.2 (the macOS system bash) — no associative
+# arrays, no `wait -n`. Tested on /bin/bash 3.2.57 and /opt/homebrew/bin/bash 5.x.
 #
 # Usage:
 #   scripts/dev.sh                # all four services
@@ -35,43 +39,69 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Service registry: name | filter | env_path | port
+# ---------------------------------------------------------------------------
+# Service registry — pipe-delimited so we can split per-field with `cut`
+# without depending on bash 4 associative arrays.
+#
+#   name | pnpm-filter | env_path | port | pnpm-script | health-path
+# ---------------------------------------------------------------------------
 SERVICES=(
-  "api|@mei/api|services/api/.env|3001|serve"
-  "stylist|@mei/stylist|services/stylist/.env|8080|start"
-  "image-worker|@mei/image-worker|services/image-worker/.env|8090|start"
-  "notifier|@mei/notifier|services/notifier/.env|8082|start"
+  "api|@mei/api|services/api/.env|3001|serve|/_health"
+  "stylist|@mei/stylist|services/stylist/.env|8080|start|/health"
+  "image-worker|@mei/image-worker|services/image-worker/.env|8090|start|/health"
+  "notifier|@mei/notifier|services/notifier/.env|8082|start|/health"
 )
 
 # Pick selection: all by default, or the named ones from $@.
 SELECTED=()
 if [ $# -eq 0 ]; then
   for entry in "${SERVICES[@]}"; do
-    name="${entry%%|*}"
-    SELECTED+=("$name")
+    SELECTED+=("$(printf '%s' "$entry" | cut -d'|' -f1)")
   done
 else
   SELECTED=("$@")
 fi
 
-# Colour codes for log prefixes (matches the order most logs render).
-declare -A COLOURS=(
-  [api]='\033[36m'          # cyan
-  [stylist]='\033[35m'      # magenta
-  [image-worker]='\033[33m' # yellow
-  [notifier]='\033[32m'     # green
-)
+# ---------------------------------------------------------------------------
+# Colour codes — case statement instead of an associative array so this
+# works on bash 3.2.
+# ---------------------------------------------------------------------------
+colour_for() {
+  case "$1" in
+    api)          printf '\033[36m' ;;  # cyan
+    stylist)      printf '\033[35m' ;;  # magenta
+    image-worker) printf '\033[33m' ;;  # yellow
+    notifier)     printf '\033[32m' ;;  # green
+    *)            printf '\033[37m' ;;  # white
+  esac
+}
 RESET='\033[0m'
 
+# Look up a service entry by name. Echoes the pipe-delimited line, or empty.
+service_entry() {
+  local want="$1"
+  local entry name
+  for entry in "${SERVICES[@]}"; do
+    name="$(printf '%s' "$entry" | cut -d'|' -f1)"
+    if [ "$name" = "$want" ]; then
+      printf '%s' "$entry"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# State + cleanup.
+# ---------------------------------------------------------------------------
 PIDS=()
-LOG_FILES=()
 
 cleanup() {
   printf '\n\n[dev.sh] shutting down…\n'
   for pid in "${PIDS[@]}"; do
     kill "$pid" 2>/dev/null || true
   done
-  # Best-effort: also kill any tail children that might be hanging.
+  # Also kill any tail children we backgrounded.
   pkill -P $$ 2>/dev/null || true
   exit 0
 }
@@ -93,11 +123,11 @@ check_env() {
 }
 
 start_service() {
-  local name="$1" filter="$2" env_path="$3" port="$4" script="$5"
+  local name="$1" filter="$2" env_path="$3" script="$4"
   local log_file="/tmp/mei-${name}.log"
   : > "$log_file"
 
-  # Subshell so env vars don't leak.
+  # Subshell so env vars don't leak into the parent shell.
   (
     set -a
     # shellcheck disable=SC1090
@@ -108,26 +138,23 @@ start_service() {
 
   local pid=$!
   PIDS+=("$pid")
-  LOG_FILES+=("$log_file")
   printf '[dev.sh] started %-12s pid=%s log=%s\n' "$name" "$pid" "$log_file"
 }
 
+# ---------------------------------------------------------------------------
 # Boot the selected services.
+# ---------------------------------------------------------------------------
 for name in "${SELECTED[@]}"; do
-  match=""
-  for entry in "${SERVICES[@]}"; do
-    if [ "${entry%%|*}" = "$name" ]; then
-      match="$entry"
-      break
-    fi
-  done
-  if [ -z "$match" ]; then
+  entry="$(service_entry "$name")"
+  if [ -z "$entry" ]; then
     printf '[dev.sh] unknown service: %s (try: api stylist image-worker notifier)\n' "$name" >&2
     continue
   fi
-  IFS='|' read -r n filter env_path port script <<< "$match"
-  if check_env "$env_path" "$n"; then
-    start_service "$n" "$filter" "$env_path" "$port" "$script"
+  filter="$(printf '%s' "$entry" | cut -d'|' -f2)"
+  env_path="$(printf '%s' "$entry" | cut -d'|' -f3)"
+  script="$(printf '%s' "$entry" | cut -d'|' -f5)"
+  if check_env "$env_path" "$name"; then
+    start_service "$name" "$filter" "$env_path" "$script"
   fi
 done
 
@@ -136,18 +163,17 @@ if [ "${#PIDS[@]}" -eq 0 ]; then
   exit 1
 fi
 
-# Health probe loop — wait up to 20s for each service to answer
-# /_health (api) or /health (others), then announce ready.
+# ---------------------------------------------------------------------------
+# Health probe — wait up to 20s for each service to answer its
+# /health (or /_health) endpoint, then announce ready.
+# ---------------------------------------------------------------------------
 sleep 2
-declare -A HEALTH=(
-  [api]="http://127.0.0.1:3001/_health"
-  [stylist]="http://127.0.0.1:8080/health"
-  [image-worker]="http://127.0.0.1:8090/health"
-  [notifier]="http://127.0.0.1:8082/health"
-)
 for name in "${SELECTED[@]}"; do
-  url="${HEALTH[$name]:-}"
-  if [ -z "$url" ]; then continue; fi
+  entry="$(service_entry "$name")"
+  [ -z "$entry" ] && continue
+  port="$(printf '%s' "$entry" | cut -d'|' -f4)"
+  health_path="$(printf '%s' "$entry" | cut -d'|' -f6)"
+  url="http://127.0.0.1:${port}${health_path}"
   for _ in $(seq 1 40); do
     if curl -fsS -m 1 "$url" >/dev/null 2>&1; then
       printf '[dev.sh] %-12s ready %s\n' "$name" "$url"
@@ -159,22 +185,35 @@ done
 
 printf '\n[dev.sh] all services up. tailing logs (Ctrl+C to stop)…\n\n'
 
+# ---------------------------------------------------------------------------
 # Multiplexed tail with coloured prefixes.
+# ---------------------------------------------------------------------------
 prefix_tail() {
-  local name="$1" log_file="$2" colour="${COLOURS[$1]:-\033[37m}"
+  local name="$1" log_file="$2"
+  local colour
+  colour="$(colour_for "$name")"
   tail -n 0 -F "$log_file" 2>/dev/null | while IFS= read -r line; do
     printf '%b[%s]%b %s\n' "$colour" "$name" "$RESET" "$line"
   done
 }
 
-for i in "${!SELECTED[@]}"; do
-  name="${SELECTED[$i]}"
+for name in "${SELECTED[@]}"; do
   log_file="/tmp/mei-${name}.log"
   if [ -f "$log_file" ]; then
     prefix_tail "$name" "$log_file" &
   fi
 done
 
-# Wait until any service exits or the user Ctrl-Cs.
-wait -n "${PIDS[@]}" 2>/dev/null
+# ---------------------------------------------------------------------------
+# Block until the user Ctrl+Cs.
+#
+# `wait -n` (block until any one job exits) is bash 4.3+, but macOS
+# ships bash 3.2. Plain `wait` blocks until ALL backgrounded jobs are
+# done; combined with our INT/TERM trap it gives the right behaviour
+# (Ctrl+C kills everything cleanly). The downside is that if a single
+# service crashes we don't notice automatically — but the prefixed
+# log tail surfaces the crash anyway, and the operator can Ctrl+C
+# and restart.
+# ---------------------------------------------------------------------------
+wait
 cleanup
