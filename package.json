@@ -26,6 +26,9 @@
     "mobile:target:lan": "scripts/mobile-target.sh lan",
     "mobile:target:localhost": "scripts/mobile-target.sh localhost",
     "mobile:target:ngrok": "scripts/ngrok-tunnel.sh",
+    "mobile:target:ngrok-static": "scripts/mobile-target.sh ngrok-static",
+    "proxy": "pnpm --filter @mei/api exec tsx ../../scripts/proxy.ts",
+    "tunnel": "scripts/tunnel.sh",
     "test:web": "echo 'Run in three terminals: 1) pnpm services   2) pnpm seed:all   3) pnpm mobile:web   See docs/TESTING.md.'"
   },
   "devDependencies": {
