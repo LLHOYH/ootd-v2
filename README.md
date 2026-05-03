@@ -9,6 +9,19 @@
 | `SPEC.md` | The build doc. Product overview, tech stack, design system, data model, API surface, AI/Stella spec, image pipeline, screen-by-screen specs, cross-screen flows, build plan, open questions. |
 | `mockup.html` | Single-file visual reference — all 15 screens. Open in any browser. |
 | `tokens.ts` | Design tokens as a TypeScript object — drop into your `packages/ui` theme. |
+| **`docs/TESTING.md`** | **How to run the app end-to-end (Mac web + iPhone).** Three terminals: `pnpm services`, `pnpm seed:all`, `pnpm mobile:web`. |
+
+## Run the app locally
+
+Three terminals:
+
+```bash
+pnpm services          # boots api, stylist, image-worker, notifier
+pnpm seed:all          # fills 10 test users with closets, friends, DMs
+pnpm mobile:web        # opens Expo web on :8081
+```
+
+Full guide including iOS / Expo Go setup is in **[`docs/TESTING.md`](./docs/TESTING.md)**.
 
 ## How to use this with Claude Code
 

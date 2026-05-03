@@ -16,7 +16,14 @@
     "mobile:start": "pnpm --filter @mei/mobile start",
     "mobile:web": "pnpm --filter @mei/mobile web",
     "seed": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed.ts",
-    "seed:all": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed-multiuser.ts"
+    "seed:all": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed-multiuser.ts",
+    "services": "scripts/dev.sh",
+    "services:api": "scripts/dev.sh api",
+    "services:stylist": "scripts/dev.sh stylist",
+    "services:image-worker": "scripts/dev.sh image-worker",
+    "services:notifier": "scripts/dev.sh notifier",
+    "services:health": "for u in http://127.0.0.1:3001/_health http://127.0.0.1:8080/health http://127.0.0.1:8090/health http://127.0.0.1:8082/health; do printf '%s -> ' \"$u\"; curl -fsS -m 2 \"$u\" || echo 'unreachable'; echo; done",
+    "test:web": "echo 'Run in three terminals: 1) pnpm services   2) pnpm seed:all   3) pnpm mobile:web   See docs/TESTING.md.'"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
