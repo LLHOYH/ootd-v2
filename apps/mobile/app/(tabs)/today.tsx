@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import type { Combination } from '@mei/types';
 import { Button, Screen, useTheme } from '@mei/ui';
 
 import { Header } from '@/components/today/Header';
@@ -19,6 +20,8 @@ import {
 
 import { useToday } from '@/lib/hooks/useToday';
 import { useProfileSummary } from '@/lib/hooks/useProfileSummary';
+import { postAnotherPick } from '@/lib/api/today';
+import { ApiError } from '@/lib/api/client';
 
 export default function TodayScreen() {
   const theme = useTheme();
@@ -26,6 +29,18 @@ export default function TodayScreen() {
   const { state, refetch } = useToday();
   const profile = useProfileSummary();
   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // ---- Today's pick: local overrides --------------------------------------
+  // The /today payload gives us the server's recommended pick. The user can
+  // either re-roll it ("Try another") — handled by POST /today/another-pick —
+  // or like it locally. We track those bits here so the UI can swap without
+  // a full /today refetch and so we can pass the *current* pick (not the
+  // initial one) into the share modal.
+  const [overridePick, setOverridePick] = useState<Combination | null>(null);
+  const [seenComboIds, setSeenComboIds] = useState<string[]>([]);
+  const [savedComboIds, setSavedComboIds] = useState<Set<string>>(() => new Set());
+  const [picking, setPicking] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
 
   // Today’s date in the device's local timezone. Re-rendered on each open.
   const today = useMemo(() => new Date(), []);
@@ -91,6 +106,77 @@ export default function TodayScreen() {
   const looks = data.communityLooks.map(adaptCommunityLook);
   const fashion = data.fashionNow.map(adaptFashionNow);
 
+  // Effective pick = local override (from "Try another") if any, else server.
+  const currentPick = overridePick ?? data.todaysPick;
+  const isSaved = currentPick ? savedComboIds.has(currentPick.comboId) : false;
+
+  const handleTryAnother = async () => {
+    if (picking) return;
+    setPicking(true);
+    setPickError(null);
+    try {
+      // Exclude both the current pick and anything we've already shown so
+      // the server doesn't hand back the same combo twice in a row.
+      const exclude = Array.from(
+        new Set(
+          [
+            ...seenComboIds,
+            currentPick?.comboId,
+            data.todaysPick?.comboId,
+          ].filter((x): x is string => Boolean(x)),
+        ),
+      );
+      const res = await postAnotherPick(
+        exclude.length > 0 ? { excludeComboIds: exclude } : undefined,
+      );
+      setOverridePick(res.pick);
+      setSeenComboIds((prev) => {
+        const next = new Set(prev);
+        next.add(res.pick.comboId);
+        return Array.from(next);
+      });
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not load another look';
+      setPickError(msg);
+    } finally {
+      setPicking(false);
+    }
+  };
+
+  const handleToggleSave = () => {
+    if (!currentPick) return;
+    setSavedComboIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(currentPick.comboId)) {
+        next.delete(currentPick.comboId);
+      } else {
+        next.add(currentPick.comboId);
+      }
+      return next;
+    });
+  };
+
+  const handleWear = () => {
+    if (!currentPick) return;
+    // Pass the combination through the route so the Wear-this modal doesn't
+    // need to round-trip /closet/combinations to look it up — that fetch was
+    // hanging silently when the network was flaky and showed as an infinite
+    // loading spinner. The screen still falls back to a list lookup if the
+    // serialized payload is missing or malformed.
+    router.push({
+      pathname: '/share',
+      params: {
+        comboId: currentPick.comboId,
+        comboJson: JSON.stringify(currentPick),
+      },
+    } as never);
+  };
+
   return (
     <Screen>
       <ScrollView
@@ -109,23 +195,25 @@ export default function TodayScreen() {
         <Header firstName={firstName} date={today} unread />
 
         {showSetupBanner ? (
-          <SetupBanner onDismiss={() => setBannerDismissed(true)} />
+          <SetupBanner
+            onPress={() => router.push('/selfies')}
+            onDismiss={() => setBannerDismissed(true)}
+          />
         ) : null}
 
         {data.weather ? <WeatherStrip weather={adaptWeather(data.weather)} /> : null}
 
         <CalendarStrip events={events} />
 
-        {data.todaysPick ? (
+        {currentPick ? (
           <TodaysPickCard
-            combination={data.todaysPick}
-            onTryAnother={() => router.push('/chats/stella')}
-            onWear={() =>
-              router.push({
-                pathname: '/share',
-                params: { comboId: data.todaysPick!.comboId },
-              } as never)
-            }
+            combination={currentPick}
+            saved={isSaved}
+            picking={picking}
+            errorMessage={pickError}
+            onTryAnother={() => void handleTryAnother()}
+            onWear={handleWear}
+            onSave={handleToggleSave}
           />
         ) : null}
 

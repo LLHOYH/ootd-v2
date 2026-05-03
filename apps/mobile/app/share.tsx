@@ -46,12 +46,26 @@ type SimpleVisibility = Extract<OOTDVisibility, 'PUBLIC' | 'FRIENDS'>;
 export default function ShareScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ comboId?: string }>();
+  const params = useLocalSearchParams<{ comboId?: string; comboJson?: string }>();
   const { session } = useSession();
   const me = session?.user.id;
 
-  const [combo, setCombo] = useState<Combination | null>(null);
-  const [loading, setLoading] = useState(true);
+  // The caller (Today screen) can hand us the combination directly via
+  // `comboJson` to skip the network round-trip. The /closet/combinations
+  // fallback below was hanging silently when the network was flaky and
+  // showed up as an infinite loading spinner — preferring the prefetched
+  // payload eliminates that failure mode for the most common entry point.
+  const initialCombo = useMemo<Combination | null>(() => {
+    if (typeof params.comboJson !== 'string' || params.comboJson.length === 0) return null;
+    try {
+      return JSON.parse(params.comboJson) as Combination;
+    } catch {
+      return null;
+    }
+  }, [params.comboJson]);
+
+  const [combo, setCombo] = useState<Combination | null>(initialCombo);
+  const [loading, setLoading] = useState(initialCombo == null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [caption, setCaption] = useState('');
@@ -63,15 +77,22 @@ export default function ShareScreen() {
   // Combos endpoint is the cheapest way to look up one combo by id while
   // staying RLS-scoped to the caller. The api lacks a GET /closet/combinations/:id
   // for non-owner reads — fine here, the caller is always the owner.
+  //
+  // Skipped entirely when the caller pre-loaded the combo via `comboJson`
+  // (the common Today-screen path), and bounded by an 8s abort so a stuck
+  // request can't pin the screen on a spinner forever.
   useEffect(() => {
+    if (combo != null) return; // already have it (prefetched or set below)
     if (!params.comboId || !me) {
       setLoading(false);
       return;
     }
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 8000);
     let cancelled = false;
     (async () => {
       try {
-        const list = await fetchClosetCombinations({ limit: 100 });
+        const list = await fetchClosetCombinations({ limit: 100, signal: ctrl.signal });
         if (cancelled) return;
         const found = list.items.find((c) => c.comboId === params.comboId);
         if (!found) {
@@ -81,16 +102,23 @@ export default function ShareScreen() {
         }
       } catch (err) {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Could not load look');
+          if (ctrl.signal.aborted) {
+            setLoadError('Loading took too long. Check your connection and try again.');
+          } else {
+            setLoadError(err instanceof Error ? err.message : 'Could not load look');
+          }
         }
       } finally {
+        clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
+      ctrl.abort();
     };
-  }, [params.comboId, me]);
+  }, [params.comboId, me, combo]);
 
   const canSubmit = !submitting && combo != null;
 
