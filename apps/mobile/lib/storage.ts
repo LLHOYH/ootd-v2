@@ -15,7 +15,11 @@
 // import from `./supabase`; if that file doesn't exist yet at typecheck
 // time the parallel branch will land it before merge.
 
-import * as FileSystem from 'expo-file-system';
+// SDK 54 introduced a new file-system API on the bare `expo-file-system`
+// import. The legacy `readAsStringAsync` + `EncodingType.Base64` flow we
+// rely on here still ships under the `/legacy` subpath. Switch to the
+// new API in a follow-up.
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   closetRawKey,
   selfieKey,
