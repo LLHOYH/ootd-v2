@@ -98,11 +98,24 @@ PIDS=()
 
 cleanup() {
   printf '\n\n[dev.sh] shutting down…\n'
+  # The recorded PIDS are the pnpm wrappers. Kill them, then sweep up
+  # the whole subtree (tsx node processes are grandchildren and would
+  # otherwise reparent to PID 1, leaving orphan listeners holding ports
+  # 3001/8080/8090/8082 — which is what made the user accumulate 18+
+  # zombie dev.sh runs before this fix).
   for pid in "${PIDS[@]}"; do
     kill "$pid" 2>/dev/null || true
+    # Kill children-of-pid recursively (pnpm → tsx → node).
+    pkill -TERM -P "$pid" 2>/dev/null || true
   done
-  # Also kill any tail children we backgrounded.
+  # Kill any tail processes we backgrounded.
   pkill -P $$ 2>/dev/null || true
+  # Final sweep: anything in our process group that's still around.
+  sleep 0.5
+  for pid in "${PIDS[@]}"; do
+    pkill -KILL -P "$pid" 2>/dev/null || true
+    kill -KILL "$pid" 2>/dev/null || true
+  done
   exit 0
 }
 trap cleanup INT TERM
