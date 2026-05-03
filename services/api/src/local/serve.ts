@@ -144,14 +144,18 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'no result' } }));
       return;
     }
+    // dev.sh prefixes every line with `[api] `, so we deliberately omit
+    // a service prefix here to avoid the double `[api] [api] ` that the
+    // tail multiplexer used to render. Run-mode hint: when this is
+    // running under `pnpm services` you'll see `[api] GET ... → 200`;
+    // when run standalone (`pnpm --filter @mei/api serve`) you'll see
+    // just `GET ... → 200`. Both are fine.
     // eslint-disable-next-line no-console
-    console.log(
-      `[api] ${req.method} ${req.url} → ${out.statusCode}`,
-    );
+    console.log(`${req.method} ${req.url} → ${out.statusCode}`);
     writeResponse(res, out);
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('[api] handler crash', err);
+    console.error('handler crash', err);
     res.statusCode = 500;
     res.end(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'crash' } }));
   }
@@ -159,5 +163,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`[api] local server listening on http://127.0.0.1:${PORT}`);
+  console.log(`local server listening on http://127.0.0.1:${PORT}`);
 });

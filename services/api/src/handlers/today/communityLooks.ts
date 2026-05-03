@@ -61,9 +61,19 @@ export async function fetchCommunityLooks(
   // works without special-casing on the client.
   if (!me || !me.country_code) return [];
 
-  // 2. Pull PUBLIC OOTDs from opted-in same-country users. We use an
-  //    inner join via the `users!inner(...)` shorthand so non-opted-in
-  //    rows drop out before the LIMIT is applied.
+  // 2. Pull PUBLIC OOTDs from opted-in same-country users.
+  //
+  //    The embed has to disambiguate the FK because PostgREST sees two
+  //    relationships between `ootd_posts` and `users`:
+  //      a. ootd_posts.user_id → users.user_id  (the post author)
+  //      b. ootd_posts → ootd_reactions → users (the reactors)
+  //    Using the alias `users:users!inner(...)` is ambiguous; supabase
+  //    returns PGRST201 ("Could not embed because more than one
+  //    relationship was found"). We pin the FK by name. The `!inner`
+  //    keeps it a JOIN so non-opted-in rows drop out before the LIMIT
+  //    is applied. Filters on `users.<column>` still work because the
+  //    alias is still `users` — only the disambiguation moves to the
+  //    constraint name.
   const { data, error } = await supabase
     .from('ootd_posts')
     .select(
@@ -72,7 +82,7 @@ export async function fetchCommunityLooks(
        try_on_storage_key,
        fallback_outfit_card_storage_key,
        created_at,
-       users:users!inner (
+       users:users!ootd_posts_user_id_fkey!inner (
          username,
          birth_year,
          country_code,
