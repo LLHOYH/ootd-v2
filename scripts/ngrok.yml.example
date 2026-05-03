@@ -1,32 +1,47 @@
-# Mei — ngrok multi-tunnel config.
+# Mei — ngrok config.
 #
-# Copy to scripts/ngrok.yml (gitignored), drop in your authtoken from
-# https://dashboard.ngrok.com/get-started/your-authtoken, and start with
+# Two modes; pick one block and delete the other.
 #
-#   ngrok start --all --config scripts/ngrok.yml
+# Recommended: STATIC SINGLE-TUNNEL (works on the free plan, gives a
+# permanent URL that doesn't rotate between sessions).
 #
-# Free plan note: ngrok limits the free tier to 1 simultaneous tunnel.
-# Multi-tunnel in this config requires a paid plan (Personal $8/mo as
-# of 2026). If you need multiple tunnels for free, see Tailscale or
-# cloudflared in docs/TESTING.md instead.
-#
-# After ngrok prints the four public URLs, plug them into
-# apps/mobile/.env (the EXPO_PUBLIC_*_URL trio) and restart Expo.
+#   1. Sign in at https://dashboard.ngrok.com/get-started/your-authtoken
+#      and paste your authtoken below.
+#   2. Reserve your free static domain at
+#      https://dashboard.ngrok.com/cloud-edge/domains
+#      (you'll see one already provisioned for free accounts —
+#      something like "horse-witty-fox.ngrok-free.dev").
+#   3. Replace REPLACE_ME and the `domain:` line below.
+#   4. Run `pnpm tunnel` (boots the proxy on :8000 and ngrok at once).
+#   5. Patch apps/mobile/.env once via `pnpm mobile:target:ngrok-static`
+#      — now the env stays put forever; ngrok always serves at the
+#      same URL.
 
 version: "3"
 agent:
   authtoken: REPLACE_ME
 
 tunnels:
-  api:
+  proxy:
     proto: http
-    addr: 3001
-  stylist:
-    proto: http
-    addr: 8080
-  image-worker:
-    proto: http
-    addr: 8090
-  notifier:
-    proto: http
-    addr: 8082
+    addr: 8000
+    domain: REPLACE_ME.ngrok-free.dev   # your reserved domain
+
+# ─────────────────────────────────────────────────────────────────────
+# Alternative: MULTI-TUNNEL (one tunnel per service).
+# Requires a paid ngrok plan (free plan = 1 simultaneous tunnel).
+# Use scripts/ngrok-tunnel.sh with this config.
+#
+#   tunnels:
+#     api:
+#       proto: http
+#       addr: 3001
+#     stylist:
+#       proto: http
+#       addr: 8080
+#     image-worker:
+#       proto: http
+#       addr: 8090
+#     notifier:
+#       proto: http
+#       addr: 8082

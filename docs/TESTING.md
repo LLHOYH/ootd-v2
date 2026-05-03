@@ -123,16 +123,19 @@ Opens Expo's web bundler on `http://localhost:8081`. Sign in as any
 
 The web bundle gets `EXPO_PUBLIC_*_URL` values inlined at build time.
 On your phone, `127.0.0.1` resolves to the *phone* — not your Mac.
-Pick one of three approaches before opening the bundle on your phone:
+Pick one of four approaches before opening the bundle on your phone:
 
-| Strategy | Use when | Cost |
-|---|---|---|
-| **LAN swap** (`pnpm mobile:target:lan`) | Phone on the same Wi-Fi as the Mac | Free, fastest |
-| **ngrok** (`pnpm mobile:target:ngrok`) | Phone on cellular, hotel Wi-Fi, or remote tester | Needs paid ngrok plan for 4 simultaneous tunnels |
-| **Tailscale** (manual) | Want LAN-feel from anywhere, no per-tunnel limits | Free for personal use; install on both devices |
+| Strategy | Use when | Env stays stable? | Cost |
+|---|---|---|---|
+| **LAN swap** (`pnpm mobile:target:lan`) | Phone on the same Wi-Fi as the Mac | No (LAN IP changes between networks) | Free |
+| **ngrok static** (`pnpm tunnel`) — recommended for off-LAN | Phone anywhere with internet, want a stable URL | **Yes — permanent URL** | Free (1 reserved domain per ngrok account) |
+| **ngrok multi-tunnel** (`pnpm mobile:target:ngrok`) | Same as above; dynamic URLs each session | No (rotates) | Paid ngrok plan needed for 4 simultaneous tunnels |
+| **Tailscale** (manual) | Want LAN-feel from anywhere, no per-tunnel limits | Yes (stable `100.x.y.z` IP) | Free for personal use |
 
-LAN is the right default. ngrok and Tailscale shine when you can't
-share a network.
+The recommended path is **ngrok static** — one reserved domain bound
+to a tiny reverse proxy on your Mac, fanning out to the four backend
+services internally. The mobile env stays stable across sessions; you
+patch `apps/mobile/.env` once and it just works forever.
 
 ### A) LAN swap
 
@@ -164,37 +167,92 @@ Then on your phone:
 - **Safari** → `http://<MAC_IP>:8081`  (Expo's web URL)
 - **Expo Go** → scan the QR code printed by `pnpm mobile:start`
 
-### B) ngrok (different network or remote tester)
+### B) ngrok static — permanent URL on the free plan (recommended)
 
-One-time setup:
+One reserved domain on the Mac, fans out to the four backends via a
+tiny reverse proxy. Free plan, stable URL, the env never changes.
+
+**One-time setup**:
 
 ```bash
 brew install ngrok/ngrok/ngrok
+
+# Reserve a free static domain at:
+#   https://dashboard.ngrok.com/cloud-edge/domains
+# (free accounts already have one provisioned, e.g. horse-witty-fox.ngrok-free.dev)
+
 cp scripts/ngrok.yml.example scripts/ngrok.yml
-# paste your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+# Edit scripts/ngrok.yml:
+#   1. paste authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+#   2. set tunnels.proxy.domain to the static domain you reserved
 ```
 
-Then:
+**Patch the mobile env once** (reads the domain from `scripts/ngrok.yml`):
 
 ```bash
-pnpm services                   # backend must be live first
-pnpm mobile:target:ngrok        # opens 4 tunnels + patches .env
-# in another terminal: Ctrl+C and re-run pnpm mobile:web
+pnpm mobile:target:ngrok-static
 ```
 
-The script:
-1. Verifies all four backend services are up
-2. Backs up `apps/mobile/.env` to `*.pre-ngrok.bak`
-3. Starts `ngrok start --all` for the four tunnels
-4. Polls ngrok's local API for the public URLs
-5. Patches `apps/mobile/.env` with them
-6. On Ctrl+C: kills the tunnels and reverts the `.env` swap
+This sets:
 
-Caveat: ngrok's free tier allows 1 simultaneous tunnel. Four tunnels
-need a paid plan ($8/mo as of 2026). Cheaper alternatives:
-- **Cloudflared tunnels** — free, a bit more setup
-- **Tailscale** — free for personal use; gives you a stable
-  `100.x.x.y` IP per device that works from anywhere as if on LAN
+```
+EXPO_PUBLIC_API_URL=https://<your-domain>/api
+EXPO_PUBLIC_STYLIST_URL=https://<your-domain>/stylist
+EXPO_PUBLIC_IMAGE_WORKER_URL=https://<your-domain>/image-worker
+```
+
+**Each dev session**:
+
+```bash
+# terminal 1 — backend (or leave running)
+pnpm services
+
+# terminal 2 — proxy + ngrok in one process
+pnpm tunnel
+
+# terminal 3 — Expo
+pnpm mobile:web
+```
+
+`pnpm tunnel` boots the prefix-routing proxy on port 8000, starts
+ngrok pointing at it via your reserved domain, and waits. Ctrl+C
+shuts both down cleanly.
+
+Routes:
+
+| Public path | → Internal |
+|---|---|
+| `https://<your-domain>/api/...` | `127.0.0.1:3001/...` |
+| `https://<your-domain>/stylist/...` | `127.0.0.1:8080/...` |
+| `https://<your-domain>/image-worker/...` | `127.0.0.1:8090/...` |
+| `https://<your-domain>/notifier/...` | `127.0.0.1:8082/...` |
+| `https://<your-domain>/_health` | aggregated status of all four |
+
+The proxy streams responses verbatim — Stella SSE works through
+ngrok unchanged.
+
+### C) ngrok multi-tunnel (dynamic URLs)
+
+Use only if you specifically want one tunnel per service (e.g. you're
+debugging which one's slow, or you have a paid plan and want
+independent URLs). Tunnels rotate each session; mobile env needs
+re-patching.
+
+```bash
+pnpm services
+pnpm mobile:target:ngrok        # opens 4 tunnels, patches .env, waits
+```
+
+Caveat: free ngrok plan allows 1 simultaneous tunnel; four needs paid
+(~$8/mo). The static-domain route above sidesteps this.
+
+### D) Tailscale (LAN-feel from anywhere)
+
+Free alternative when ngrok feels like overkill:
+- Install on Mac + iPhone
+- Each device gets a stable `100.x.y.z` IP
+- Phone reaches Mac as if on LAN, even from cellular
+- Set `apps/mobile/.env` URLs to `http://<mac-tailscale-ip>:3001` etc.
 
 ### 3. Boot backend + seed (same as Mac)
 

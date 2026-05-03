@@ -15,6 +15,10 @@
 #   scripts/mobile-target.sh lan          # phone-friendly (auto-detects Mac IP)
 #   scripts/mobile-target.sh lan 192.168.x.y   # explicit IP
 #   scripts/mobile-target.sh localhost    # back to 127.0.0.1
+#   scripts/mobile-target.sh ngrok-static # uses your reserved ngrok
+#                                         # domain from scripts/ngrok.yml
+#                                         # — set once, never re-patch
+#                                         # the env between sessions
 #
 # The Supabase URL stays untouched — it's hosted, reachable from
 # anywhere already.
@@ -42,10 +46,22 @@ if [ -z "$mode" ]; then
   exit 1
 fi
 
-target_host=""
+# Two URL formats:
+#   - host:port    (lan, localhost) — full URL is http://<host>:<port>
+#   - prefixed     (ngrok-static)  — full URL is https://<domain>/<svc>
+#
+# Each EXPO_PUBLIC_*_URL line is built from these.
+api_url=""
+stylist_url=""
+worker_url=""
+mode_label="$mode"
+
 case "$mode" in
   localhost|local|loopback)
-    target_host="127.0.0.1"
+    api_url="http://127.0.0.1:3001"
+    stylist_url="http://127.0.0.1:8080"
+    worker_url="http://127.0.0.1:8090"
+    mode_label="localhost"
     ;;
   lan|wifi|phone)
     if [ -n "$override_ip" ]; then
@@ -59,28 +75,50 @@ case "$mode" in
         exit 1
       fi
     fi
+    api_url="http://${target_host}:3001"
+    stylist_url="http://${target_host}:8080"
+    worker_url="http://${target_host}:8090"
+    mode_label="lan ($target_host)"
+    ;;
+  ngrok-static|static|ngrok)
+    cfg="$SCRIPT_DIR/ngrok.yml"
+    if [ ! -f "$cfg" ]; then
+      echo "scripts/ngrok.yml is missing. Copy from ngrok.yml.example first." >&2
+      exit 1
+    fi
+    domain="$(grep -E '^\s*domain:' "$cfg" | head -1 | sed -E 's/.*domain:[[:space:]]*//;s/[[:space:]]*$//')"
+    if [ -z "$domain" ] || [ "$domain" = "REPLACE_ME.ngrok-free.dev" ]; then
+      echo "scripts/ngrok.yml has no static domain configured." >&2
+      echo "Reserve one at https://dashboard.ngrok.com/cloud-edge/domains" >&2
+      echo "and set tunnels.proxy.domain in scripts/ngrok.yml." >&2
+      exit 1
+    fi
+    api_url="https://${domain}/api"
+    stylist_url="https://${domain}/stylist"
+    worker_url="https://${domain}/image-worker"
+    mode_label="ngrok-static (${domain})"
     ;;
   *)
-    echo "unknown target: $mode (try: lan | localhost)" >&2
+    echo "unknown target: $mode (try: lan | localhost | ngrok-static)" >&2
     exit 1
     ;;
 esac
 
-# Swap the three host:port lines. Preserve everything else (Supabase URL,
-# anon key, comments, blank lines).
+# Swap the three URL lines in place. Preserve everything else (Supabase
+# URL, anon key, comments, blank lines).
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
 while IFS= read -r line; do
   case "$line" in
     EXPO_PUBLIC_API_URL=*)
-      printf 'EXPO_PUBLIC_API_URL=http://%s:3001\n' "$target_host"
+      printf 'EXPO_PUBLIC_API_URL=%s\n' "$api_url"
       ;;
     EXPO_PUBLIC_STYLIST_URL=*)
-      printf 'EXPO_PUBLIC_STYLIST_URL=http://%s:8080\n' "$target_host"
+      printf 'EXPO_PUBLIC_STYLIST_URL=%s\n' "$stylist_url"
       ;;
     EXPO_PUBLIC_IMAGE_WORKER_URL=*)
-      printf 'EXPO_PUBLIC_IMAGE_WORKER_URL=http://%s:8090\n' "$target_host"
+      printf 'EXPO_PUBLIC_IMAGE_WORKER_URL=%s\n' "$worker_url"
       ;;
     *)
       printf '%s\n' "$line"
@@ -91,15 +129,24 @@ done < "$ENV_FILE" > "$tmp"
 mv "$tmp" "$ENV_FILE"
 trap - EXIT
 
-echo "[mobile-target] $ENV_FILE updated:"
+echo "[mobile-target] $ENV_FILE updated for: $mode_label"
 grep '^EXPO_PUBLIC_\(API\|STYLIST\|IMAGE_WORKER\)_URL=' "$ENV_FILE"
 echo
 echo "Next:"
 echo "  - Restart pnpm mobile:web (or pnpm mobile:start) so Expo rebuilds the bundle."
-if [ "$mode" = "localhost" ] || [ "$mode" = "local" ] || [ "$mode" = "loopback" ]; then
-  echo "  - Open http://localhost:8081 on this Mac."
-else
-  echo "  - On your phone (same Wi-Fi as the Mac):"
-  echo "      Safari → http://${target_host}:8081"
-  echo "      Expo Go → scan the QR code printed by pnpm mobile:start"
-fi
+case "$mode" in
+  localhost|local|loopback)
+    echo "  - Open http://localhost:8081 on this Mac."
+    ;;
+  lan|wifi|phone)
+    echo "  - On your phone (same Wi-Fi as the Mac):"
+    echo "      Safari → http://${target_host}:8081"
+    echo "      Expo Go → scan the QR code printed by pnpm mobile:start"
+    ;;
+  ngrok-static|static|ngrok)
+    echo "  - Make sure pnpm tunnel is running (proxy + ngrok)."
+    echo "  - On your phone, anywhere with internet:"
+    echo "      Safari → ${api_url%/api}/  (or wherever Expo serves)"
+    echo "  - Static domain — env stays valid across restarts."
+    ;;
+esac
