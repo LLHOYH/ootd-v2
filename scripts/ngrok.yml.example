@@ -1,0 +1,32 @@
+# Mei — ngrok multi-tunnel config.
+#
+# Copy to scripts/ngrok.yml (gitignored), drop in your authtoken from
+# https://dashboard.ngrok.com/get-started/your-authtoken, and start with
+#
+#   ngrok start --all --config scripts/ngrok.yml
+#
+# Free plan note: ngrok limits the free tier to 1 simultaneous tunnel.
+# Multi-tunnel in this config requires a paid plan (Personal $8/mo as
+# of 2026). If you need multiple tunnels for free, see Tailscale or
+# cloudflared in docs/TESTING.md instead.
+#
+# After ngrok prints the four public URLs, plug them into
+# apps/mobile/.env (the EXPO_PUBLIC_*_URL trio) and restart Expo.
+
+version: "3"
+agent:
+  authtoken: REPLACE_ME
+
+tunnels:
+  api:
+    proto: http
+    addr: 3001
+  stylist:
+    proto: http
+    addr: 8080
+  image-worker:
+    proto: http
+    addr: 8090
+  notifier:
+    proto: http
+    addr: 8082
