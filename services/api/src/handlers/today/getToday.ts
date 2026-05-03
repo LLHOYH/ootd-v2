@@ -12,14 +12,16 @@
 //              TODO(stella-today-pick): replace with a Stella one-shot.
 //   - communityLooks: top 5 from the same query that powers
 //              /today/community-looks (§10.1 strip is small).
-//   - fashionNow: hardcoded placeholder cards. P2 per §13.3.
-//              TODO(fashion-now-rss): pull from an editorial RSS feed.
+//   - fashionNow: pulled from real editorial RSS feeds (Elle Fashion +
+//              Refinery29 Fashion). Module-cached for an hour and
+//              gated by a 4s per-feed timeout so a slow third-party
+//              never holds up /today. Falls back to a curated static
+//              set if every feed is down. See ../../lib/fashionRss.ts.
 
 import type { Handler } from '../../context';
 import type {
   Combination as ApiCombination,
   CommunityLook,
-  FashionNowCard,
   GetTodayResponse,
   Tables,
   WeatherSnapshot,
@@ -27,44 +29,12 @@ import type {
 import { ApiError } from '../../errors';
 import { requireAuthCtx } from '../../lib/handlerCtx';
 import { config } from '../../lib/config';
+import { getFashionNowCards } from '../../lib/fashionRss';
 import { fetchCommunityLooks } from './communityLooks';
 import { mapCombination, mapCommunityLook, type CombinationWithItems } from './shared';
 import { buildWeatherSnapshot } from './weather';
 
 const COMMUNITY_LOOKS_STRIP_SIZE = 5;
-
-// P2 placeholder cards — same shape as the mock-server (§13.3 markers it
-// as P2). Hardcoded URLs intentionally; no fixture file.
-const FASHION_NOW_PLACEHOLDER: FashionNowCard[] = [
-  {
-    id: 'fn_1',
-    title: 'Slip dresses, layered',
-    imageUrl: 'https://placehold.co/600x800/F2EAD9/3D4856?text=Paris+FW',
-    sourceUrl: 'https://www.vogue.com/fashion-shows',
-    publishedAt: '2026-04-20T09:00:00.000Z',
-  },
-  {
-    id: 'fn_2',
-    title: 'Tan leather, head to toe',
-    imageUrl: 'https://placehold.co/600x800/DCC9B6/3D4856?text=Editorial',
-    sourceUrl: 'https://www.vogue.com/fashion-shows',
-    publishedAt: '2026-04-22T09:00:00.000Z',
-  },
-  {
-    id: 'fn_3',
-    title: 'Sheer knits over cotton',
-    imageUrl: 'https://placehold.co/600x800/E5D5E0/3D4856?text=Instagram',
-    sourceUrl: 'https://www.vogue.com/fashion-shows',
-    publishedAt: '2026-04-24T09:00:00.000Z',
-  },
-  {
-    id: 'fn_4',
-    title: 'Ballet flats are back',
-    imageUrl: 'https://placehold.co/600x800/D5DDD0/3D4856?text=Milan+FW',
-    sourceUrl: 'https://www.vogue.com/fashion-shows',
-    publishedAt: '2026-04-25T09:00:00.000Z',
-  },
-];
 
 export const getTodayHandler: Handler = async (ctx) => {
   const { userId, supabase } = requireAuthCtx(ctx);
@@ -139,26 +109,27 @@ export const getTodayHandler: Handler = async (ctx) => {
     todaysPick = mapCombination(withItems);
   }
 
-  // 5. Community looks (top 5).
-  let communityLooks: CommunityLook[] = [];
-  try {
-    const rows = await fetchCommunityLooks(supabase, userId, {
-      offset: 0,
-      limit: COMMUNITY_LOOKS_STRIP_SIZE,
-    });
-    communityLooks = rows.map((r) => mapCommunityLook(r, config.supabaseUrl));
-  } catch (err) {
-    // §10.1 says don't block the page on a slow community-looks call.
-    // Same applies to a failure: log + render the rest. The
-    // dispatcher's logger picks this up.
-    // eslint-disable-next-line no-console
-    console.error('[today] community-looks failed; rendering empty strip', err);
-    communityLooks = [];
-  }
-
-  // 6. Fashion now — P2 placeholder.
-  // TODO(fashion-now-rss): pull from a real editorial RSS feed (P2 per §13.3).
-  const fashionNow = FASHION_NOW_PLACEHOLDER;
+  // 5. Community looks (top 5) and 6. Fashion now run in parallel — they
+  // hit different backends (Postgres vs external RSS) and §10.1 says
+  // don't block the page on either. Both have their own internal
+  // timeouts / fallbacks; this just keeps them off the critical path
+  // for each other.
+  const [communityLooks, fashionNow] = await Promise.all([
+    (async (): Promise<CommunityLook[]> => {
+      try {
+        const rows = await fetchCommunityLooks(supabase, userId, {
+          offset: 0,
+          limit: COMMUNITY_LOOKS_STRIP_SIZE,
+        });
+        return rows.map((r) => mapCommunityLook(r, config.supabaseUrl));
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[today] community-looks failed; rendering empty strip', err);
+        return [];
+      }
+    })(),
+    getFashionNowCards(),
+  ]);
 
   // Build the response. We build a `Partial`-ish union and only attach
   // `weather` / `todaysPick` when defined so the JSON envelope omits
