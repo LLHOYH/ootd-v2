@@ -78,28 +78,64 @@ need_running "notifier"     "http://127.0.0.1:8082/health"
 PROXY_PID=""
 NGROK_PID=""
 
+# Walk the process subtree rooted at $1 and echo every descendant pid,
+# one per line. We need this because `pkill -P` only walks one level,
+# but our proxy chain is `pnpm → tsx → node` (and ngrok may spawn its
+# own helpers too). If we only TERM the top of the tree the
+# grandchildren get reparented to PID 1 and keep ports 8000/3001/etc.
+# busy, which is what made the user hit EADDRINUSE on the next run.
+#
+# Bash 3.2 compatible — plain recursive function, no associative
+# arrays, no `mapfile`.
+list_subtree() {
+  local pid="$1" kid
+  for kid in $(pgrep -P "$pid" 2>/dev/null); do
+    echo "$kid"
+    list_subtree "$kid"
+  done
+}
+
 cleanup() {
   echo
   echo "[tunnel] shutting down…"
+  # Snapshot the tree BEFORE we send any signals. Once a parent dies
+  # its children reparent to PID 1 and `pgrep -P <dead-pid>` returns
+  # nothing, so collecting first and killing second is the only way to
+  # actually reach the leaves.
+  local all_pids=() p
   if [ -n "$NGROK_PID" ]; then
-    kill "$NGROK_PID" 2>/dev/null || true
-    pkill -P "$NGROK_PID" 2>/dev/null || true
+    all_pids+=("$NGROK_PID")
+    for p in $(list_subtree "$NGROK_PID"); do all_pids+=("$p"); done
   fi
   if [ -n "$PROXY_PID" ]; then
-    kill "$PROXY_PID" 2>/dev/null || true
-    pkill -P "$PROXY_PID" 2>/dev/null || true
+    all_pids+=("$PROXY_PID")
+    for p in $(list_subtree "$PROXY_PID"); do all_pids+=("$p"); done
   fi
+  # Polite TERM first so node/tsx can flush logs and release ports.
+  for pid in "${all_pids[@]}"; do
+    kill -TERM "$pid" 2>/dev/null || true
+  done
+  # Give them a moment, then KILL anything that didn't take the hint.
+  sleep 0.5
+  for pid in "${all_pids[@]}"; do
+    kill -KILL "$pid" 2>/dev/null || true
+  done
   exit 0
 }
 trap cleanup INT TERM
 
 # Start the proxy.
+#
+# `exec pnpm …` so the subshell becomes pnpm rather than wrapping it —
+# means $PROXY_PID is the actual pnpm wrapper, and `list_subtree` only
+# has to descend `pnpm → tsx` instead of `subshell → pnpm → tsx`. Same
+# trick scripts/dev.sh uses.
 PROXY_LOG="/tmp/mei-proxy.log"
 : > "$PROXY_LOG"
 (
   cd "$REPO_ROOT"
   PROXY_PORT="$PROXY_PORT" \
-    pnpm --filter @mei/api exec tsx ../../scripts/proxy.ts
+    exec pnpm --filter @mei/api exec tsx ../../scripts/proxy.ts
 ) > "$PROXY_LOG" 2>&1 &
 PROXY_PID=$!
 echo "[tunnel] proxy pid=$PROXY_PID log=$PROXY_LOG"
