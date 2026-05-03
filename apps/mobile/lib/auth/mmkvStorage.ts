@@ -1,28 +1,28 @@
-// MMKV-backed storage adapter for `@supabase/supabase-js`.
+// AsyncStorage-backed adapter for `@supabase/supabase-js`.
 //
-// Supabase's auth client expects a `getItem` / `setItem` / `removeItem`
-// trio (the localStorage shape). Async-Storage works on RN but is the slow
-// path; MMKV is synchronous, encrypted, and already pulled in per
-// SPEC.md §3.1, so we adapt it directly. The supabase types accept either
-// sync or async returns — we expose async to keep the surface area
-// uniform with the rest of the codebase.
+// Originally backed by react-native-mmkv (synchronous + encrypted), but
+// mmkv 3.x requires TurboModules and isn't bundled in Expo Go — every
+// route blew up at module load with "react-native-mmkv 3.x.x requires
+// TurboModules, but the new architecture is not enabled". AsyncStorage
+// IS bundled in Expo Go, so we swap to it for now.
 //
-// `id` namespaces the storage instance so future MMKV consumers (e.g. a
-// settings cache) don't collide with auth tokens.
+// File and export name kept so we don't churn imports across the app.
+// When we move to a custom dev client / EAS build we can revisit and
+// switch back to mmkv (or keep AsyncStorage — performance is fine for
+// session tokens).
+//
+// Supabase's auth client accepts either sync or async returns; the
+// `getItem` Promise<string | null> shape AsyncStorage exposes is
+// directly usable.
 
-import { MMKV } from 'react-native-mmkv';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const storage = new MMKV({ id: 'mei-auth' });
+const NAMESPACE = 'mei-auth:';
+
+const ns = (key: string): string => `${NAMESPACE}${key}`;
 
 export const mmkvStorage = {
-  getItem: (key: string): string | null => {
-    const value = storage.getString(key);
-    return value ?? null;
-  },
-  setItem: (key: string, value: string): void => {
-    storage.set(key, value);
-  },
-  removeItem: (key: string): void => {
-    storage.delete(key);
-  },
+  getItem: (key: string): Promise<string | null> => AsyncStorage.getItem(ns(key)),
+  setItem: (key: string, value: string): Promise<void> => AsyncStorage.setItem(ns(key), value),
+  removeItem: (key: string): Promise<void> => AsyncStorage.removeItem(ns(key)),
 };
