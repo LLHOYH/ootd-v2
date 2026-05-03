@@ -31,7 +31,9 @@ tunnels:
     proto: http
     addr: 8000
     # Your reserved domain. v2 calls this `hostname`. Both
-    # ngrok-free.dev and custom domains work here.
+    # ngrok-free.dev and custom domains work here. Paste it without
+    # the scheme — ngrok itself wants the bare host, and our shell
+    # scripts strip `https://` defensively if you leave it on.
     hostname: REPLACE_ME.ngrok-free.dev
 
 # ─────────────────────────────────────────────────────────────────────

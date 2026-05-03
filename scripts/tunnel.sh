@@ -46,6 +46,13 @@ fi
 # (`hostname:`) and v3 (`domain:`) syntax — different ngrok 3.x
 # agents accept different config schemas.
 DOMAIN="$(grep -E '^\s*(hostname|domain):' "$CFG" | head -1 | sed -E 's/.*(hostname|domain):[[:space:]]*//;s/[[:space:]]*$//')"
+# Be forgiving about the value — the ngrok dashboard shows the domain
+# as a clickable `https://...` URL, so people naturally paste it with
+# the scheme. Strip scheme + trailing slash so the post-launch echo
+# doesn't print `https://https://...`.
+DOMAIN="${DOMAIN#http://}"
+DOMAIN="${DOMAIN#https://}"
+DOMAIN="${DOMAIN%/}"
 if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "REPLACE_ME.ngrok-free.dev" ]; then
   echo "$CFG has no static domain configured. Reserve one at" >&2
   echo "  https://dashboard.ngrok.com/cloud-edge/domains" >&2
