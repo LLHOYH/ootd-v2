@@ -5,8 +5,9 @@
 // anon key is safe to ship: row-level security in 0002_rls_policies.sql is
 // what enforces access, the anon key just opens the door.
 //
-// Storage is MMKV (see mmkvStorage.ts) — synchronous + encrypted, faster
-// than async-storage. detectSessionInUrl is off because RN has no URL bar;
+// Storage is AsyncStorage (see auth/mmkvStorage.ts — file name kept for
+// minimal-diff reasons, internals were swapped off MMKV for Expo Go
+// compatibility). detectSessionInUrl is off because RN has no URL bar;
 // expo-router handles deep links explicitly elsewhere.
 
 import 'react-native-url-polyfill/auto';
