@@ -14,6 +14,7 @@
     "typecheck": "turbo run typecheck",
     "mobile": "pnpm --filter @mei/mobile",
     "mobile:start": "pnpm --filter @mei/mobile start",
+    "mobile:tunnel": "pnpm --filter @mei/mobile tunnel",
     "mobile:web": "pnpm --filter @mei/mobile web",
     "seed": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed.ts",
     "seed:all": "pnpm --filter @mei/api exec tsx ../../scripts/seed/seed-multiuser.ts",
