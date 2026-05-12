@@ -1,25 +1,24 @@
 #!/usr/bin/env bash
 # scripts/mobile-tunnel.sh
 #
-# Cafe-friendly Expo bundler launcher. Same end result as
-# `expo start --tunnel`, but with self-healing patches in front of it:
+# Cafe-friendly Metro launcher that BYPASSES @expo/ngrok.
 #
-# 1. @expo/ngrok ships an `@expo/ngrok-bin` that pins ngrok 2.3.41 —
-#    the old v2 protocol that ngrok's cloud now closes immediately
-#    ("session closed, starting reconnect loop"). We swap in the
-#    system ngrok 3.x binary via symlink.
-# 2. ngrok 3 also requires `version: "2"` at the top of the YAML it
-#    reads at ~/.expo/ngrok.yml — we add that if missing.
-# 3. With the binary running, @expo/ngrok next trips on ngrok 3's
-#    `/api/tunnels` HTTP endpoint, which rejects v2-era fields
-#    (`authtoken`, `configPath`, `port`) the wrapper still POSTs.
-#    Error: `yaml: unmarshal errors: field X not found in type
-#    config.HTTPv2Tunnel`. We patch @expo/ngrok/src/utils.js to delete
-#    those fields before the POST.
+# Why bypass: @expo/ngrok @ 4.1.3 is the latest on npm and still ships
+# the ngrok v2 binary + v2-shaped /api/tunnels payload. The current
+# ngrok cloud + agent reject both. We spent three PRs patching it
+# (binary swap, config version, payload field strip) and kept hitting
+# new walls (cloud-side "tunnel already exists" was the last one).
+# Cheaper to skip the wrapper entirely.
 #
-# All three steps are idempotent: on subsequent runs we detect prior
-# work and skip. Reversible: the bundled v2 binary is preserved at
-# `<bin>.v2.bak`, and utils.js is preserved at `utils.js.pre-v3-patch.bak`.
+# Instead, we piggyback on the ngrok agent that `pnpm tunnel` already
+# runs for the backend proxy. We add a second tunnel pointing at
+# Metro's :8081 via the agent's local /api/tunnels endpoint, read the
+# resulting public URL, and start Expo with
+# REACT_NATIVE_PACKAGER_HOSTNAME set so the QR + manifest URLs use
+# the tunnel host. One ngrok account, one agent, two tunnels.
+#
+# Prereq: `pnpm tunnel` running in another terminal (the script will
+# tell you if not).
 #
 # Compatible with bash 3.2 (macOS system bash).
 #
@@ -30,129 +29,98 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MOBILE_DIR="$REPO_ROOT/apps/mobile"
-EXPO_CFG="$HOME/.expo/ngrok.yml"
 
-# ---- 1. Locate @expo/ngrok-bin's resolved binary path ---------------------
-#
-# The bundled ngrok is one of:
-#   $(npm root -g)/@expo/ngrok/node_modules/@expo/ngrok-bin-<plat>-<arch>/ngrok
-#   $REPO_ROOT/node_modules/@expo/ngrok-bin-<plat>-<arch>/ngrok
-# Easiest path: ask Node to resolve `@expo/ngrok-bin` for us — its
-# index.js exports the binary path. Try the local workspace first
-# (cwd-anchored require), then fall back to the global install.
+NGROK_ADMIN="${NGROK_ADMIN:-http://127.0.0.1:4040}"
+METRO_PORT="${METRO_PORT:-8081}"
+TUNNEL_NAME="${MEI_METRO_TUNNEL_NAME:-mei-metro}"
 
-BUNDLED_BIN=""
-for cwd in "$MOBILE_DIR" "$REPO_ROOT" "$(npm root -g 2>/dev/null)/@expo/ngrok"; do
-  if [ -d "$cwd" ]; then
-    if BUNDLED_BIN=$(cd "$cwd" 2>/dev/null && node -e "console.log(require('@expo/ngrok-bin'))" 2>/dev/null); then
-      if [ -n "$BUNDLED_BIN" ] && [ -e "$BUNDLED_BIN" ]; then
-        break
-      fi
-    fi
-    BUNDLED_BIN=""
-  fi
-done
+# ---- 1. Verify the backend tunnel is running -----------------------------
 
-if [ -z "$BUNDLED_BIN" ]; then
-  echo "[mobile-tunnel] could not locate @expo/ngrok-bin. Try:" >&2
-  echo "    npm install -g @expo/ngrok" >&2
+if ! curl -fsS -m 2 "$NGROK_ADMIN/api/tunnels" >/dev/null 2>&1; then
+  cat >&2 <<EOF
+[mobile-tunnel] no ngrok agent reachable at $NGROK_ADMIN.
+
+This script piggybacks on the agent that 'pnpm tunnel' starts for the
+backend proxy — start that in another terminal first:
+
+    pnpm tunnel
+
+Then re-run 'pnpm mobile:tunnel'.
+EOF
   exit 1
 fi
 
-# ---- 2. If bundled ngrok is v2, swap in the system v3 binary --------------
+# ---- 2. Look up (or create) the Metro tunnel ------------------------------
+#
+# Idempotent: if a tunnel with our name already exists on the agent,
+# reuse its public URL rather than creating a duplicate.
 
-bundled_major() {
-  # `ngrok version` prints e.g. "ngrok version 2.3.41" or "ngrok version 3.39.1"
-  "$1" version 2>&1 | head -1 | sed -E 's/.*ngrok version ([0-9]+).*/\1/'
+read_url_for() {
+  # $1 = tunnel name. Echoes public_url, or empty if not found.
+  curl -fsS "$NGROK_ADMIN/api/tunnels" \
+    | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for t in data.get('tunnels', []):
+    if t.get('name') == '$1' and t.get('proto') == 'https':
+        print(t.get('public_url', ''))
+        break
+" 2>/dev/null || true
 }
 
-CURRENT_MAJOR=$(bundled_major "$BUNDLED_BIN" || echo "?")
-case "$CURRENT_MAJOR" in
-  3)
-    : # already v3 (either previously swapped or upstream finally updated)
-    ;;
-  2)
-    SYSTEM_NGROK="$(command -v ngrok || true)"
-    if [ -z "$SYSTEM_NGROK" ]; then
-      echo "[mobile-tunnel] Expo's bundled ngrok is v$CURRENT_MAJOR (deprecated)." >&2
-      echo "[mobile-tunnel] The current ngrok cloud closes v2 sessions immediately." >&2
-      echo "[mobile-tunnel] Install a v3 binary:" >&2
-      echo "    brew install ngrok/ngrok/ngrok" >&2
-      exit 1
-    fi
-    SYSMAJOR=$(bundled_major "$SYSTEM_NGROK" || echo "?")
-    if [ "$SYSMAJOR" != "3" ]; then
-      echo "[mobile-tunnel] system ngrok at $SYSTEM_NGROK is v$SYSMAJOR; need v3." >&2
-      echo "[mobile-tunnel] upgrade with: brew upgrade ngrok" >&2
-      exit 1
-    fi
-    echo "[mobile-tunnel] swapping Expo's bundled ngrok v$CURRENT_MAJOR for system ngrok v$SYSMAJOR ($SYSTEM_NGROK)…"
-    if [ ! -e "$BUNDLED_BIN.v2.bak" ]; then
-      mv "$BUNDLED_BIN" "$BUNDLED_BIN.v2.bak"
-    else
-      rm -f "$BUNDLED_BIN"
-    fi
-    ln -s "$SYSTEM_NGROK" "$BUNDLED_BIN"
-    ;;
-  *)
-    echo "[mobile-tunnel] could not parse ngrok version from $BUNDLED_BIN — leaving alone." >&2
-    ;;
-esac
+METRO_URL="$(read_url_for "$TUNNEL_NAME")"
 
-# ---- 3. ngrok 3 requires `version: "2"` at the top of its YAML ------------
-
-if [ -f "$EXPO_CFG" ] && ! grep -qE '^[[:space:]]*version[[:space:]]*:' "$EXPO_CFG"; then
-  echo "[mobile-tunnel] adding 'version: \"2\"' to $EXPO_CFG (ngrok 3 requires it)…"
-  TMP=$(mktemp)
-  printf 'version: "2"\n' > "$TMP"
-  cat "$EXPO_CFG" >> "$TMP"
-  mv "$TMP" "$EXPO_CFG"
-  chmod 600 "$EXPO_CFG"
-fi
-
-# ---- 4. Patch @expo/ngrok's tunnel-create payload for ngrok 3 -------------
-#
-# After the binary swap, ngrok 3 starts and the agent session works — but
-# @expo/ngrok's NgrokClient.startTunnel POSTs the entire opts object to
-# the agent's /api/tunnels endpoint with v2-era fields (`authtoken`,
-# `configPath`, `port`) that ngrok 3 refuses with:
-#   yaml: unmarshal errors: field <X> not found in type config.HTTPv2Tunnel
-#
-# Strip them at the source — inject three `delete opts.<field>` lines
-# at the end of `defaults()` in @expo/ngrok/src/utils.js. Idempotent
-# (marker comment prevents double-patching).
-
-UTILS_JS=$(cd "$(npm root -g 2>/dev/null)/@expo/ngrok" 2>/dev/null && node -e "console.log(require.resolve('@expo/ngrok/src/utils.js'))" 2>/dev/null || true)
-
-if [ -n "$UTILS_JS" ] && [ -f "$UTILS_JS" ]; then
-  PATCH_MARKER="MEI-EXPO-NGROK-V3-PATCH-1"
-  if ! grep -q "$PATCH_MARKER" "$UTILS_JS"; then
-    echo "[mobile-tunnel] patching $(basename "$UTILS_JS") to strip v2 fields from ngrok-3 /api/tunnels payload…"
-    cp -n "$UTILS_JS" "$UTILS_JS.pre-v3-patch.bak"
-    node -e '
-      const fs = require("fs");
-      const path = process.argv[1];
-      const marker = process.argv[2];
-      const src = fs.readFileSync(path, "utf8");
-      const target = "  if (opts.httpauth) opts.auth = opts.httpauth;\n  return opts;\n}";
-      if (!src.includes(target)) {
-        console.error("[mobile-tunnel] could not find patch site in", path);
-        console.error("[mobile-tunnel] @expo/ngrok internals may have changed — skipping patch.");
-        process.exit(0); // non-fatal: try anyway
-      }
-      const replacement =
-        "  if (opts.httpauth) opts.auth = opts.httpauth;\n" +
-        "  // " + marker + ": ngrok 3 /api/tunnels rejects these v2 fields\n" +
-        "  delete opts.authtoken;\n" +
-        "  delete opts.configPath;\n" +
-        "  delete opts.port;\n" +
-        "  return opts;\n}";
-      fs.writeFileSync(path, src.replace(target, replacement));
-    ' "$UTILS_JS" "$PATCH_MARKER"
+if [ -z "$METRO_URL" ]; then
+  echo "[mobile-tunnel] creating Metro tunnel ($TUNNEL_NAME → :$METRO_PORT)…"
+  RESPONSE="$(
+    curl -sS -X POST "$NGROK_ADMIN/api/tunnels" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"$TUNNEL_NAME\",\"proto\":\"http\",\"addr\":$METRO_PORT}" \
+    || true
+  )"
+  METRO_URL="$(read_url_for "$TUNNEL_NAME")"
+  if [ -z "$METRO_URL" ]; then
+    echo "[mobile-tunnel] failed to create Metro tunnel. Response from agent:" >&2
+    echo "$RESPONSE" >&2
+    exit 1
   fi
+  echo "[mobile-tunnel] created: $METRO_URL"
+else
+  echo "[mobile-tunnel] reusing existing tunnel: $METRO_URL"
 fi
 
-# ---- 5. Hand off to Expo --------------------------------------------------
+METRO_HOST="$(printf '%s' "$METRO_URL" | sed -E 's|^https?://||;s|/.*||')"
+
+# ---- 3. Tear-down trap ----------------------------------------------------
+#
+# When the user Ctrl+Cs Expo we keep the tunnel around (next launch
+# reuses it). If you want to drop the tunnel explicitly, run:
+#   curl -X DELETE $NGROK_ADMIN/api/tunnels/$TUNNEL_NAME
+# (left to the user — silent cleanup on exit makes the next run pay
+# the cold-start "create tunnel" cost.)
+
+# ---- 4. Launch Metro with REACT_NATIVE_PACKAGER_HOSTNAME ------------------
+
+cat <<EOF
+
+[mobile-tunnel] Metro will announce itself on:
+  $METRO_URL
+
+  Paste that URL into Expo Go > "Enter URL manually" — or scan the QR
+  code Expo prints below. Both Expo Go and the dev menu will hit your
+  Mac through the same ngrok session 'pnpm tunnel' is using, so the
+  backend (\$EXPO_PUBLIC_API_URL) and Metro share one account.
+
+EOF
+
+# EXPO_PACKAGER_PROXY_URL takes priority in UrlCreator and correctly
+# resolves the protocol + 443 port for https URLs, which is exactly
+# what we want for an ngrok tunnel. REACT_NATIVE_PACKAGER_HOSTNAME is
+# set as a defensive fallback for any code path that hasn't migrated
+# to the proxy URL env yet.
 
 cd "$MOBILE_DIR"
-exec npx expo start --tunnel "$@"
+exec env \
+  EXPO_PACKAGER_PROXY_URL="$METRO_URL" \
+  REACT_NATIVE_PACKAGER_HOSTNAME="$METRO_HOST" \
+  npx expo start --host=lan --port="$METRO_PORT" "$@"
