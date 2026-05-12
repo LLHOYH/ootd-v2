@@ -2,20 +2,24 @@
 # scripts/mobile-tunnel.sh
 #
 # Cafe-friendly Expo bundler launcher. Same end result as
-# `expo start --tunnel`, but with a self-healing patch in front of it:
+# `expo start --tunnel`, but with self-healing patches in front of it:
 #
-# @expo/ngrok ships an `@expo/ngrok-bin` that pins ngrok 2.3.41 — the
-# old v2 protocol that ngrok's cloud now closes immediately ("session
-# closed, starting reconnect loop"). The fix is to substitute a v3
-# binary for the bundled v2 one. The system ngrok 3.x install (e.g.
-# `brew install ngrok`) is fine — Expo's wrapper invokes it with args
-# that v3 still accepts. ngrok 3 also requires `version: "2"` in the
-# config it reads at ~/.expo/ngrok.yml; we add that if missing.
+# 1. @expo/ngrok ships an `@expo/ngrok-bin` that pins ngrok 2.3.41 —
+#    the old v2 protocol that ngrok's cloud now closes immediately
+#    ("session closed, starting reconnect loop"). We swap in the
+#    system ngrok 3.x binary via symlink.
+# 2. ngrok 3 also requires `version: "2"` at the top of the YAML it
+#    reads at ~/.expo/ngrok.yml — we add that if missing.
+# 3. With the binary running, @expo/ngrok next trips on ngrok 3's
+#    `/api/tunnels` HTTP endpoint, which rejects v2-era fields
+#    (`authtoken`, `configPath`, `port`) the wrapper still POSTs.
+#    Error: `yaml: unmarshal errors: field X not found in type
+#    config.HTTPv2Tunnel`. We patch @expo/ngrok/src/utils.js to delete
+#    those fields before the POST.
 #
-# Idempotent: detects the prior swap on subsequent runs and skips
-# straight to `expo start --tunnel`. Reversible: the bundled v2 binary
-# is preserved as `<bin>.v2.bak` next to the symlink — if you ever
-# want to roll back, restore it.
+# All three steps are idempotent: on subsequent runs we detect prior
+# work and skip. Reversible: the bundled v2 binary is preserved at
+# `<bin>.v2.bak`, and utils.js is preserved at `utils.js.pre-v3-patch.bak`.
 #
 # Compatible with bash 3.2 (macOS system bash).
 #
@@ -106,7 +110,49 @@ if [ -f "$EXPO_CFG" ] && ! grep -qE '^[[:space:]]*version[[:space:]]*:' "$EXPO_C
   chmod 600 "$EXPO_CFG"
 fi
 
-# ---- 4. Hand off to Expo --------------------------------------------------
+# ---- 4. Patch @expo/ngrok's tunnel-create payload for ngrok 3 -------------
+#
+# After the binary swap, ngrok 3 starts and the agent session works — but
+# @expo/ngrok's NgrokClient.startTunnel POSTs the entire opts object to
+# the agent's /api/tunnels endpoint with v2-era fields (`authtoken`,
+# `configPath`, `port`) that ngrok 3 refuses with:
+#   yaml: unmarshal errors: field <X> not found in type config.HTTPv2Tunnel
+#
+# Strip them at the source — inject three `delete opts.<field>` lines
+# at the end of `defaults()` in @expo/ngrok/src/utils.js. Idempotent
+# (marker comment prevents double-patching).
+
+UTILS_JS=$(cd "$(npm root -g 2>/dev/null)/@expo/ngrok" 2>/dev/null && node -e "console.log(require.resolve('@expo/ngrok/src/utils.js'))" 2>/dev/null || true)
+
+if [ -n "$UTILS_JS" ] && [ -f "$UTILS_JS" ]; then
+  PATCH_MARKER="MEI-EXPO-NGROK-V3-PATCH-1"
+  if ! grep -q "$PATCH_MARKER" "$UTILS_JS"; then
+    echo "[mobile-tunnel] patching $(basename "$UTILS_JS") to strip v2 fields from ngrok-3 /api/tunnels payload…"
+    cp -n "$UTILS_JS" "$UTILS_JS.pre-v3-patch.bak"
+    node -e '
+      const fs = require("fs");
+      const path = process.argv[1];
+      const marker = process.argv[2];
+      const src = fs.readFileSync(path, "utf8");
+      const target = "  if (opts.httpauth) opts.auth = opts.httpauth;\n  return opts;\n}";
+      if (!src.includes(target)) {
+        console.error("[mobile-tunnel] could not find patch site in", path);
+        console.error("[mobile-tunnel] @expo/ngrok internals may have changed — skipping patch.");
+        process.exit(0); // non-fatal: try anyway
+      }
+      const replacement =
+        "  if (opts.httpauth) opts.auth = opts.httpauth;\n" +
+        "  // " + marker + ": ngrok 3 /api/tunnels rejects these v2 fields\n" +
+        "  delete opts.authtoken;\n" +
+        "  delete opts.configPath;\n" +
+        "  delete opts.port;\n" +
+        "  return opts;\n}";
+      fs.writeFileSync(path, src.replace(target, replacement));
+    ' "$UTILS_JS" "$PATCH_MARKER"
+  fi
+fi
+
+# ---- 5. Hand off to Expo --------------------------------------------------
 
 cd "$MOBILE_DIR"
 exec npx expo start --tunnel "$@"
