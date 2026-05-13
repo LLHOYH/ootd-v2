@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -30,6 +31,55 @@ import { Button, Screen, useTheme } from '@mei/ui';
 
 import { MAX_SELFIES, useSelfies, type Selfie } from '@/lib/hooks/useSelfies';
 import { ApiError } from '@/lib/api/client';
+
+/**
+ * Translate the various failure modes from `expo-image-picker` and our
+ * uploader into a single user-friendly message. iOS Limited Library
+ * surfaces as a Cocoa "PHPhotosError" / "library cannot be loaded"; we
+ * detect that string and offer Settings as a remediation.
+ */
+function explainPickerError(err: unknown): { title: string; message: string; openSettings?: boolean } {
+  if (err instanceof ApiError) {
+    if (err.code === 'CAMERA_DENIED') {
+      return {
+        title: 'Camera access is off',
+        message: 'Allow camera access in Settings to take a new selfie.',
+        openSettings: true,
+      };
+    }
+    if (err.code === 'LIBRARY_DENIED') {
+      return {
+        title: 'Photo access is off',
+        message: 'Allow photo library access in Settings to pick a selfie.',
+        openSettings: true,
+      };
+    }
+  }
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/library cannot be loaded|PHPhotosError|cannot be loaded/i.test(raw)) {
+    return {
+      title: 'Photo library wouldn’t open',
+      message:
+        'iOS only shared a limited set of photos with the app. Open Settings to expand the selection, or try taking a new photo with the camera instead.',
+      openSettings: true,
+    };
+  }
+  return {
+    title: 'Could not add selfie',
+    message: raw || 'Something went wrong. Please try again.',
+  };
+}
+
+function showPickerError(err: unknown) {
+  const { title, message, openSettings } = explainPickerError(err);
+  const buttons: Parameters<typeof Alert.alert>[2] = openSettings
+    ? [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+      ]
+    : [{ text: 'OK' }];
+  Alert.alert(title, message, buttons);
+}
 
 export default function SelfiesScreen() {
   const theme = useTheme();
@@ -55,13 +105,7 @@ export default function SelfiesScreen() {
         if (source === 'camera') await addFromCamera();
         else await addFromLibrary();
       } catch (err) {
-        const message =
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : 'Could not add selfie';
-        Alert.alert('Could not add selfie', message);
+        showPickerError(err);
       }
     };
 
@@ -181,7 +225,7 @@ export default function SelfiesScreen() {
                 fontWeight: theme.type.weight.medium as '500',
               }}
             >
-              Add 5 selfies so we can try outfits on you
+              Add up to {MAX_SELFIES} selfies for better try-ons
             </Text>
           </View>
           <Text
@@ -191,9 +235,9 @@ export default function SelfiesScreen() {
               fontWeight: theme.type.weight.regular as '400',
             }}
           >
-            Front-facing, good light, varied angles. They stay private — only
-            you can see them, and we only use them to generate your try-on
-            photos.
+            Even one works — more selfies (varied angles, good light) let us
+            generate more accurate try-on photos. They stay private; only
+            you can see them.
           </Text>
         </View>
 
@@ -296,35 +340,6 @@ export default function SelfiesScreen() {
           </View>
         )}
 
-        {/* ---- At-limit footer ---------------------------------------- */}
-        {atLimit ? (
-          <View style={[styles.atLimit, { gap: theme.space.sm }]}>
-            <Text
-              style={{
-                color: theme.color.text.primary,
-                fontSize: theme.type.size.body,
-                fontWeight: theme.type.weight.medium as '500',
-                textAlign: 'center',
-              }}
-            >
-              You're all set.
-            </Text>
-            <Text
-              style={{
-                color: theme.color.text.tertiary,
-                fontSize: theme.type.size.tiny,
-                fontWeight: theme.type.weight.regular as '400',
-                textAlign: 'center',
-              }}
-            >
-              Remove one above to swap in a different photo.
-            </Text>
-            <Button variant="primary" onPress={() => router.back()}>
-              Done
-            </Button>
-          </View>
-        ) : null}
-
         {/* ---- Error footer ------------------------------------------- */}
         {state.status === 'error' ? (
           <Text
@@ -340,18 +355,14 @@ export default function SelfiesScreen() {
           </Text>
         ) : null}
 
-        {/* ---- Primary CTAs at bottom --------------------------------- */}
+        {/* ---- Picker CTAs (hidden once we hit the cap) -------------- */}
         {!atLimit && !loading ? (
           <View style={{ gap: theme.space.sm, marginTop: theme.space.md }}>
             <Button
               variant="primary"
               icon={Camera}
               onPress={() => {
-                addFromCamera().catch((err) => {
-                  const message =
-                    err instanceof Error ? err.message : 'Could not open camera';
-                  Alert.alert('Could not open camera', message);
-                });
+                addFromCamera().catch(showPickerError);
               }}
               disabled={mutating}
             >
@@ -360,15 +371,38 @@ export default function SelfiesScreen() {
             <Button
               variant="ghost"
               onPress={() => {
-                addFromLibrary().catch((err) => {
-                  const message =
-                    err instanceof Error ? err.message : 'Could not open library';
-                  Alert.alert('Could not open library', message);
-                });
+                addFromLibrary().catch(showPickerError);
               }}
               disabled={mutating}
             >
               Choose from library
+            </Button>
+          </View>
+        ) : null}
+
+        {/* ---- Persistent Done bar ------------------------------------ */}
+        {/* Each upload saves automatically (RLS owner-only insert on the */}
+        {/* `selfies` table) — there is no separate "submit" step. This */}
+        {/* footer just acknowledges that and gives the user a one-tap */}
+        {/* way back. Visible at any count, not gated on reaching 5. */}
+        {!loading ? (
+          <View style={[styles.doneBar, { gap: theme.space.xs }]}>
+            <Text
+              style={{
+                color: theme.color.text.tertiary,
+                fontSize: theme.type.size.tiny,
+                fontWeight: theme.type.weight.regular as '400',
+                textAlign: 'center',
+              }}
+            >
+              {count === 0
+                ? 'You can also come back later — try-ons get better with more selfies.'
+                : atLimit
+                  ? "You're all set. Remove one above to swap in a different photo."
+                  : `Saved ${count} of ${MAX_SELFIES}. Add more anytime — more selfies means better try-ons.`}
+            </Text>
+            <Button variant="primary" onPress={() => router.back()}>
+              {count > 0 ? 'Done' : 'Back'}
             </Button>
           </View>
         ) : null}
@@ -429,8 +463,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  atLimit: {
-    alignItems: 'center',
-    paddingVertical: 12,
+  doneBar: {
+    alignItems: 'stretch',
+    paddingTop: 12,
   },
 });
