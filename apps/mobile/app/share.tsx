@@ -52,6 +52,17 @@ export default function ShareScreen() {
   const me = session?.user.id;
   const itemMap = useClosetItemMap();
 
+  // expo-router 6 reconciles `<Stack.Screen options={…} />` by reference. The
+  // inline literal we used to pass here was rebuilt on every render, which
+  // expo-router treated as "options changed" and used as a trigger to
+  // re-render the screen — producing a "Maximum update depth exceeded"
+  // render loop. Lifting the object out so its identity stays stable
+  // breaks the loop.
+  const screenOptions = useMemo(
+    () => ({ headerShown: false, presentation: 'modal' as const }),
+    [],
+  );
+
   // The caller (Today screen) can hand us the combination directly via
   // `comboJson` to skip the network round-trip. The /closet/combinations
   // fallback below was hanging silently when the network was flaky and
@@ -166,7 +177,7 @@ export default function ShareScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen options={screenOptions} />
       <Screen>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -224,10 +235,7 @@ export default function ShareScreen() {
               </View>
             ) : (
               <>
-                <OutfitCard
-                  combination={combo}
-                  items={itemMap.resolve(combo.itemIds)}
-                />
+                <ResolvedOutfitCard combination={combo} itemMap={itemMap} />
 
                 {/* Caption */}
                 <View style={{ gap: 6 }}>
@@ -354,6 +362,29 @@ export default function ShareScreen() {
       </Screen>
     </>
   );
+}
+
+// Small wrapper that resolves `combination.itemIds` → `ClosetItem[]` inside a
+// useMemo so OutfitCard's `items` prop has stable identity per
+// (combination, itemMap.state) pair. Without this the inline
+// `itemMap.resolve(...)` returns a brand-new array on every parent render,
+// turning every state update into churn for the children below.
+function ResolvedOutfitCard({
+  combination,
+  itemMap,
+}: {
+  combination: Combination;
+  itemMap: ReturnType<typeof useClosetItemMap>;
+}) {
+  const items = useMemo(
+    () => itemMap.resolve(combination.itemIds),
+    // The whole point of memoizing is to keep identity stable across
+    // unrelated renders. Re-resolve only when the combination's items
+    // change or when the underlying closet map flips into a new state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [combination.itemIds.join(','), itemMap.state],
+  );
+  return <OutfitCard combination={combination} items={items} />;
 }
 
 const styles = StyleSheet.create({

@@ -71,5 +71,7 @@ export function adaptFashionNow(f: FashionNowCard): TodayFashionItem {
     id: f.id,
     source,
     caption: f.title,
+    imageUrl: f.imageUrl,
+    sourceUrl: f.sourceUrl,
   };
 }
