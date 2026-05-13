@@ -6,7 +6,8 @@
 // We could fold these into /today server-side later, but keeping them on
 // the client for now avoids bloating that contract.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { supabase } from '../supabase';
 import { useSession } from '../auth/SessionProvider';
 
@@ -34,14 +35,13 @@ export function useProfileSummary(): ProfileSummary | null {
   const { session } = useSession();
   const [summary, setSummary] = useState<ProfileSummary | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!session) {
       setSummary(null);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      const userId = session.user.id;
+    const userId = session.user.id;
+    try {
       const [profile, selfies] = await Promise.all([
         supabase
           .from('users')
@@ -53,7 +53,6 @@ export function useProfileSummary(): ProfileSummary | null {
           .select('selfie_id', { count: 'exact', head: true })
           .eq('user_id', userId),
       ]);
-      if (cancelled) return;
       const firstName = deriveFirstName({
         metaDisplayName:
           (session.user.user_metadata?.display_name as string | undefined) ?? undefined,
@@ -64,23 +63,32 @@ export function useProfileSummary(): ProfileSummary | null {
         firstName,
         selfieCount: selfies.count ?? 0,
       });
-    })().catch(() => {
+    } catch {
       // Soft-fail — the screen still renders with a generic greeting.
-      if (!cancelled) {
-        setSummary({
-          firstName: deriveFirstName({
-            metaDisplayName:
-              (session.user.user_metadata?.display_name as string | undefined) ?? undefined,
-            email: session.user.email ?? undefined,
-          }),
-          selfieCount: 0,
-        });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
+      setSummary({
+        firstName: deriveFirstName({
+          metaDisplayName:
+            (session.user.user_metadata?.display_name as string | undefined) ?? undefined,
+          email: session.user.email ?? undefined,
+        }),
+        selfieCount: 0,
+      });
+    }
   }, [session]);
+
+  // Initial fetch + refetch whenever the session changes.
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Re-pull on screen focus so returning from /selfies (after adding or
+  // removing photos) immediately updates the setup banner's gate, instead
+  // of waiting for the next app-cold-start.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   return summary;
 }
