@@ -34,6 +34,10 @@ export interface TodayCommunityLook {
 
 export interface TodayFashionItem {
   id: string;
-  source: string; // "Paris FW"
+  source: string; // "elle.com"
   caption: string;
+  /** Editorial hero image; undefined falls back to a pastel placeholder. */
+  imageUrl?: string;
+  /** Article URL — tapping the card opens this externally. */
+  sourceUrl?: string;
 }

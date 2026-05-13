@@ -23,7 +23,12 @@ import { fetchClosetItems } from '../api/closet';
 import { ApiError } from '../api/client';
 import { useSession } from '../auth/SessionProvider';
 
-const PAGE_SIZE = 200;
+// The /closet/items contract caps `limit` at 100 (packages/types Pagination,
+// SPEC §7.1). Asking for 200 returns a 400 and the whole resolver shows
+// pastel placeholders for every item — which is exactly the symptom this
+// hook is meant to fix. If a closet ever exceeds 100 items we'll need to
+// page; for P0 it's a generous ceiling.
+const PAGE_SIZE = 100;
 
 interface CacheEntry {
   /** User this cache belongs to. Sign-out / user-swap invalidates. */

@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TrendingUp } from 'lucide-react-native';
 import { SectionHeader, useTheme } from '@mei/ui';
 import type { TodayFashionItem } from './types';
@@ -46,8 +46,18 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
         {items.map((item, i) => {
           const key = PALETTE_KEYS[i % PALETTE_KEYS.length] ?? 'cream';
           const bg = theme.color.palette[key];
+          // Pastel background doubles as image-load placeholder + fallback
+          // when an RSS item didn't carry a hero image.
           return (
-            <View key={item.id} style={styles.card}>
+            <Pressable
+              key={item.id}
+              onPress={() => {
+                if (item.sourceUrl) void Linking.openURL(item.sourceUrl);
+              }}
+              accessibilityRole={item.sourceUrl ? 'link' : 'image'}
+              accessibilityLabel={`${item.source}: ${item.caption}`}
+              style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
+            >
               <View
                 style={[
                   styles.thumb,
@@ -56,7 +66,15 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
                     borderRadius: theme.radius.sm,
                   },
                 ]}
-              />
+              >
+                {item.imageUrl ? (
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    style={StyleSheet.absoluteFill}
+                    accessibilityIgnoresInvertColors
+                  />
+                ) : null}
+              </View>
               <View style={{ marginTop: theme.space.xs }}>
                 <Text
                   style={{
@@ -79,7 +97,7 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
                   {item.caption}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </ScrollView>
@@ -98,5 +116,6 @@ const styles = StyleSheet.create({
   thumb: {
     width: 110,
     height: 140,
+    overflow: 'hidden',
   },
 });
