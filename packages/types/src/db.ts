@@ -1562,6 +1562,7 @@ export const Constants = {
       ootd_visibility: ["PUBLIC", "FRIENDS", "GROUP", "DIRECT"],
       push_platform: ["ios", "android", "web"],
       stella_message_role: ["USER", "ASSISTANT"],
+      tryon_status: ["PENDING", "READY", "FAILED"],
       weather_tag: ["HOT", "WARM", "MILD", "COLD", "RAIN"],
     },
   },
