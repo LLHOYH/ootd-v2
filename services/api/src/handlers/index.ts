@@ -14,6 +14,7 @@ import { stellaRoutes } from './stella';
 import { ootdRoutes } from './ootd';
 import { friendsRoutes } from './friends';
 import { chatRoutes } from './chat';
+import { tryonRoutes } from './tryon';
 
 export const routes: RouteDef[] = [
   ...healthRoutes,
@@ -23,4 +24,5 @@ export const routes: RouteDef[] = [
   ...ootdRoutes,
   ...friendsRoutes,
   ...chatRoutes,
+  ...tryonRoutes,
 ];

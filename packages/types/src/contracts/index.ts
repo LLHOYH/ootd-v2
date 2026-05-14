@@ -13,3 +13,4 @@ export * from './friends.js';
 export * from './users.js';
 export * from './stella.js';
 export * from './chat.js';
+export * from './tryon.js';

@@ -17,7 +17,12 @@
 // `_thumb` suffix so the tuned and thumbnail keys never collide for the
 // same item id.
 
-export type BucketId = 'closet-raw' | 'closet-tuned' | 'selfies' | 'ootd';
+export type BucketId =
+  | 'closet-raw'
+  | 'closet-tuned'
+  | 'selfies'
+  | 'ootd'
+  | 'tryon-generated';
 
 export interface StorageKey {
   bucket: BucketId;
@@ -52,4 +57,9 @@ export function selfieKey(userId: string, selfieId: string): StorageKey {
 /** `ootd/{user_id}/{ootd_id}.webp` — visibility-scoped RLS. */
 export function ootdKey(userId: string, ootdId: string): StorageKey {
   return { bucket: 'ootd', path: `${userId}/${ootdId}.webp` };
+}
+
+/** `tryon-generated/{user_id}/{generation_id}.webp` — owner-only RLS. */
+export function tryonGeneratedKey(userId: string, generationId: string): StorageKey {
+  return { bucket: 'tryon-generated', path: `${userId}/${generationId}.webp` };
 }

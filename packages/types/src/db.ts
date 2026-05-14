@@ -656,6 +656,77 @@ export type Database = {
           },
         ]
       }
+      tryon_generations: {
+        Row: {
+          combo_id: string
+          completed_at: string | null
+          created_at: string
+          error_detail: string | null
+          generated_storage_key: string | null
+          generation_id: string
+          item_id: string
+          provider_id: string | null
+          selfie_id: string
+          status: Database["public"]["Enums"]["tryon_status"]
+          user_id: string
+        }
+        Insert: {
+          combo_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_detail?: string | null
+          generated_storage_key?: string | null
+          generation_id?: string
+          item_id: string
+          provider_id?: string | null
+          selfie_id: string
+          status?: Database["public"]["Enums"]["tryon_status"]
+          user_id: string
+        }
+        Update: {
+          combo_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_detail?: string | null
+          generated_storage_key?: string | null
+          generation_id?: string
+          item_id?: string
+          provider_id?: string | null
+          selfie_id?: string
+          status?: Database["public"]["Enums"]["tryon_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tryon_generations_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "combinations"
+            referencedColumns: ["combo_id"]
+          },
+          {
+            foreignKeyName: "tryon_generations_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "closet_items"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "tryon_generations_selfie_id_fkey"
+            columns: ["selfie_id"]
+            isOneToOne: false
+            referencedRelation: "selfies"
+            referencedColumns: ["selfie_id"]
+          },
+          {
+            foreignKeyName: "tryon_generations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -780,6 +851,7 @@ export type Database = {
       ootd_visibility: "PUBLIC" | "FRIENDS" | "GROUP" | "DIRECT"
       push_platform: "ios" | "android" | "web"
       stella_message_role: "USER" | "ASSISTANT"
+      tryon_status: "PENDING" | "READY" | "FAILED"
       weather_tag: "HOT" | "WARM" | "MILD" | "COLD" | "RAIN"
     }
     CompositeTypes: {
