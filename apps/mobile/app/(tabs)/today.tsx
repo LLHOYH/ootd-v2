@@ -168,13 +168,13 @@ export default function TodayScreen() {
 
   const handleWear = () => {
     if (!currentPick) return;
-    // Pass the combination through the route so the Wear-this modal doesn't
-    // need to round-trip /closet/combinations to look it up — that fetch was
-    // hanging silently when the network was flaky and showed as an infinite
-    // loading spinner. The screen still falls back to a list lookup if the
-    // serialized payload is missing or malformed.
+    // SPEC §10.10 split (PR C.2): "Wear this on me" goes to the try-on
+    // preview, NOT directly to the share modal. From the preview the
+    // user can opt in to share — the share form is no longer the only
+    // path. We pass the serialized combination through the route so the
+    // preview can render the combo name without a round-trip.
     router.push({
-      pathname: '/share',
+      pathname: '/tryon',
       params: {
         comboId: currentPick.comboId,
         comboJson: JSON.stringify(currentPick),
