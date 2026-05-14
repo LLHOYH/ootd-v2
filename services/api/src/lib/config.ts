@@ -75,6 +75,20 @@ export const config = {
   get serviceVersion(): string {
     return optional('SERVICE_VERSION') ?? 'dev';
   },
+
+  /**
+   * Image-worker base URL. The api Lambda calls this to kick off the
+   * try-on synthesis pipeline (SPEC §10.10 PR C). Local dev defaults
+   * to the standard worker port 8090; in production a deploy-time env
+   * var points at the worker's API Gateway URL.
+   */
+  get imageWorkerUrl(): string {
+    return optional('IMAGE_WORKER_URL') ?? 'http://127.0.0.1:8090';
+  },
+  /** Shared secret the worker checks on /tryon / /webhooks/storage when set. */
+  get imageWorkerWebhookSecret(): string | undefined {
+    return optional('IMAGE_WORKER_WEBHOOK_SECRET');
+  },
 };
 
 export type Config = typeof config;
