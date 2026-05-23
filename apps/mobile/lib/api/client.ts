@@ -138,6 +138,12 @@ export async function apiFetch<T>(path: string, opts: ApiFetchOptions = {}): Pro
     try {
       parsed = JSON.parse(text);
     } catch {
+      // Dump the actual body to Metro logs so we can see what came back
+      // (ngrok HTML interstitial? lambda stack trace? empty?). The body
+      // is also attached to err.body but the UI doesn't surface it.
+      console.warn(
+        `[api] ${opts.method ?? 'GET'} ${url} returned non-JSON (${res.status}). First 500 chars:\n${text.slice(0, 500)}`,
+      );
       throw new ApiError(res.status, 'BAD_RESPONSE', 'Response body was not JSON', text);
     }
   }

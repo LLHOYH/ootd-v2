@@ -16,7 +16,7 @@
 // The POST blocks for 15-30s. We show a progress UI with a clear "this
 // is going to take a moment" cue.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -145,10 +145,13 @@ export default function TryonScreen() {
     } as never);
   };
 
-  const screenOptions = {
-    headerShown: false,
-    presentation: 'modal' as const,
-  };
+  // expo-router 6 reconciles `<Stack.Screen options={…} />` by reference; a
+  // fresh literal each render reads as "options changed" and triggers a
+  // re-render loop. Same fix as PR #71 (share.tsx). Stabilize with useMemo.
+  const screenOptions = useMemo(
+    () => ({ headerShown: false, presentation: 'modal' as const }),
+    [],
+  );
 
   return (
     <>
