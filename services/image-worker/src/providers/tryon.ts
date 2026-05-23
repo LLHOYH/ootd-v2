@@ -32,6 +32,9 @@ export interface TryonInput {
   garmentDescription: string;
   /** Mei `clothing_category`. Maps to IDM-VTON's three-bucket scheme. */
   category: ClothingCategory;
+  /** Optional short tag used to prefix step-narrator logs so concurrent
+   *  generations stay legible in the dev terminal. */
+  logTag?: string;
 }
 
 export interface TryonResult {
@@ -98,13 +101,22 @@ class RealTryonProvider implements TryonProvider {
   constructor(private readonly apiToken: string) {}
 
   async generate(input: TryonInput): Promise<TryonResult> {
+    const tag = input.logTag ?? 'replicate';
+    const t0 = Date.now();
+    const log = (msg: string) => console.log(`[tryon ${tag}] ${msg}`);
+    const elapsed = () => ((Date.now() - t0) / 1000).toFixed(1);
+
     // Convert both image buffers to data URIs so we don't need to upload
     // them to a public CDN first. Replicate accepts data: URIs for image
     // inputs. ~3 MB selfies stay well under the request size limit.
+    log(
+      `encoding image inputs as data URIs (selfie ${(input.humanImage.length / 1024).toFixed(0)} KB, garment ${(input.garmentImage.length / 1024).toFixed(0)} KB)`,
+    );
     const humanDataUri = toDataUri(input.humanImage);
     const garmDataUri = toDataUri(input.garmentImage);
 
     // 1. Create the prediction.
+    log('POST https://api.replicate.com/v1/predictions');
     const createRes = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
@@ -132,10 +144,13 @@ class RealTryonProvider implements TryonProvider {
     if (!id) {
       throw new Error('Replicate predictions.create returned no id');
     }
+    log(`prediction ${id} created (status=${created.status ?? 'unknown'})`);
 
-    // 2. Poll until terminal.
+    // 2. Poll until terminal. Log only on status transitions so we don't
+    // spam every 1.5s — just narrate when something actually changes.
     const started = Date.now();
     let pred: ReplicatePrediction = created;
+    let lastStatus = pred.status;
     while (pred.status === 'starting' || pred.status === 'processing') {
       if (Date.now() - started > MAX_WAIT_MS) {
         throw new Error(`Replicate prediction ${id} timed out after ${MAX_WAIT_MS}ms`);
@@ -151,13 +166,19 @@ class RealTryonProvider implements TryonProvider {
         );
       }
       pred = (await getRes.json()) as ReplicatePrediction;
+      if (pred.status !== lastStatus) {
+        log(`prediction ${id}: ${lastStatus} → ${pred.status} (${elapsed()}s)`);
+        lastStatus = pred.status;
+      }
     }
 
     if (pred.status === 'failed' || pred.status === 'canceled') {
+      log(`prediction ${id} ${pred.status} after ${elapsed()}s`);
       throw new Error(
         `Replicate prediction ${id} ${pred.status}: ${pred.error ?? 'no error detail'}`,
       );
     }
+    log(`prediction ${id} succeeded after ${elapsed()}s`);
 
     // 3. Download the resulting image. IDM-VTON returns a single URL
     //    (string) in `output`. Some models return an array; we accept
@@ -170,6 +191,7 @@ class RealTryonProvider implements TryonProvider {
     if (!outputUrl) {
       throw new Error(`Replicate prediction ${id} succeeded but returned no image URL`);
     }
+    log('downloading generated image from Replicate CDN...');
     const imgRes = await fetch(outputUrl);
     if (!imgRes.ok) {
       throw new Error(
@@ -177,6 +199,7 @@ class RealTryonProvider implements TryonProvider {
       );
     }
     const buf = Buffer.from(await imgRes.arrayBuffer());
+    log(`downloaded ${(buf.length / 1024).toFixed(0)} KB`);
     return { image: buf, providerId: id };
   }
 }

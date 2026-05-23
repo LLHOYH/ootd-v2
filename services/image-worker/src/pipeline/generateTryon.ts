@@ -57,6 +57,18 @@ export async function generateTryon(
 ): Promise<GenerateTryonResult> {
   const ctx = { ...input };
 
+  // Dogfooding step-narrator. Plain stdout, not pino, so it actually
+  // reads like a story in `pnpm services`. Tagged with a short id so
+  // concurrent generations don't interleave.
+  const t0 = Date.now();
+  const shortId = input.generationId.slice(0, 5);
+  const step = (msg: string) =>
+    console.log(`[tryon ${shortId}] ${msg}`);
+  const elapsed = () => ((Date.now() - t0) / 1000).toFixed(1);
+  step(
+    `received request (user=${input.userId.slice(0, 5)}, selfie=${input.selfieId.slice(0, 5)}, item=${input.itemId.slice(0, 5)})`,
+  );
+
   // 1. Look up the generation row.
   const { data: genData, error: genErr } = await supabase
     .from('tryon_generations')
@@ -78,25 +90,54 @@ export async function generateTryon(
 
   try {
     // 2. Selfie bytes.
-    const selfie = await fetchSelfie(supabase, input.userId, input.selfieId);
+    step('extracting your selfie from Supabase storage...');
+    const selfieRaw = await fetchSelfie(supabase, input.userId, input.selfieId);
+    step(`got selfie (${(selfieRaw.length / 1024).toFixed(0)} KB raw)`);
+
+    // 2b. Downscale. iPhone selfies are 8-12 MP raw, but IDM-VTON
+    // internally works at ~1024px tall. Sending a 5 MB JPEG balloons
+    // to ~7 MB after base64 in the Replicate JSON body and causes the
+    // upload to time out / drop ("fetch failed"). 1280px on the long
+    // side is plenty for the model and keeps the request body small.
+    // `.rotate()` also normalises EXIF orientation so we don't try on
+    // a sideways person.
+    step('downscaling selfie to ≤1280px for Replicate...');
+    const selfie = await sharp(selfieRaw)
+      .rotate()
+      .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 88 })
+      .toBuffer();
+    step(`downscaled selfie (${(selfie.length / 1024).toFixed(0)} KB)`);
+
     // 3. Garment bytes.
+    step('extracting garment photo from closet-tuned bucket...');
     const garment = await fetchTunedItem(supabase, input.itemId);
+    step(`got garment (${(garment.length / 1024).toFixed(0)} KB)`);
 
     // 4. Item metadata (name + category) for the model's text inputs.
     const itemMeta = await fetchItemMeta(supabase, input.itemId);
+    step(`item is "${itemMeta.name}" (${itemMeta.category})`);
 
     // 5. Generate.
+    step(
+      `prompting Replicate IDM-VTON: put "${itemMeta.name}" on this person`,
+    );
     const provider = getTryonProvider(cfg);
     const out = await provider.generate({
       humanImage: selfie,
       garmentImage: garment,
       garmentDescription: itemMeta.name,
       category: itemMeta.category,
+      logTag: shortId,
     });
 
     // 6. Re-encode to WebP and upload.
+    step('encoding generated image to WebP (q=88)...');
     const webp = await sharp(out.image).rotate().webp({ quality: 88 }).toBuffer();
     const key = tryonGeneratedKey(input.userId, input.generationId).path;
+    step(
+      `uploading ${(webp.length / 1024).toFixed(0)} KB to ${BUCKET_GENERATED}/${key}...`,
+    );
     const uploadRes = await supabase.storage
       .from(BUCKET_GENERATED)
       .upload(key, webp, { contentType: 'image/webp', upsert: true });
@@ -107,6 +148,7 @@ export async function generateTryon(
     }
 
     // 7. Promote the row.
+    step('marking generation READY in DB');
     const { error: upErr } = await supabase
       .from('tryon_generations')
       .update({
@@ -120,6 +162,7 @@ export async function generateTryon(
       throw new Error(`row update failed: ${upErr.message}`);
     }
 
+    step(`complete in ${elapsed()}s`);
     logger.info('tryon generated', {
       ...ctx,
       key,
@@ -133,6 +176,7 @@ export async function generateTryon(
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'generation failed';
+    step(`failed after ${elapsed()}s: ${msg}`);
     logger.error('tryon generation failed', { ...ctx, err: msg });
     await markFailed(supabase, input.generationId, msg, logger);
     return { status: 'failed', generationId: input.generationId, detail: msg };

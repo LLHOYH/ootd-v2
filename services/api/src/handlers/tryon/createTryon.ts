@@ -15,7 +15,7 @@
 //      (user, selfie, combo, item) triple, return it without spending a
 //      Replicate call.
 //   5. Insert a new `tryon_generations` row (status=PENDING). The DB
-//      trigger enforces the 10/day cap and surfaces a clear exception
+//      trigger enforces the 250/day cap and surfaces a clear exception
 //      if exceeded.
 //   6. POST the worker /tryon endpoint synchronously. Worker writes back
 //      to the row.
@@ -45,6 +45,12 @@ export const createTryonHandler: Handler = async (ctx) => {
   const { userId, supabase } = requireAuthCtx(ctx);
   const { body } = validate({ body: CreateTryonBody }, ctx);
 
+  // Step narrator for dogfooding. The worker side has its own per-step
+  // log line tagged by generation_id; this side is tagged "api" since
+  // we don't have a generation_id until step 5.
+  const log = (msg: string) => console.log(`[tryon api] ${msg}`);
+  log(`received POST /tryon (user=${userId.slice(0, 5)}, combo=${body.comboId.slice(0, 5)})`);
+
   // 2. Pick a selfie.
   const selfieId = body.selfieId ?? (await pickMostRecentSelfie(supabase, userId));
   if (!selfieId) {
@@ -54,9 +60,11 @@ export const createTryonHandler: Handler = async (ctx) => {
       'Add at least one selfie before generating a try-on.',
     );
   }
+  log(`picked selfie ${selfieId.slice(0, 5)}${body.selfieId ? ' (caller-supplied)' : ' (most recent)'}`);
 
   // 3. Pick the garment item from the combination.
   const itemId = await pickPrimaryGarment(supabase, body.comboId);
+  log(`picked garment item ${itemId.slice(0, 5)} from combo`);
 
   // 4. Idempotency: return a cached READY generation if one exists.
   const { data: cachedRows, error: cachedErr } = await supabase
@@ -74,8 +82,10 @@ export const createTryonHandler: Handler = async (ctx) => {
   }
   const cached = ((cachedRows ?? []) as GenerationRow[])[0];
   if (cached) {
+    log(`cache HIT — returning cached generation ${cached.generation_id.slice(0, 5)} (no Replicate call)`);
     return { status: 200, body: await mapGeneration(cached) };
   }
+  log('cache MISS — will run a fresh generation');
 
   // 5. Insert the new row. DB trigger enforces the daily cap.
   const { data: insertedRows, error: insertErr } = await supabase
@@ -94,7 +104,7 @@ export const createTryonHandler: Handler = async (ctx) => {
       throw new ApiError(
         429,
         'RATE_LIMITED',
-        'Try-on limit reached for today (10/day). Try again tomorrow.',
+        'Try-on limit reached for today (250/day). Try again tomorrow.',
       );
     }
     throw new ApiError(500, 'DB_ERROR', `insert failed: ${insertErr.message}`);
@@ -103,6 +113,7 @@ export const createTryonHandler: Handler = async (ctx) => {
   if (!row) {
     throw new ApiError(500, 'DB_ERROR', 'insert returned no row');
   }
+  log(`inserted PENDING row ${row.generation_id.slice(0, 5)} — calling image-worker (blocks 15-30s)`);
 
   // 6. Fire the worker synchronously.
   await callWorker({
@@ -111,6 +122,7 @@ export const createTryonHandler: Handler = async (ctx) => {
     selfieId,
     itemId,
   });
+  log(`image-worker returned for ${row.generation_id.slice(0, 5)} — reading final row`);
 
   // 7. Re-read the row and shape the response.
   const { data: finalRow, error: readErr } = await supabase
