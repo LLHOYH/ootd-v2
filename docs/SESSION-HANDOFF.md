@@ -10,7 +10,9 @@
 > after each major feature merges). Outdated state here is worse than
 > nothing — when in doubt, regenerate.
 >
-> **Last updated:** after PR #76 merged.
+> **Last updated:** 2026-05-23, after PR #76 + an uncommitted dogfood
+> pass (try-on loop fix, cap bump, step-narrator logs, selfie
+> downscale). See **Uncommitted (verify first)** below.
 
 ---
 
@@ -21,6 +23,40 @@ sole dogfooder. The app is being walked screen-by-screen with bugs and
 missing features filed and fixed in tight PR cycles. Today, the
 **Today tab** and **selfie + try-on flow** are functional end-to-end.
 Closet / Friends / Chats / You tabs have not been audited yet.
+
+## Uncommitted (verify first)
+
+The previous Claude session left five changes uncommitted on `main`.
+None of these have been merged to a PR yet. The work was driven by
+walking through the try-on flow on the phone and fixing each thing
+that broke. **Before doing anything else, verify the state below and
+either ship a PR or revert.**
+
+| # | File                                                          | What                                                                                                                              | Verified?      |
+| - | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 1 | `apps/mobile/app/tryon.tsx`                                   | `useMemo` around the `Stack.Screen` `screenOptions` object — fixes a "Maximum update depth exceeded" render loop. Same shape as PR #71's fix on `/share`. | YES (Lloyd)    |
+| 2 | `supabase/migrations/0009_tryon_cap_dogfood.sql`              | Bumps the daily try-on cap from 10 → 250 (Lloyd's $10/day budget) and stops counting `FAILED` rows so Replicate flakes don't burn slots. **Needs Studio paste.** | UNVERIFIED — paste status unclear, but mobile saw the cap working. |
+| 3 | `services/api/src/handlers/tryon/createTryon.ts`              | Two lines: 10/day → 250/day in user-facing error message + comment. Belongs with #2.                                              | restart-confirmed, error-path untested |
+| 4 | `services/api/src/handlers/tryon/createTryon.ts`, `services/image-worker/src/pipeline/generateTryon.ts`, `services/image-worker/src/providers/tryon.ts` | Step-narrator `console.log`s tagged `[tryon <id>]` across the api Lambda + image-worker pipeline + Replicate provider. Shows what's happening during the 15-30s wait. | YES (used to diagnose #5) |
+| 5 | `services/image-worker/src/pipeline/generateTryon.ts`         | Downscales selfies to ≤1280px via `sharp` before encoding as data URI for Replicate. Without this, 5 MB iPhone selfies → 7 MB JSON body → `fetch failed` after ~40s. | **NOT YET — restart-and-retest required.** Lloyd hit the bug, fix applied, but no successful generation has been observed after the fix. |
+| 6 | `apps/mobile/lib/api/client.ts`                               | When `JSON.parse` fails on an API response, `console.warn` the first 500 chars of the body to Metro so we can see what came back (ngrok HTML page? lambda stack trace? empty?). Defensive — no longer triggering the original symptom but worth keeping. | YES (passive)  |
+
+**First action of the new session:** restart `pnpm services`, fire one
+try-on from the phone, and confirm:
+- Step logs run all the way through `complete in Ns` (not `failed`).
+- `[tryon <id>] downscaled selfie (NNN KB)` appears between the raw
+  read and the Replicate POST.
+- The phone shows the generated image (not "Couldn't generate this
+  look").
+
+If that works, this session's open product question — **how good is
+IDM-VTON output quality?** — is finally unblocked. The cost ledger
+should also show a successful $0.04 generation in Replicate.
+
+If it does NOT work and the log still says `fetch failed`, the
+hypothesis was wrong; investigate the network/Replicate path, not
+body size. The downscale log line will confirm the resize worked even
+if the upload still dies.
 
 ## Stack reality (as of this doc)
 
@@ -105,8 +141,18 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
   image-worker synchronously, returns the final row.
 - `services/image-worker/src/providers/tryon.ts` wraps Replicate
   IDM-VTON, pinned to model version `c871bb9b...`.
+- Selfies are downscaled to ≤1280px via `sharp` in the pipeline
+  before being encoded as data URIs for the Replicate POST. iPhone
+  originals (5-10 MB) would otherwise blow the JSON body up past
+  Replicate's accepted size and the `fetch` would die after ~40s.
+- The pipeline + provider + api emit step-narrator `console.log`s
+  tagged `[tryon <gen-id>]` so the 15-30s wait is legible in
+  `pnpm services`. Look for the `starting → processing → succeeded`
+  Replicate transitions to see queue-time vs GPU-time.
 - Cost: ~$0.04 per generation. Rate-limited at the DB level
-  (`tryon_generations_daily_cap`): 10/user/day.
+  (`tryon_generations_daily_cap`): 250/user/day (was 10; bumped in
+  migration `0009`). Only `PENDING` and `READY` rows count against
+  the cap; `FAILED` rows are free.
 - Mobile preview screen `/tryon.tsx`: full-screen image, three
   actions (Share with friends → `/share`, Different selfie → in-screen
   picker modal, Done → back). Error handling per response code:
@@ -157,7 +203,29 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
 7. **Migration files don't auto-apply.** Supabase changes go through
    `supabase/migrations/*.sql` and require the user to paste them into
    Studio's SQL editor (or run `supabase db push --linked` if their
-   CLI is logged in). Last applied: `0008_tryon_generations.sql`.
+   CLI is logged in). Latest written: `0009_tryon_cap_dogfood.sql`
+   (paste status unclear — verify against Studio if unsure).
+8. **`<Stack.Screen options={…} />` is reference-reconciled by
+   expo-router 6.** A fresh object literal each render reads as
+   "options changed" and triggers a re-render loop ("Maximum update
+   depth exceeded"). Always wrap in `useMemo([])` or hoist outside the
+   component. PR #71 fixed `/share`; the uncommitted session above
+   fixed `/tryon`. **Same pattern still latent in
+   `apps/mobile/app/craft-a-look.tsx:122`,
+   `apps/mobile/app/(tabs)/chats/[id].tsx:70`, and
+   `apps/mobile/app/friends/add.tsx:226`** — they haven't fired yet
+   only because those screens don't churn state on mount the way
+   `/tryon` does. Will fire the moment they do.
+9. **iPhone selfies are 5-10 MB raw.** Anything that ships them in a
+   JSON body to a third-party API needs to downscale first. The
+   `sharp(...).resize({...1280...}).jpeg({...}).toBuffer()` pattern
+   in `generateTryon.ts` is the reference.
+10. **`pnpm services` (the `dev.sh` log tailer) duplicates each
+    `console.log` line in the terminal** — every `[tryon …]` line
+    appears twice. Not a code bug; the runner reads stdout from both
+    the child and a file that mirrors stdout. Cosmetic, will get
+    worse as we add more `console.log`s. Worth a 5-min look at
+    `scripts/dev.sh` someday.
 
 ## Recent shipped (compact PR ledger)
 
@@ -200,6 +268,19 @@ issue tracker; tracking them lives here:
    shows the outfit composite. v2 polish: also pass the generated
    `imageUrl` from /tryon → /share so the share preview shows the
    try-on photo.
+4. **Fix the 3 latent `Stack.Screen` inline-literal bombs**
+   (`craft-a-look.tsx:122`, `(tabs)/chats/[id].tsx:70`,
+   `friends/add.tsx:226`). Two-line `useMemo` wrap each. Trivial,
+   should ship before Lloyd walks into those screens. Could go in
+   one PR: "stabilize Stack.Screen options refs across modal routes".
+5. **De-duplicate `pnpm services` log tailing.** Each `console.log`
+   prints twice in the terminal. See gotcha #10. Cosmetic but
+   compounding.
+6. **IDM-VTON output-quality assessment.** Once the downscale fix is
+   verified and Lloyd has generated a real try-on, judgement call on
+   face fidelity, garment fidelity, hand glitches. Decides whether we
+   stay on IDM-VTON or evaluate alternatives (Kling, OOTDiffusion,
+   the Replicate `cuuupid/idm-vton` v2 if it exists by then).
 
 ## Conventions you'll notice in the codebase
 
@@ -220,8 +301,16 @@ issue tracker; tracking them lives here:
 
 ## What to ask Lloyd if you're picking this up
 
+- **"Did the downscale fix work?"** First question. The uncommitted
+  session ended one restart short of confirming. See **Uncommitted
+  (verify first)** above.
+- **"Should we ship the uncommitted session as a PR before moving
+  on, or roll it into the next change?"** Six edits are sitting on
+  `main`. The work is bisectable into three reasonable PRs (loop fix
+  / cap bump / instrumentation + downscale), but founder discretion.
 - "Which screen are we walking through next?" (Closet is the natural
-  next stop after Today + selfies + try-on are all working.)
+  next stop after Today + selfies + try-on are all working — assuming
+  try-on is finally working.)
 - "Any reported issues from dogfooding the try-on?" (Output quality is
   the open question — face fidelity, garment fidelity, hand glitches.)
 - "Has the supabase project URL changed?" (Hosted Tokyo project as of
@@ -231,3 +320,11 @@ issue tracker; tracking them lives here:
   `services/image-worker/.env`. Anthropic for Stella will land when
   the Stella one-shot does. OpenWeatherMap if weather geolocation
   ships.)
+
+## Note for non-Claude agents
+
+This doc is model-agnostic markdown. If you're picking it up in
+codex, Cursor, or anywhere else, the same instructions apply. The
+`[tryon <id>]` step logs and the `useMemo` Stack.Screen pattern are
+non-obvious project conventions that came out of dogfooding — don't
+strip them as "cleanup" without reading the gotchas above.
