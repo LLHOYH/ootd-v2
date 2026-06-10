@@ -21,6 +21,9 @@ import {
 import { useToday } from '@/lib/hooks/useToday';
 import { useProfileSummary } from '@/lib/hooks/useProfileSummary';
 import { useClosetItemMap } from '@/lib/hooks/useClosetItemMap';
+import { useCombinationLikes } from '@/lib/hooks/useCombinationLikes';
+import { useCalendarEventsSync } from '@/lib/hooks/useCalendarEventsSync';
+import { useWeatherLocationSync } from '@/lib/hooks/useWeatherLocationSync';
 import { postAnotherPick } from '@/lib/api/today';
 import { ApiError } from '@/lib/api/client';
 
@@ -33,17 +36,23 @@ export default function TodayScreen() {
   // Loads in parallel with the /today payload — if it's slow the card
   // gracefully falls back to pastel placeholders.
   const itemMap = useClosetItemMap();
+  const combinationLikes = useCombinationLikes();
+  useWeatherLocationSync(() => {
+    void refetch();
+  });
+  useCalendarEventsSync(() => {
+    void refetch();
+  });
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // ---- Today's pick: local overrides --------------------------------------
   // The /today payload gives us the server's recommended pick. The user can
   // either re-roll it ("Try another") — handled by POST /today/another-pick —
-  // or like it locally. We track those bits here so the UI can swap without
-  // a full /today refetch and so we can pass the *current* pick (not the
-  // initial one) into the share modal.
+  // or like it via /me/likes. The override lets the UI swap without a full
+  // /today refetch and lets us pass the *current* pick (not the initial one)
+  // into the try-on modal.
   const [overridePick, setOverridePick] = useState<Combination | null>(null);
   const [seenComboIds, setSeenComboIds] = useState<string[]>([]);
-  const [savedComboIds, setSavedComboIds] = useState<Set<string>>(() => new Set());
   const [picking, setPicking] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
 
@@ -113,7 +122,9 @@ export default function TodayScreen() {
 
   // Effective pick = local override (from "Try another") if any, else server.
   const currentPick = overridePick ?? data.todaysPick;
-  const isSaved = currentPick ? savedComboIds.has(currentPick.comboId) : false;
+  const isSaved = currentPick
+    ? combinationLikes.likedComboIds.has(currentPick.comboId)
+    : false;
 
   const handleTryAnother = async () => {
     if (picking) return;
@@ -153,17 +164,9 @@ export default function TodayScreen() {
     }
   };
 
-  const handleToggleSave = () => {
+  const handleToggleSave = async () => {
     if (!currentPick) return;
-    setSavedComboIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(currentPick.comboId)) {
-        next.delete(currentPick.comboId);
-      } else {
-        next.add(currentPick.comboId);
-      }
-      return next;
-    });
+    await combinationLikes.toggleLike(currentPick.comboId);
   };
 
   const handleWear = () => {
@@ -216,10 +219,10 @@ export default function TodayScreen() {
             items={itemMap.resolve(currentPick.itemIds)}
             saved={isSaved}
             picking={picking}
-            errorMessage={pickError}
+            errorMessage={pickError ?? combinationLikes.error?.message ?? null}
             onTryAnother={() => void handleTryAnother()}
             onWear={handleWear}
-            onSave={handleToggleSave}
+            onSave={() => void handleToggleSave()}
           />
         ) : null}
 

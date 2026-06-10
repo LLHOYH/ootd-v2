@@ -221,9 +221,11 @@ interface ScreenWithHeaderProps {
 }
 
 function ScreenWithHeader({ theme, title, onBack, children }: ScreenWithHeaderProps) {
+  const screenOptions = useMemo(() => ({ headerShown: false }), []);
+
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={screenOptions} />
       <Screen>
         <View style={[styles.headerRow, { gap: theme.space.sm, marginBottom: theme.space.md }]}>
           <Pressable

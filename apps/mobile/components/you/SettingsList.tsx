@@ -21,8 +21,8 @@ export interface SettingsListProps {
 }
 
 /**
- * Settings list per SPEC §10.11 step 4. All `onPress` handlers are decorative
- * placeholders in v1 — no PATCH /me wiring.
+ * Settings list per SPEC §10.11 step 4. Rows only receive `onPress` when
+ * that action is actually wired.
  */
 export function SettingsList({
   profile,
@@ -31,7 +31,6 @@ export function SettingsList({
   onSignOutPress,
 }: SettingsListProps) {
   const theme = useTheme();
-  const noop = () => {};
 
   // First 3-5 style tags → subtitle preview.
   const stylePreview = profile.stylePreferences.slice(0, 5).join(' · ');
@@ -47,19 +46,16 @@ export function SettingsList({
         icon={User}
         title="Name"
         value={profile.displayName}
-        onPress={noop}
       />
       <SettingRow
         icon={User}
         title="Gender"
         value={profile.gender ?? '—'}
-        onPress={noop}
       />
       <SettingRow
         icon={User}
         title="Birth year"
         value={profile.birthYear != null ? String(profile.birthYear) : '—'}
-        onPress={noop}
       />
 
       {/* Style preferences */}
@@ -68,7 +64,6 @@ export function SettingsList({
         icon={Sparkles}
         title="Style tags"
         subtitle={stylePreview}
-        onPress={noop}
       />
 
       {/* Climate & location */}
@@ -77,13 +72,11 @@ export function SettingsList({
         icon={MapPin}
         title="City"
         value={profile.city ?? '—'}
-        onPress={noop}
       />
       <SettingRow
         icon={MapPin}
         title="Climate profile"
         value={climateLabel}
-        onPress={noop}
       />
 
       {/* Notifications */}
@@ -92,22 +85,18 @@ export function SettingsList({
         icon={Bell}
         title="Daily Today reminder"
         subtitle="Morning nudge with your outfit"
-        onPress={noop}
       />
       <SettingRow
         icon={Bell}
         title="Friend requests"
-        onPress={noop}
       />
       <SettingRow
         icon={Bell}
         title="Hangout invites"
-        onPress={noop}
       />
       <SettingRow
         icon={Bell}
         title="OOTD reactions"
-        onPress={noop}
       />
 
       {/* Privacy */}
@@ -117,19 +106,16 @@ export function SettingsList({
         title="Discoverable"
         subtitle="Appear in search and what others are wearing"
         value={profile.discoverable ? 'On' : 'Off'}
-        onPress={noop}
       />
       <SettingRow
         icon={Lock}
         title="Contribute to community looks"
         value={profile.contributesToCommunityLooks ? 'On' : 'Off'}
-        onPress={noop}
       />
       <SettingRow
         icon={Lock}
         title="Profile visibility"
         value={profile.discoverable ? 'Discoverable' : 'Friends only'}
-        onPress={noop}
       />
 
       {/* Selfies */}
@@ -138,17 +124,17 @@ export function SettingsList({
         icon={Camera}
         title="View selfies"
         subtitle={`${profile.counts.selfies} of 5 uploaded`}
-        onPress={onSelfiesPress ?? noop}
+        onPress={onSelfiesPress}
       />
       <SettingRow
         icon={Camera}
         title="Replace a selfie"
-        onPress={onSelfiesPress ?? noop}
+        onPress={onSelfiesPress}
       />
       <SettingRow
         icon={Camera}
         title="Delete a selfie"
-        onPress={onSelfiesPress ?? noop}
+        onPress={onSelfiesPress}
       />
 
       {/* Add friends */}
@@ -157,7 +143,7 @@ export function SettingsList({
         icon={UserPlus}
         title="Add friends"
         subtitle="Search, suggested, contacts"
-        onPress={onAddFriendsPress ?? noop}
+        onPress={onAddFriendsPress}
       />
 
       {/* Account */}
@@ -166,23 +152,20 @@ export function SettingsList({
         icon={Mail}
         title="Email"
         value={profile.email}
-        onPress={noop}
       />
       <SettingRow
         icon={Lock}
         title="Password"
         value="Change"
-        onPress={noop}
       />
       <SettingRow
         icon={LogOut}
         title="Sign out"
-        onPress={onSignOutPress ?? noop}
+        onPress={onSignOutPress}
       />
       <SettingRow
         icon={User}
         title="Delete account"
-        onPress={noop}
       />
     </View>
   );

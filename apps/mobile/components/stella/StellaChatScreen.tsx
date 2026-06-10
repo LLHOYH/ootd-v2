@@ -16,7 +16,7 @@ import { useStellaConversation } from '@/lib/hooks/useStellaConversation';
  */
 export function StellaChatScreen() {
   const theme = useTheme();
-  const { state, send } = useStellaConversation();
+  const { state, send, refetch } = useStellaConversation();
 
   return (
     <Screen>
@@ -55,6 +55,9 @@ export function StellaChatScreen() {
               >
                 {state.error.message}
               </Text>
+              <Button variant="primary" onPress={() => void refetch()}>
+                Try again
+              </Button>
             </View>
           ) : (
             <>

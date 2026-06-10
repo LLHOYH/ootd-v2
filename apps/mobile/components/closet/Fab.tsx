@@ -19,6 +19,8 @@ export function Fab({
   accessibilityLabel = 'Add closet item',
 }: FabProps) {
   const theme = useTheme();
+  const iconColor =
+    theme.mode === 'light' ? theme.color.bg.primary : theme.color.text.primary;
 
   return (
     <Pressable
@@ -43,7 +45,7 @@ export function Fab({
         },
       ]}
     >
-      <Plus size={20} strokeWidth={1.6} color="#FFFFFF" />
+      <Plus size={20} strokeWidth={1.6} color={iconColor} />
     </Pressable>
   );
 }

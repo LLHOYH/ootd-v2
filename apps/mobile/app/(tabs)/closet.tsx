@@ -45,6 +45,8 @@ export default function ClosetScreen() {
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Common path for camera + gallery: pick → upload → close sheet → refetch.
   const handlePick = useCallback(
@@ -126,19 +128,38 @@ export default function ClosetScreen() {
   if (!data) return null;
 
   const { items, combinations } = data;
+  const normalizedQuery = searchQuery.trim().toLowerCase();
   const processingItems = items.filter((it) => it.status === 'PROCESSING');
-  const visibleItems =
+  const filteredItems =
     filter === 'ALL' || filter === 'COMBINATIONS'
       ? items
       : items.filter((it) => it.category === filter);
+  const visibleItems =
+    normalizedQuery.length === 0
+      ? filteredItems
+      : filteredItems.filter((it) =>
+          [it.name, it.description, it.category]
+            .filter(Boolean)
+            .some((value) => value.toLowerCase().includes(normalizedQuery)),
+        );
+  const visibleCombinations =
+    normalizedQuery.length === 0
+      ? combinations
+      : combinations.filter((combo) =>
+          combo.name.toLowerCase().includes(normalizedQuery),
+        );
 
   const handlePressItem = (_item: ClosetItem) => {
     // Item detail not in scope for this PR.
   };
   const handlePressCombination = (combo: Combination) => {
-    // Tap → Wear this · Confirm & share modal (SPEC §10.10).
-    // expo-router: relative push so query params survive cleanly.
-    router.push({ pathname: '/share', params: { comboId: combo.comboId } } as never);
+    router.push({
+      pathname: '/tryon',
+      params: {
+        comboId: combo.comboId,
+        comboJson: JSON.stringify(combo),
+      },
+    } as never);
   };
   const handleFabPress = () => {
     if (uploading) return;
@@ -160,8 +181,13 @@ export default function ClosetScreen() {
           itemCount={items.length}
           combinationCount={combinations.length}
           mode={filter === 'COMBINATIONS' ? 'combinations' : 'items'}
-          onSearch={() => {
-            /* search not wired here */
+          searching={searchOpen}
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          onSearch={() => setSearchOpen(true)}
+          onCancelSearch={() => {
+            setSearchOpen(false);
+            setSearchQuery('');
           }}
         />
 
@@ -187,7 +213,7 @@ export default function ClosetScreen() {
         >
           {filter === 'COMBINATIONS' ? (
             <CombinationsGrid
-              combinations={combinations}
+              combinations={visibleCombinations}
               items={items}
               onPressCombination={handlePressCombination}
             />

@@ -22,7 +22,10 @@ export default function ChatsScreen() {
   const { state, refetch } = useChatThreads();
 
   const handleSelect = (thread: ChatThreadRow) => {
-    router.push(`/chats/${thread.id}` as never);
+    router.push({
+      pathname: '/chats/[id]',
+      params: { id: thread.id, title: thread.name },
+    } as never);
   };
   const askStella = () => router.push('/chats/stella');
 

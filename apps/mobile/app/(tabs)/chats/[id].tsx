@@ -26,18 +26,19 @@ import { useChatThread } from '@/lib/hooks/useChatThread';
 import { useSession } from '@/lib/auth/SessionProvider';
 
 export default function ChatDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, title } = useLocalSearchParams<{ id?: string; title?: string }>();
   if (id === 'stella') {
     return <StellaChatScreen />;
   }
-  return <RealThreadScreen threadId={id} />;
+  return <RealThreadScreen threadId={id} routeTitle={title} />;
 }
 
 interface RealThreadScreenProps {
   threadId: string | undefined;
+  routeTitle?: string;
 }
 
-function RealThreadScreen({ threadId }: RealThreadScreenProps) {
+function RealThreadScreen({ threadId, routeTitle }: RealThreadScreenProps) {
   const theme = useTheme();
   const router = useRouter();
   const { session } = useSession();
@@ -54,20 +55,21 @@ function RealThreadScreen({ threadId }: RealThreadScreenProps) {
   const me = session?.user.id;
 
   // Compute the screen title from the thread type. For DMs, the inbox
-  // already enriched the title — but here we don't have it. Use a generic
-  // fallback. (A follow-up could pass the title via expo-router params.)
+  // passes the enriched counterparty name through route params.
   const headerTitle = useMemo(() => {
+    if (routeTitle && routeTitle.length > 0) return routeTitle;
     if (state.status !== 'success') return 'Chat';
     if (state.thread.name) return state.thread.name;
     if (state.thread.type === 'DIRECT') return 'Direct message';
     if (state.thread.type === 'GROUP') return 'Group';
     if (state.thread.type === 'HANGOUT') return 'Hangout';
     return 'Chat';
-  }, [state]);
+  }, [routeTitle, state]);
+  const screenOptions = useMemo(() => ({ headerShown: false }), []);
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={screenOptions} />
       <Screen padded={false}>
         {/* Header */}
         <View

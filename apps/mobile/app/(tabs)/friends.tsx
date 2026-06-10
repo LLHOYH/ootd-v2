@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { UserPlus } from 'lucide-react-native';
 import { Button, Screen, useTheme } from '@mei/ui';
 
 import { OotdPostCard } from '@/components/ootd/OotdPostCard';
@@ -104,7 +105,7 @@ export default function FriendsScreen() {
         </Text>
 
         {items.length === 0 ? (
-          <View style={[styles.center, { paddingTop: theme.space.xxxl }]}>
+          <View style={[styles.center, { paddingTop: theme.space.xxxl, gap: theme.space.md }]}>
             <Text
               style={{
                 color: theme.color.text.tertiary,
@@ -115,6 +116,13 @@ export default function FriendsScreen() {
             >
               No outfits to show yet. {'\n'}When friends post, they’ll appear here.
             </Text>
+            <Button
+              variant="primary"
+              icon={UserPlus}
+              onPress={() => router.push('/friends/add' as never)}
+            >
+              Find friends
+            </Button>
           </View>
         ) : (
           items.map((it) => (

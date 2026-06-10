@@ -10,9 +10,8 @@ import { supabase } from '@/lib/supabase';
 
 /**
  * You / profile — SPEC §10.11.
- * Read-only against the live profile. Settings rows are still decorative
- * placeholders (no PATCH wiring yet — lands when feat/wire-you-edit picks
- * up the editable settings flow).
+ * Profile fields remain read-only. Action rows route only where the
+ * target flow is already wired (selfies, friends, sign-out).
  */
 export default function YouScreen() {
   const theme = useTheme();
@@ -79,7 +78,7 @@ export default function YouScreen() {
           />
         }
       >
-        <Header onSettingsPress={() => {}} />
+        <Header />
         <ProfileBlock profile={profile} />
         <StatsRow profile={profile} />
         <SettingsList

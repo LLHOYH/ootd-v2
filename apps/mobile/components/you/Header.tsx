@@ -7,7 +7,7 @@ export interface YouHeaderProps {
 }
 
 /**
- * "You" h1 + cog button (links to settings detail per SPEC §10.11).
+ * "You" h1 plus an optional settings button for future detail routing.
  */
 export function Header({ onSettingsPress }: YouHeaderProps) {
   const theme = useTheme();
@@ -23,21 +23,23 @@ export function Header({ onSettingsPress }: YouHeaderProps) {
       >
         You
       </Text>
-      <Pressable
-        onPress={onSettingsPress}
-        accessibilityRole="button"
-        accessibilityLabel="Open settings"
-        hitSlop={8}
-        style={[
-          styles.cog,
-          {
-            backgroundColor: theme.color.bg.secondary,
-            borderRadius: theme.radius.pill,
-          },
-        ]}
-      >
-        <Settings size={16} strokeWidth={1.6} color={theme.color.text.secondary} />
-      </Pressable>
+      {onSettingsPress ? (
+        <Pressable
+          onPress={onSettingsPress}
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+          hitSlop={8}
+          style={[
+            styles.cog,
+            {
+              backgroundColor: theme.color.bg.secondary,
+              borderRadius: theme.radius.pill,
+            },
+          ]}
+        >
+          <Settings size={16} strokeWidth={1.6} color={theme.color.text.secondary} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }

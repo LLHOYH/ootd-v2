@@ -11,6 +11,7 @@ export * from './ootd.js';
 export * from './hangouts.js';
 export * from './friends.js';
 export * from './users.js';
+export * from './me.js';
 export * from './stella.js';
 export * from './chat.js';
 export * from './tryon.js';

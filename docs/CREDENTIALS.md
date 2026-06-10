@@ -127,7 +127,9 @@ Try-on model selection is `SPEC §14 OQ-2` — deferred until P1.
 
 ## 6. OpenWeatherMap (real weather on Today)
 
-Optional. The handler at `services/api/src/handlers/today/weather.ts` ships a stub that returns plausible-looking values; the real thing is a one-liner away.
+Optional. `/today` uses the key when it is present and device coords
+have synced from the mobile app. Without the key, the handler keeps
+returning the local fallback weather snapshot.
 
 | Var | Used by | Notes |
 |---|---|---|

@@ -19,7 +19,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Pressable,
@@ -132,14 +131,14 @@ export default function TryonScreen() {
 
   const handleShare = () => {
     if (phase.kind !== 'ready') return;
-    // Hand off to the existing share modal. We pass through both the
-    // comboId and the original comboJson so the share preview shows the
-    // outfit composite without a round-trip. v2 polish: also pass the
-    // generated image URL so the share preview shows the try-on photo.
+    // Hand off to the existing share modal. We pass through the combo
+    // payload to avoid a round-trip and the signed try-on image URL so
+    // the confirmation preview matches what the user just generated.
     router.replace({
       pathname: '/share',
       params: {
         comboId: phase.data.comboId,
+        ...(phase.data.imageUrl ? { tryonImageUrl: phase.data.imageUrl } : {}),
         ...(params.comboJson ? { comboJson: params.comboJson } : {}),
       },
     } as never);
@@ -252,7 +251,7 @@ export default function TryonScreen() {
                   marginTop: theme.space.xs,
                 }}
               >
-                Saved to your try-ons. Up to 10 generations per day.
+                Saved to your try-ons. Up to 250 generations per day.
               </Text>
             </View>
           ) : null}

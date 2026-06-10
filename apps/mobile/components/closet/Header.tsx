@@ -1,20 +1,28 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Search } from 'lucide-react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Search, X } from 'lucide-react-native';
 import { useTheme } from '@mei/ui';
 
 export interface ClosetHeaderProps {
   itemCount: number;
   combinationCount: number;
   mode: 'items' | 'combinations';
+  searching?: boolean;
+  query?: string;
+  onQueryChange?: (query: string) => void;
   onSearch?: () => void;
+  onCancelSearch?: () => void;
 }
 
 export function Header({
   itemCount,
   combinationCount,
   mode,
+  searching = false,
+  query = '',
+  onQueryChange,
   onSearch,
+  onCancelSearch,
 }: ClosetHeaderProps) {
   const theme = useTheme();
 
@@ -24,6 +32,51 @@ export function Header({
       : `${itemCount} items`;
 
   const buttonSize = theme.space.xxxl;
+
+  if (searching) {
+    return (
+      <View
+        style={[
+          styles.searchRow,
+          {
+            gap: theme.space.sm,
+            borderRadius: theme.radius.pill,
+            backgroundColor: theme.color.bg.secondary,
+            paddingHorizontal: theme.space.md,
+          },
+        ]}
+      >
+        <Search size={16} strokeWidth={1.6} color={theme.color.text.tertiary} />
+        <TextInput
+          value={query}
+          onChangeText={onQueryChange}
+          placeholder="Search closet"
+          placeholderTextColor={theme.color.text.tertiary}
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          style={[
+            styles.searchInput,
+            {
+              color: theme.color.text.primary,
+              fontSize: theme.type.size.body,
+              fontWeight: theme.type.weight.regular as '400',
+            },
+          ]}
+        />
+        <Pressable
+          onPress={onCancelSearch}
+          accessibilityRole="button"
+          accessibilityLabel="Close search"
+          hitSlop={8}
+          style={styles.closeBtn}
+        >
+          <X size={18} strokeWidth={1.6} color={theme.color.text.tertiary} />
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.row}>
@@ -80,6 +133,21 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   iconBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+  },
+  closeBtn: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },

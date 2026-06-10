@@ -89,6 +89,11 @@ export const config = {
   get imageWorkerWebhookSecret(): string | undefined {
     return optional('IMAGE_WORKER_WEBHOOK_SECRET');
   },
+
+  /** Optional OpenWeatherMap key. When absent, /today keeps using the stub. */
+  get openWeatherApiKey(): string | undefined {
+    return optional('OPENWEATHER_API_KEY');
+  },
 };
 
 export type Config = typeof config;

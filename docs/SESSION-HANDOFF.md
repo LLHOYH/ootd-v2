@@ -10,9 +10,12 @@
 > after each major feature merges). Outdated state here is worse than
 > nothing — when in doubt, regenerate.
 >
-> **Last updated:** 2026-05-23, after PR #76 + an uncommitted dogfood
-> pass (try-on loop fix, cap bump, step-narrator logs, selfie
-> downscale). See **Uncommitted (verify first)** below.
+> **Last updated:** 2026-06-08, after `feat/tryon-dogfood-fixes`
+> landed locally plus Codex follow-ups for Stack option refs,
+> try-on share preview, saved-look like persistence, and device
+> weather-location sync, device calendar sync, plus a first-pass QA
+> sweep across Closet, Friends, Chats, and You. See **Branch State**
+> below.
 
 ---
 
@@ -22,15 +25,16 @@ Mei is a digital wardrobe + AI stylist app. Lloyd is the founder and
 sole dogfooder. The app is being walked screen-by-screen with bugs and
 missing features filed and fixed in tight PR cycles. Today, the
 **Today tab** and **selfie + try-on flow** are functional end-to-end.
-Closet / Friends / Chats / You tabs have not been audited yet.
+Closet / Friends / Chats / You now have first-pass QA fixes in place;
+deeper runtime dogfood is still needed before calling them done.
 
-## Uncommitted (verify first)
+## Branch State
 
-The previous Claude session left five changes uncommitted on `main`.
-None of these have been merged to a PR yet. The work was driven by
-walking through the try-on flow on the phone and fixing each thing
-that broke. **Before doing anything else, verify the state below and
-either ship a PR or revert.**
+The previous Claude session moved the dogfood fixes onto
+`feat/tryon-dogfood-fixes` and pushed the branch. The work was driven
+by walking through the try-on flow on the phone and fixing each thing
+that broke. **Before moving past try-on, verify the runtime items
+below and decide whether to merge this branch or keep iterating.**
 
 | # | File                                                          | What                                                                                                                              | Verified?      |
 | - | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -38,10 +42,14 @@ either ship a PR or revert.**
 | 2 | `supabase/migrations/0009_tryon_cap_dogfood.sql`              | Bumps the daily try-on cap from 10 → 250 (Lloyd's $10/day budget) and stops counting `FAILED` rows so Replicate flakes don't burn slots. **Needs Studio paste.** | UNVERIFIED — paste status unclear, but mobile saw the cap working. |
 | 3 | `services/api/src/handlers/tryon/createTryon.ts`              | Two lines: 10/day → 250/day in user-facing error message + comment. Belongs with #2.                                              | restart-confirmed, error-path untested |
 | 4 | `services/api/src/handlers/tryon/createTryon.ts`, `services/image-worker/src/pipeline/generateTryon.ts`, `services/image-worker/src/providers/tryon.ts` | Step-narrator `console.log`s tagged `[tryon <id>]` across the api Lambda + image-worker pipeline + Replicate provider. Shows what's happening during the 15-30s wait. | YES (used to diagnose #5) |
-| 5 | `services/image-worker/src/pipeline/generateTryon.ts`         | Downscales selfies to ≤1280px via `sharp` before encoding as data URI for Replicate. Without this, 5 MB iPhone selfies → 7 MB JSON body → `fetch failed` after ~40s. | **NOT YET — restart-and-retest required.** Lloyd hit the bug, fix applied, but no successful generation has been observed after the fix. |
+| 5 | `services/image-worker/src/pipeline/generateTryon.ts`         | Downscales selfies to ≤1280px via `sharp` before encoding as data URI for Replicate. Without this, 5 MB iPhone selfies → 7 MB JSON body → `fetch failed` after ~40s. | **NEEDS PHONE RETEST.** Lloyd hit the bug, fix applied, but no successful generation has been observed after the fix. |
 | 6 | `apps/mobile/lib/api/client.ts`                               | When `JSON.parse` fails on an API response, `console.warn` the first 500 chars of the body to Metro so we can see what came back (ngrok HTML page? lambda stack trace? empty?). Defensive — no longer triggering the original symptom but worth keeping. | YES (passive)  |
+| 7 | `supabase/migrations/0010_combination_likes.sql`, `services/api/src/handlers/me`, `apps/mobile/lib/hooks/useCombinationLikes.ts`, `apps/mobile/app/(tabs)/today.tsx` | Persists the Today's Pick heart via `/me/likes` and an RLS-scoped `combination_likes` table. Optimistic mobile toggle rolls back on API failure. **Needs Studio paste.** | typecheck YES, runtime UNVERIFIED |
+| 8 | `supabase/migrations/0011_user_weather_locations.sql`, `apps/mobile/lib/hooks/useWeatherLocationSync.ts`, `services/api/src/handlers/today/weather.ts` | Syncs rounded foreground device coords into an owner-only table. `/today` uses OpenWeatherMap when `OPENWEATHER_API_KEY` is set, and falls back to the existing city stub when key/coords/table are absent. **Needs Studio paste + phone permission test.** | typecheck YES, runtime UNVERIFIED |
+| 9 | `apps/mobile/app/(tabs)/closet.tsx`, `apps/mobile/app/(tabs)/friends.tsx`, `apps/mobile/app/(tabs)/chats/*`, `apps/mobile/app/(tabs)/you.tsx`, related tab components/hooks | First-pass tab QA: Closet search is wired, combination taps open try-on, Friends empty feed points to Add Friends, chat detail keeps the thread title and Stella error can retry, You rows no longer show fake actions. | typecheck YES, runtime UNVERIFIED |
+| 10 | `supabase/migrations/0012_user_calendar_events.sql`, `apps/mobile/lib/hooks/useCalendarEventsSync.ts`, `services/api/src/handlers/me/calendarEvents.ts`, `services/api/src/handlers/today/getToday.ts` | Syncs today's OS calendar events into an owner-only table via `expo-calendar`; `/today` returns up to 2 upcoming events and falls back to `[]` when permission/table are absent. **Needs Studio paste + phone calendar permission test.** | typecheck YES, runtime UNVERIFIED |
 
-**First action of the new session:** restart `pnpm services`, fire one
+**Try-on verification action:** restart `pnpm services`, fire one
 try-on from the phone, and confirm:
 - Step logs run all the way through `complete in Ns` (not `failed`).
 - `[tryon <id>] downscaled selfie (NNN KB)` appears between the raw
@@ -108,15 +116,22 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
 - **Header** + greeting, refreshes display name + selfie count on focus.
 - **Setup banner** (gated `selfieCount < 5 && !dismissed`) → routes to
   `/selfies` and dismissible.
-- **Weather strip** — backend reads `users.city` and falls back to
-  Singapore. **Geolocation is not wired** — strip shows whatever
-  `users.city` says. Filed as a chip.
+- **Weather strip** — mobile opportunistically asks foreground
+  location permission from Today, rounds coords, stores them in
+  owner-only `user_weather_locations`, then refetches `/today`.
+  Backend uses OpenWeatherMap when `OPENWEATHER_API_KEY` is set and
+  falls back to the old city stub otherwise.
+- **Calendar strip** — mobile opportunistically asks OS calendar
+  permission from Today, syncs the current local-day events into
+  owner-only `user_calendar_events`, and refetches `/today`. Backend
+  returns up to 2 upcoming events and otherwise hides the strip.
 - **Today's Pick** card — server picks the user's most recent
   combination (Stella is not wired yet). Real item photos render via
-  `useClosetItemMap`. Heart toggles local state only (persistence
-  filed as a chip). "Try another" hits `/today/another-pick` with the
-  seen-combo exclusion list and animates the swap. "Wear this on me"
-  opens **/tryon** (not `/share` anymore).
+  `useClosetItemMap`. Heart persists through `/me/likes` with an
+  optimistic rollback if the API fails. "Try another" hits
+  `/today/another-pick` with the seen-combo exclusion list and
+  animates the swap. "Wear this on me" opens **/tryon** (not `/share`
+  anymore).
 - **Community Looks** — top 5 from `/today/community-looks`.
 - **Fashion Now** — real RSS from Elle Fashion + Refinery29 Fashion,
   1h module cache, fallback Unsplash editorial set if all feeds fail.
@@ -163,20 +178,46 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
 
 - `/share` is the existing caption + visibility + post-creation
   modal. Reached from the try-on preview's "Share with friends"
-  button. Unchanged structurally; PR #71 fixed the infinite render
-  loop (`<Stack.Screen options={{...}} />` literal rebuilt every
-  render).
+  button. When reached from `/tryon`, the route now receives the signed
+  `tryonImageUrl` and uses it as the local confirmation preview. The
+  post-create API contract is unchanged for now, so feed image
+  persistence still follows the existing fallback path. PR #71 fixed
+  the infinite render loop (`<Stack.Screen options={{...}} />` literal
+  rebuilt every render).
+
+### Closet tab (SPEC §10.2)
+
+- Real closet photos already rendered. The header search icon now opens
+  an in-place search field, filters items by name/description/category,
+  and filters combinations by combo name.
+- Tapping a saved combination routes to `/tryon` with the combo payload
+  instead of the stale share route. The FAB uses theme tokens instead of
+  hardcoded icon color.
+
+### Friends tab (SPEC §10.4)
+
+- Empty feed state now has a primary "Find friends" CTA into
+  `/friends/add`.
+- Feed reaction toggles guard against concurrent double-taps on the
+  same post.
+
+### Chats tab (SPEC §10.6)
+
+- Thread rows pass the selected thread title into chat detail so the
+  header stays specific instead of falling back to "Direct message".
+- Stella error state now has a working "Try again" action.
+
+### You tab (SPEC §10.11)
+
+- Profile data remains read-only. Rows with real backing flows route to
+  selfies, friends, or sign-out; read-only rows no longer render fake
+  chevrons or inert press targets.
 
 ## What does NOT ship yet
 
-- **Closet tab** — exists, photos render real, but no QA pass yet.
-- **Friends tab** — same.
-- **Chats tab** — same.
-- **You tab** — same.
-- **Weather geolocation** — chip queued.
-- **Heart persistence** — chip queued; currently local React state.
-- **Calendar events strip** — handler returns empty array; OS calendar
-  sync not wired.
+- **Closet / Friends / Chats / You deeper runtime QA** — first-pass
+  wiring issues are fixed, but the tabs still need phone dogfood beyond
+  typecheck.
 - **Stella one-shot for Today's Pick** — server returns the most
   recent combination, no LLM call yet.
 - **AWS migration** — long-horizon.
@@ -203,29 +244,25 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
 7. **Migration files don't auto-apply.** Supabase changes go through
    `supabase/migrations/*.sql` and require the user to paste them into
    Studio's SQL editor (or run `supabase db push --linked` if their
-   CLI is logged in). Latest written: `0009_tryon_cap_dogfood.sql`
+   CLI is logged in). Latest written: `0012_user_calendar_events.sql`
    (paste status unclear — verify against Studio if unsure).
 8. **`<Stack.Screen options={…} />` is reference-reconciled by
    expo-router 6.** A fresh object literal each render reads as
    "options changed" and triggers a re-render loop ("Maximum update
    depth exceeded"). Always wrap in `useMemo([])` or hoist outside the
-   component. PR #71 fixed `/share`; the uncommitted session above
-   fixed `/tryon`. **Same pattern still latent in
-   `apps/mobile/app/craft-a-look.tsx:122`,
-   `apps/mobile/app/(tabs)/chats/[id].tsx:70`, and
-   `apps/mobile/app/friends/add.tsx:226`** — they haven't fired yet
-   only because those screens don't churn state on mount the way
-   `/tryon` does. Will fire the moment they do.
+   component. PR #71 fixed `/share`; `feat/tryon-dogfood-fixes`
+   fixed `/tryon`; the follow-up pass fixed the same pattern in
+   `/craft-a-look`, chat detail, and `/friends/add`.
 9. **iPhone selfies are 5-10 MB raw.** Anything that ships them in a
    JSON body to a third-party API needs to downscale first. The
    `sharp(...).resize({...1280...}).jpeg({...}).toBuffer()` pattern
    in `generateTryon.ts` is the reference.
-10. **`pnpm services` (the `dev.sh` log tailer) duplicates each
-    `console.log` line in the terminal** — every `[tryon …]` line
-    appears twice. Not a code bug; the runner reads stdout from both
-    the child and a file that mirrors stdout. Cosmetic, will get
-    worse as we add more `console.log`s. Worth a 5-min look at
-    `scripts/dev.sh` someday.
+10. **If `pnpm services` appears to duplicate logs, first check for
+    multiple service runners.** The current `scripts/dev.sh` redirects
+    each child process to a single `/tmp/mei-<service>.log` file and
+    tails that file once; it does not tee child stdout to both terminal
+    and file. The old duplication note was investigated on 2026-05-24
+    and no launcher bug was found in the current script.
 
 ## Recent shipped (compact PR ledger)
 
@@ -256,27 +293,7 @@ Most recent first. One line each.
 These were filed as session chips for future work. They're not in any
 issue tracker; tracking them lives here:
 
-1. **Detect device location for weather strip.** Currently
-   `users.city`. Need `expo-location` + lat/lon contract change +
-   real weather provider integration (OpenWeatherMap is the documented
-   choice). Bigger refactor.
-2. **Persist saved-look likes to backend.** Heart toggle is local
-   React state. Needs `/me/likes` endpoint + RLS-guarded table. PR #63
-   left the parent owning the state so swapping in a mutation hook
-   later doesn't change component shapes.
-3. **Pass try-on image to /share preview.** Currently /share still
-   shows the outfit composite. v2 polish: also pass the generated
-   `imageUrl` from /tryon → /share so the share preview shows the
-   try-on photo.
-4. **Fix the 3 latent `Stack.Screen` inline-literal bombs**
-   (`craft-a-look.tsx:122`, `(tabs)/chats/[id].tsx:70`,
-   `friends/add.tsx:226`). Two-line `useMemo` wrap each. Trivial,
-   should ship before Lloyd walks into those screens. Could go in
-   one PR: "stabilize Stack.Screen options refs across modal routes".
-5. **De-duplicate `pnpm services` log tailing.** Each `console.log`
-   prints twice in the terminal. See gotcha #10. Cosmetic but
-   compounding.
-6. **IDM-VTON output-quality assessment.** Once the downscale fix is
+1. **IDM-VTON output-quality assessment.** Once the downscale fix is
    verified and Lloyd has generated a real try-on, judgement call on
    face fidelity, garment fidelity, hand glitches. Decides whether we
    stay on IDM-VTON or evaluate alternatives (Kling, OOTDiffusion,
@@ -297,17 +314,16 @@ issue tracker; tracking them lives here:
   machine. Don't pass dispatch functions across hook boundaries.
 - All design tokens via `useTheme()`; never hardcode colors, spacing,
   or radii. Two type weights only: `'400'` and `'500'`.
-- Migration numbering is sequential; latest is `0008`.
+- Migration numbering is sequential; latest is `0012`.
 
 ## What to ask Lloyd if you're picking this up
 
-- **"Did the downscale fix work?"** First question. The uncommitted
-  session ended one restart short of confirming. See **Uncommitted
-  (verify first)** above.
-- **"Should we ship the uncommitted session as a PR before moving
-  on, or roll it into the next change?"** Six edits are sitting on
-  `main`. The work is bisectable into three reasonable PRs (loop fix
-  / cap bump / instrumentation + downscale), but founder discretion.
+- **"Did the downscale fix work?"** First question. The dogfood branch
+  still needs one phone retest before try-on can be called done. See
+  **Branch State** above.
+- **"Should we merge `feat/tryon-dogfood-fixes` before moving on?"**
+  The work is bisectable into loop fix / cap bump / instrumentation +
+  downscale, but it now lives on one branch.
 - "Which screen are we walking through next?" (Closet is the natural
   next stop after Today + selfies + try-on are all working — assuming
   try-on is finally working.)
@@ -317,9 +333,10 @@ issue tracker; tracking them lives here:
   this writing; if the URL flips, `services/api/.env` and
   `apps/mobile/.env` both need an update.)
 - "Any new third-party keys?" (Replicate is in
-  `services/image-worker/.env`. Anthropic for Stella will land when
-  the Stella one-shot does. OpenWeatherMap if weather geolocation
-  ships.)
+  `services/image-worker/.env`. `OPENWEATHER_API_KEY` now enables real
+  weather in `services/api/.env`; without it `/today` falls back to the
+  local stub. Anthropic for Stella will land when the Stella one-shot
+  does.)
 
 ## Note for non-Claude agents
 

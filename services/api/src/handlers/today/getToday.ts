@@ -1,11 +1,10 @@
 // GET /today — aggregate Today payload (SPEC §7.2 + §10.1).
 //
 // One handler, one response. Sub-payloads:
-//   - weather: stub (see ./weather.ts) until a real provider is wired.
-//   - events:  empty array. Calendar permission lives on the client; the
-//              backend has no calendar source yet.
-//              TODO(calendar-provider): if/when the OS calendar push
-//              syncs into Postgres, source it here.
+//   - weather: OpenWeatherMap when a key + synced coords exist, otherwise
+//              the no-secret fallback snapshot in ./weather.ts.
+//   - events:  owner-only calendar snapshot synced from the mobile OS
+//              calendar, with empty-array fallback until the migration lands.
 //   - todaysPick: most-recently-created combination owned by the user.
 //              Per §8.5 the production path is a one-shot Stella call;
 //              that lives in feat/stella-api so we degrade gracefully.
@@ -21,6 +20,7 @@
 import type { Handler } from '../../context';
 import type {
   Combination as ApiCombination,
+  CalendarEvent,
   CommunityLook,
   GetTodayResponse,
   Tables,
@@ -50,20 +50,69 @@ export const getTodayHandler: Handler = async (ctx) => {
     throw new ApiError(500, 'DB_ERROR', `Failed to load user profile: ${meErr.message}`);
   }
 
-  // 2. Weather. Stubbed; see ./weather.ts.
+  // 2. Weather. Uses device coords when the mobile client has synced them,
+  // and falls back to the profile city / no-secret stub otherwise.
   // §10.1 says the strip hides silently when weather is unavailable, so
   // an absent profile (no city) → omit the weather snapshot rather than
   // returning a synthetic city.
   let weather: WeatherSnapshot | undefined;
   if (me) {
-    weather = buildWeatherSnapshot({ city: me.city });
+    const { data: locationRow, error: locationErr } = await supabase
+      .from('user_weather_locations')
+      .select('latitude, longitude, city')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (locationErr && locationErr.code !== '42P01') {
+      throw new ApiError(
+        500,
+        'DB_ERROR',
+        `Failed to load weather location: ${locationErr.message}`,
+      );
+    }
+    weather = await buildWeatherSnapshot({
+      city: locationErr ? me.city : locationRow?.city ?? me.city,
+      latitude: locationErr ? undefined : locationRow?.latitude,
+      longitude: locationErr ? undefined : locationRow?.longitude,
+    });
   }
 
-  // 3. Events.
-  // TODO(calendar-provider): the OS-side calendar push hasn't landed yet.
-  // Returning [] here matches §10.1's "no calendar permission: hide
-  // calendar strip silently" empty state.
-  const events: GetTodayResponse['events'] = [];
+  // 3. Events. Mobile owns OS permission and syncs only the current local
+  // day, so this query only needs the next stretch of upcoming events.
+  let events: GetTodayResponse['events'] = [];
+  const eventWindowStart = new Date();
+  const eventWindowEnd = new Date(eventWindowStart);
+  eventWindowEnd.setHours(eventWindowStart.getHours() + 24);
+  const { data: eventRows, error: eventErr } = await supabase
+    .from('user_calendar_events')
+    .select(
+      `device_event_id,
+       title,
+       starts_at,
+       ends_at,
+       occasion_guess,
+       location_name`,
+    )
+    .eq('user_id', userId)
+    .gte('starts_at', eventWindowStart.toISOString())
+    .lt('starts_at', eventWindowEnd.toISOString())
+    .order('starts_at', { ascending: true })
+    .limit(2);
+  if (eventErr && eventErr.code !== '42P01') {
+    throw new ApiError(500, 'DB_ERROR', `Failed to load calendar events: ${eventErr.message}`);
+  }
+  if (!eventErr) {
+    events = (eventRows ?? []).map((row): CalendarEvent => {
+      const event: CalendarEvent = {
+        id: row.device_event_id,
+        title: row.title,
+        startsAt: row.starts_at,
+      };
+      if (row.ends_at) event.endsAt = row.ends_at;
+      if (row.occasion_guess) event.occasionGuess = row.occasion_guess;
+      if (row.location_name) event.locationName = row.location_name;
+      return event;
+    });
+  }
 
   // 4. Today's pick.
   // TODO(stella-today-pick): replace with the §8.5 one-shot Stella call

@@ -1,10 +1,10 @@
 // Wear this · Confirm & share — SPEC §10.10.
 //
 // Modal route. Receives a `comboId` query param, renders a preview of
-// the combination, lets the user pick visibility + write a caption +
-// add a location, then POST /ootd. The selfie + try-on photo flow
-// (§9.3, P1) lands in feat/wire-tryon — for now we always emit a
-// fallback OutfitCard composite, which the api creates server-side.
+// the combination or just-generated try-on image, lets the user pick
+// visibility + write a caption + add a location, then POST /ootd.
+// The create call still uses the current OOTD contract; if no try-on
+// image is supplied, the api creates the fallback OutfitCard composite.
 //
 // Visibility lanes here cover PUBLIC + FRIENDS (the §10.10 default
 // section). GROUP and DIRECT need hangout / friend pickers — they ship
@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -47,7 +47,11 @@ type SimpleVisibility = Extract<OOTDVisibility, 'PUBLIC' | 'FRIENDS'>;
 export default function ShareScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ comboId?: string; comboJson?: string }>();
+  const params = useLocalSearchParams<{
+    comboId?: string;
+    comboJson?: string;
+    tryonImageUrl?: string;
+  }>();
   const { session } = useSession();
   const me = session?.user.id;
   const itemMap = useClosetItemMap();
@@ -76,6 +80,10 @@ export default function ShareScreen() {
       return null;
     }
   }, [params.comboJson]);
+  const tryonImageUrl =
+    typeof params.tryonImageUrl === 'string' && params.tryonImageUrl.length > 0
+      ? params.tryonImageUrl
+      : undefined;
 
   const [combo, setCombo] = useState<Combination | null>(initialCombo);
   const [loading, setLoading] = useState(initialCombo == null);
@@ -235,7 +243,23 @@ export default function ShareScreen() {
               </View>
             ) : (
               <>
-                <ResolvedOutfitCard combination={combo} itemMap={itemMap} />
+                {tryonImageUrl ? (
+                  <Image
+                    source={{ uri: tryonImageUrl }}
+                    style={[
+                      styles.tryonPreview,
+                      {
+                        backgroundColor: theme.color.bg.secondary,
+                        borderRadius: theme.radius.md,
+                      },
+                    ]}
+                    resizeMode="cover"
+                    accessibilityIgnoresInvertColors
+                    accessibilityLabel="Try-on preview"
+                  />
+                ) : (
+                  <ResolvedOutfitCard combination={combo} itemMap={itemMap} />
+                )}
 
                 {/* Caption */}
                 <View style={{ gap: 6 }}>
@@ -417,5 +441,10 @@ const styles = StyleSheet.create({
   },
   errorBanner: {
     width: '100%',
+  },
+  tryonPreview: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    overflow: 'hidden',
   },
 });

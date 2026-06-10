@@ -222,6 +222,39 @@ export type Database = {
           },
         ]
       }
+      combination_likes: {
+        Row: {
+          combo_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          combo_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          combo_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combination_likes_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "combinations"
+            referencedColumns: ["combo_id"]
+          },
+          {
+            foreignKeyName: "combination_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       combinations: {
         Row: {
           combo_id: string
@@ -781,6 +814,79 @@ export type Database = {
           username?: string
         }
         Relationships: []
+      }
+      user_calendar_events: {
+        Row: {
+          device_event_id: string
+          ends_at: string | null
+          location_name: string | null
+          occasion_guess: Database["public"]["Enums"]["occasion"] | null
+          starts_at: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          device_event_id: string
+          ends_at?: string | null
+          location_name?: string | null
+          occasion_guess?: Database["public"]["Enums"]["occasion"] | null
+          starts_at: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          device_event_id?: string
+          ends_at?: string | null
+          location_name?: string | null
+          occasion_guess?: Database["public"]["Enums"]["occasion"] | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_calendar_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_weather_locations: {
+        Row: {
+          city: string | null
+          latitude: number
+          longitude: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          city?: string | null
+          latitude: number
+          longitude: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          city?: string | null
+          latitude?: number
+          longitude?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_weather_locations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1572,4 +1678,3 @@ export const Constants = {
     },
   },
 } as const
-

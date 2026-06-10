@@ -116,10 +116,14 @@ export default function CraftALookScreen() {
     if (n === MAX_ITEMS) return `${n} of ${MAX_ITEMS} (max)`;
     return `${n} selected`;
   }, [selectedIds.length]);
+  const screenOptions = useMemo(
+    () => ({ headerShown: false, presentation: 'modal' as const }),
+    [],
+  );
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen options={screenOptions} />
       <Screen>
         <KeyboardAvoidingView
           style={{ flex: 1 }}

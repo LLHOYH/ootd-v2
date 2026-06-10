@@ -6,7 +6,7 @@
 // React/unreact are optimistic — flip the heart immediately, roll back on
 // error.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OOTDPost, Tables } from '@mei/types';
 import { ApiError } from '../api/client';
 import { fetchOotdFeed, reactOotd, unreactOotd } from '../api/ootd';
@@ -62,6 +62,7 @@ function deriveInitials(displayName: string, fallback: string): string {
 
 export function useOotdFeed(): UseOotdFeedResult {
   const { session, loading: sessionLoading } = useSession();
+  const pendingReactionIdsRef = useRef<Set<string>>(new Set());
   const [state, setState] = useState<UseOotdFeedState>({ status: 'idle' });
 
   const load = useCallback(
@@ -169,6 +170,8 @@ export function useOotdFeed(): UseOotdFeedResult {
     async (ootdId: string) => {
       const me = session?.user.id;
       if (!me) return;
+      if (pendingReactionIdsRef.current.has(ootdId)) return;
+      pendingReactionIdsRef.current.add(ootdId);
       // Snapshot for rollback
       let prevSnapshot: OotdFeedItem[] | undefined;
       let willReact = false;
@@ -201,6 +204,8 @@ export function useOotdFeed(): UseOotdFeedResult {
             prev.status === 'success' ? { ...prev, items: snap } : prev,
           );
         }
+      } finally {
+        pendingReactionIdsRef.current.delete(ootdId);
       }
     },
     [session],
