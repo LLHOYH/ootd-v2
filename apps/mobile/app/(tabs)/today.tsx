@@ -44,8 +44,8 @@ export default function TodayScreen() {
   const { state, refetch } = useToday();
   const profile = useProfileSummary();
   // Closet items keyed by id. Used to render real photos in Today's Pick.
-  // Loads in parallel with the /today payload — if it's slow the card
-  // gracefully falls back to pastel placeholders.
+  // Loads in parallel with the /today payload; Today waits for this resolver
+  // before showing a server pick so the hero never paints as empty slots.
   const itemMap = useClosetItemMap();
   const combinationLikes = useCombinationLikes();
   useWeatherLocationSync(() => {
@@ -107,6 +107,10 @@ export default function TodayScreen() {
     useCallback(() => {
       if (itemMap.state.status === 'idle' || itemMap.state.status === 'loading') return;
       const now = Date.now();
+      if (lastFocusItemRefreshAtRef.current === 0) {
+        lastFocusItemRefreshAtRef.current = now;
+        return;
+      }
       if (now - lastFocusItemRefreshAtRef.current < 10_000) return;
       lastFocusItemRefreshAtRef.current = now;
       void itemMap.refetch();
@@ -191,7 +195,8 @@ export default function TodayScreen() {
   const currentPick =
     rawCurrentPick &&
     rawCurrentPick.itemIds.length >= 2 &&
-    (!itemMapReady || currentPickItems.some(hasItemPhoto))
+    itemMapReady &&
+    currentPickItems.some(hasItemPhoto)
       ? rawCurrentPick
       : null;
   const isSaved = currentPick

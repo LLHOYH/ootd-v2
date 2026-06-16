@@ -45,7 +45,7 @@ const GRID_CONFIG: Record<
 };
 
 function imageUrlForItem(item: ClosetItem): string | null {
-  return item.thumbnailUrl || item.tunedPhotoUrl || item.rawPhotoUrl || null;
+  return item.tunedPhotoUrl || item.thumbnailUrl || item.rawPhotoUrl || null;
 }
 
 /**

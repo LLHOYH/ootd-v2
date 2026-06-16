@@ -20,7 +20,7 @@ const SIZE_MAP: Record<ThumbSize, number> = {
 
 /**
  * Clothing item thumbnail. Aspect 3:4 portrait per mockup `.thumb-look`.
- * - Renders thumbnailUrl, falling back to tunedPhotoUrl/rawPhotoUrl over a
+ * - Renders tunedPhotoUrl, falling back to thumbnailUrl/rawPhotoUrl over a
  *   category-tinted pastel placeholder.
  * - `selected` adds a 1.5px system-blue outline.
  */
@@ -31,7 +31,7 @@ export function Thumb({ item, size, selected = false, style }: ThumbProps) {
   const height = Math.round((width * 4) / 3);
 
   const placeholder = pickPlaceholder(item.category, theme.color.palette);
-  const imageUrl = item.thumbnailUrl || item.tunedPhotoUrl || item.rawPhotoUrl;
+  const imageUrl = item.tunedPhotoUrl || item.thumbnailUrl || item.rawPhotoUrl;
   const [imageState, setImageState] = useState<'idle' | 'loading' | 'loaded' | 'error'>(
     imageUrl ? 'loading' : 'idle',
   );

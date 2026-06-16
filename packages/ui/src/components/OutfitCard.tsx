@@ -9,9 +9,9 @@ export interface OutfitCardProps {
   name?: string;
   /**
    * Resolved items for this combination, ordered to match `combination.itemIds`.
-   * When provided, each slot renders the item's `thumbnailUrl` over the pastel
+   * When provided, each slot renders the item's cleaned photo over the pastel
    * placeholder (the placeholder shows during image load and as a fallback for
-   * items still in PROCESSING with no `thumbnailUrl` yet). When omitted, the
+   * items still in PROCESSING with no photo URL yet). When omitted, the
    * card stays in placeholder-only mode — caller hasn't resolved them yet.
    */
   items?: (ClosetItem | undefined)[];
@@ -35,11 +35,9 @@ export function OutfitCard({ combination, name, items, style }: OutfitCardProps)
     const item = items?.[i];
     return {
       bg: palette[key],
-      // Prefer the small thumbnail (image-worker output). Fall back to the
-      // tuned full-size, then the raw upload if the worker hasn't produced
-      // processed assets yet. This keeps brand-new combinations from looking
-      // empty while closet processing catches up.
-      uri: item?.thumbnailUrl || item?.tunedPhotoUrl || item?.rawPhotoUrl || null,
+      // Prefer the tuned clean garment image, matching the enlarged closet
+      // preview. Fall back to thumbnail/raw while processing catches up.
+      uri: item?.tunedPhotoUrl || item?.thumbnailUrl || item?.rawPhotoUrl || null,
     };
   });
 

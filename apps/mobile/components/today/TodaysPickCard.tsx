@@ -1,14 +1,12 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Heart } from 'lucide-react-native';
-import { Card, Button, SectionHeader, useTheme } from '@mei/ui';
+import { Card, Button, SectionHeader, Thumb, useTheme } from '@mei/ui';
 import type { ClosetItem, Combination } from '@mei/types';
 
 export interface TodaysPickCardProps {
   combination: Combination;
   /** Resolved items aligned with `combination.itemIds`. Forwarded straight to
-   * OutfitCard so the slots render real photos instead of pastel rectangles.
-   * Pass `undefined` while items are still loading — OutfitCard falls back to
-   * the placeholder, which doubles as the image loading state. */
+   * the slots render real photos instead of pastel rectangles. */
   items?: (ClosetItem | undefined)[];
   /** True when the user has tapped the heart for this combo. Renders a filled
    * heart instead of an outline. State is owned by the parent so it can later
@@ -84,7 +82,6 @@ export function TodaysPickCard({
               length: Math.min(Math.max(combination.itemIds.length, 1), 4),
             }).map((_, index) => {
               const item = items?.[index];
-              const uri = item?.thumbnailUrl || item?.tunedPhotoUrl || item?.rawPhotoUrl;
               return (
                 <View
                   key={`${combination.comboId}-${index}`}
@@ -96,14 +93,7 @@ export function TodaysPickCard({
                     },
                   ]}
                 >
-                  {uri ? (
-                    <Image
-                      source={{ uri }}
-                      resizeMode="cover"
-                      style={StyleSheet.absoluteFill}
-                      accessibilityIgnoresInvertColors
-                    />
-                  ) : null}
+                  {item ? <Thumb item={item} size="lg" style={styles.photoThumb} /> : null}
                 </View>
               );
             })}
@@ -208,6 +198,11 @@ const styles = StyleSheet.create({
     width: '48.5%',
     aspectRatio: 3 / 4,
     overflow: 'hidden',
+  },
+  photoThumb: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
   },
   actions: {
     flexDirection: 'row',
