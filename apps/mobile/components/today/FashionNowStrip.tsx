@@ -1,4 +1,4 @@
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { TrendingUp } from 'lucide-react-native';
 import { SectionHeader, useTheme } from '@mei/ui';
 import type { TodayFashionItem } from './types';
@@ -35,17 +35,11 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
         Paris FW · Instagram · editorials
       </Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // flexGrow: 0 — keeps the strip content-sized even when nested
-        // in a flex-column parent (defensive; see FilterChips comment).
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ gap: theme.space.sm, paddingRight: theme.space.lg }}
-      >
+      <View style={[styles.grid, { marginTop: theme.space.xs }]}>
         {items.map((item, i) => {
           const key = PALETTE_KEYS[i % PALETTE_KEYS.length] ?? 'cream';
           const bg = theme.color.palette[key];
+          const isEndOfRow = (i + 1) % 2 === 0;
           // Pastel background doubles as image-load placeholder + fallback
           // when an RSS item didn't carry a hero image.
           return (
@@ -56,7 +50,14 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
               }}
               accessibilityRole={item.sourceUrl ? 'link' : 'image'}
               accessibilityLabel={`${item.source}: ${item.caption}`}
-              style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
+              style={({ pressed }) => [
+                styles.card,
+                {
+                  marginRight: isEndOfRow ? 0 : '3%',
+                  marginBottom: theme.space.lg,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
             >
               <View
                 style={[
@@ -70,6 +71,7 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
                 {item.imageUrl ? (
                   <Image
                     source={{ uri: item.imageUrl }}
+                    resizeMode="cover"
                     style={StyleSheet.absoluteFill}
                     accessibilityIgnoresInvertColors
                   />
@@ -92,7 +94,7 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
                     fontSize: theme.type.size.tiny,
                     fontWeight: theme.type.weight.regular as '400',
                   }}
-                  numberOfLines={1}
+                  numberOfLines={2}
                 >
                   {item.caption}
                 </Text>
@@ -100,7 +102,7 @@ export function FashionNowStrip({ items }: FashionNowStripProps) {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -110,12 +112,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
   card: {
-    width: 110,
+    width: '48.5%',
   },
   thumb: {
-    width: 110,
-    height: 140,
+    width: '100%',
+    aspectRatio: 4 / 5,
     overflow: 'hidden',
   },
 });

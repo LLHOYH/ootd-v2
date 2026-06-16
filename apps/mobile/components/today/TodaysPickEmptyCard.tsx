@@ -1,15 +1,17 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Shirt, Sparkles } from 'lucide-react-native';
 import { Button, Card, SectionHeader, useTheme } from '@mei/ui';
 
 export interface TodaysPickEmptyCardProps {
   selfieCount: number;
+  checkingCloset?: boolean;
   onAddClothes?: () => void;
   onViewSelfies?: () => void;
 }
 
 export function TodaysPickEmptyCard({
   selfieCount,
+  checkingCloset = false,
   onAddClothes,
   onViewSelfies,
 }: TodaysPickEmptyCardProps) {
@@ -30,7 +32,9 @@ export function TodaysPickEmptyCard({
               },
             ]}
           >
-            {hasSelfies ? (
+            {checkingCloset ? (
+              <ActivityIndicator size="small" color={theme.color.brand} />
+            ) : hasSelfies ? (
               <Shirt size={20} strokeWidth={1.6} color={theme.color.brand} />
             ) : (
               <Sparkles size={20} strokeWidth={1.6} color={theme.color.brand} />
@@ -45,7 +49,7 @@ export function TodaysPickEmptyCard({
               }}
               numberOfLines={1}
             >
-              No look yet
+              {checkingCloset ? 'Checking closet...' : 'No look yet'}
             </Text>
             <Text
               style={{
@@ -55,7 +59,9 @@ export function TodaysPickEmptyCard({
                 marginTop: theme.space.xs,
               }}
             >
-              Add dress photos or photos of you wearing them so Stella can build a pick.
+              {checkingCloset
+                ? 'Looking for clothes that can become your first pick.'
+                : 'Add dress photos or photos of you wearing them so Stella can build a pick.'}
             </Text>
           </View>
         </View>

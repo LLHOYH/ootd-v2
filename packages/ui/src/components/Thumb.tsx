@@ -1,5 +1,5 @@
-import React from 'react';
-import { Image, StyleSheet, View, ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, StyleSheet, View, ViewStyle } from 'react-native';
 import type { ClosetItem, ClothingCategory } from '@mei/types';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -32,6 +32,13 @@ export function Thumb({ item, size, selected = false, style }: ThumbProps) {
 
   const placeholder = pickPlaceholder(item.category, theme.color.palette);
   const imageUrl = item.thumbnailUrl || item.tunedPhotoUrl || item.rawPhotoUrl;
+  const [imageState, setImageState] = useState<'idle' | 'loading' | 'loaded' | 'error'>(
+    imageUrl ? 'loading' : 'idle',
+  );
+
+  useEffect(() => {
+    setImageState(imageUrl ? 'loading' : 'idle');
+  }, [imageUrl]);
 
   return (
     <View
@@ -53,9 +60,24 @@ export function Thumb({ item, size, selected = false, style }: ThumbProps) {
       {imageUrl ? (
         <Image
           source={{ uri: imageUrl }}
-          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          onLoadStart={() => setImageState('loading')}
+          onLoad={() => setImageState('loaded')}
+          onError={() => setImageState('error')}
+          style={[
+            StyleSheet.absoluteFill,
+            { opacity: imageState === 'loaded' ? 1 : 0 },
+          ]}
           accessibilityIgnoresInvertColors
         />
+      ) : null}
+      {imageUrl && imageState !== 'loaded' && imageState !== 'error' ? (
+        <View style={styles.loader} pointerEvents="none">
+          <ActivityIndicator
+            size="small"
+            color={selected ? theme.color.brand : theme.color.text.tertiary}
+          />
+        </View>
       ) : null}
     </View>
   );
@@ -87,5 +109,10 @@ function pickPlaceholder(
 const styles = StyleSheet.create({
   base: {
     overflow: 'hidden',
+  },
+  loader: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

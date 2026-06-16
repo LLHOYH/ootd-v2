@@ -11,6 +11,7 @@ import { WeatherStrip } from '@/components/today/WeatherStrip';
 import { CalendarStrip } from '@/components/today/CalendarStrip';
 import { TodaysPickCard } from '@/components/today/TodaysPickCard';
 import { TodaysPickEmptyCard } from '@/components/today/TodaysPickEmptyCard';
+import { ClosetStarterCarousel } from '@/components/today/ClosetStarterCarousel';
 import { CommunityStrip } from '@/components/today/CommunityStrip';
 import { FashionNowStrip } from '@/components/today/FashionNowStrip';
 import {
@@ -125,6 +126,12 @@ export default function TodayScreen() {
 
   // Effective pick = local override (from "Try another") if any, else server.
   const currentPick = overridePick ?? data.todaysPick;
+  const closetItems = useMemo(() => {
+    if (itemMap.state.status !== 'ready' && itemMap.state.status !== 'error') return [];
+    return Array.from(itemMap.state.byId.values());
+  }, [itemMap.state]);
+  const closetItemsLoading =
+    itemMap.state.status === 'idle' || itemMap.state.status === 'loading';
   const isSaved = currentPick
     ? combinationLikes.likedComboIds.has(currentPick.comboId)
     : false;
@@ -242,9 +249,18 @@ export default function TodayScreen() {
             onWear={handleWear}
             onSave={() => void handleToggleSave()}
           />
+        ) : closetItems.length > 0 ? (
+          <ClosetStarterCarousel
+            items={closetItems}
+            selfieCount={selfieCount}
+            onAddClothes={() => router.navigate('/closet' as never)}
+            onCraftLook={() => router.push('/craft-a-look' as never)}
+            onViewSelfies={() => router.push('/selfies')}
+          />
         ) : (
           <TodaysPickEmptyCard
             selfieCount={selfieCount}
+            checkingCloset={closetItemsLoading}
             onAddClothes={() => router.navigate('/closet' as never)}
             onViewSelfies={() => router.push('/selfies')}
           />

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ClosetItem } from '@mei/types';
 import { Thumb, useTheme } from '@mei/ui';
 
@@ -44,6 +44,10 @@ const GRID_CONFIG: Record<
   },
 };
 
+function imageUrlForItem(item: ClosetItem): string | null {
+  return item.thumbnailUrl || item.tunedPhotoUrl || item.rawPhotoUrl || null;
+}
+
 /**
  * Photo-first grid of `Thumb`s. The parent can switch Compact/Medium/Large so
  * users can scan quickly or inspect garments more closely.
@@ -51,6 +55,21 @@ const GRID_CONFIG: Record<
 export function ItemGrid({ items, size = 'medium', onPressItem }: ItemGridProps) {
   const theme = useTheme();
   const grid = GRID_CONFIG[size];
+
+  useEffect(() => {
+    const prefetchCount = size === 'compact' ? 18 : size === 'medium' ? 10 : 6;
+    const urls = Array.from(
+      new Set(
+        items
+          .slice(0, prefetchCount)
+          .map(imageUrlForItem)
+          .filter((url): url is string => Boolean(url)),
+      ),
+    );
+    for (const url of urls) {
+      void Image.prefetch(url).catch(() => undefined);
+    }
+  }, [items, size]);
 
   if (items.length === 0) {
     return (
