@@ -70,7 +70,9 @@ export const anotherPickHandler: Handler = async (ctx) => {
     combination_items: { item_id: string; position: number }[] | null;
   };
 
-  const rows = ((data ?? []) as Row[]).filter((r) => !excludes.has(r.combo_id));
+  const rows = ((data ?? []) as Row[]).filter(
+    (r) => !excludes.has(r.combo_id) && (r.combination_items ?? []).length >= 2,
+  );
   if (rows.length === 0) {
     throw new ApiError(404, 'NO_PICK', 'No combinations available to pick from');
   }

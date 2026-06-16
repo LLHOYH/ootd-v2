@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { Combination } from '@mei/types';
+import type { ClosetItem, Combination } from '@mei/types';
 import { Button, Screen, useTheme } from '@mei/ui';
 
 import { Header } from '@/components/today/Header';
@@ -33,6 +33,10 @@ import { useWeatherLocationSync } from '@/lib/hooks/useWeatherLocationSync';
 import { postAnotherPick } from '@/lib/api/today';
 import { createCombination } from '@/lib/api/closet';
 import { ApiError } from '@/lib/api/client';
+
+function hasItemPhoto(item: ClosetItem | undefined): boolean {
+  return Boolean(item?.thumbnailUrl || item?.tunedPhotoUrl || item?.rawPhotoUrl);
+}
 
 export default function TodayScreen() {
   const theme = useTheme();
@@ -137,7 +141,18 @@ export default function TodayScreen() {
   const fashion = data.fashionNow.map(adaptFashionNow);
 
   // Effective pick = local override (from "Try another") if any, else server.
-  const currentPick = overridePick ?? data.todaysPick;
+  // Guard against old/bad combinations that have no attached items or cannot
+  // resolve to any displayable photo. In that state, Today should recommend
+  // from the closet instead of showing a blank "New combination" hero.
+  const rawCurrentPick = overridePick ?? data.todaysPick;
+  const currentPickItems = rawCurrentPick ? itemMap.resolve(rawCurrentPick.itemIds) : [];
+  const itemMapReady = itemMap.state.status === 'ready' || itemMap.state.status === 'error';
+  const currentPick =
+    rawCurrentPick &&
+    rawCurrentPick.itemIds.length >= 2 &&
+    (!itemMapReady || currentPickItems.some(hasItemPhoto))
+      ? rawCurrentPick
+      : null;
   const isSaved = currentPick
     ? combinationLikes.likedComboIds.has(currentPick.comboId)
     : false;
@@ -279,7 +294,7 @@ export default function TodayScreen() {
         {currentPick ? (
           <TodaysPickCard
             combination={currentPick}
-            items={itemMap.resolve(currentPick.itemIds)}
+            items={currentPickItems}
             saved={isSaved}
             picking={picking}
             errorMessage={pickError ?? combinationLikes.error?.message ?? null}

@@ -134,7 +134,7 @@ export const getTodayHandler: Handler = async (ctx) => {
     )
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(1);
+    .limit(20);
   if (comboErr) {
     throw new ApiError(500, 'DB_ERROR', `Failed to load combinations: ${comboErr.message}`);
   }
@@ -142,7 +142,9 @@ export const getTodayHandler: Handler = async (ctx) => {
   type ComboRow = Tables<'combinations'> & {
     combination_items: { item_id: string; position: number }[] | null;
   };
-  const firstCombo = ((comboRows ?? []) as ComboRow[])[0];
+  const firstCombo = ((comboRows ?? []) as ComboRow[]).find(
+    (row) => (row.combination_items ?? []).length >= 2,
+  );
   if (firstCombo) {
     const withItems: CombinationWithItems = {
       row: {
