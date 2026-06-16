@@ -6,6 +6,10 @@ import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { useStellaConversation } from '@/lib/hooks/useStellaConversation';
 
+export interface StellaChatScreenProps {
+  showBack?: boolean;
+}
+
 /**
  * Stella chat — SPEC §10.5. Pinned conversation per user.
  *
@@ -14,14 +18,14 @@ import { useStellaConversation } from '@/lib/hooks/useStellaConversation';
  * the stylist Render service. Tool-call events surface as a transient
  * `assistantStatus` line; rich card rendering lands in feat/wire-stella-tools.
  */
-export function StellaChatScreen() {
+export function StellaChatScreen({ showBack = true }: StellaChatScreenProps) {
   const theme = useTheme();
   const { state, send, refetch } = useStellaConversation();
 
   return (
     <Screen>
       <View style={[styles.container, { gap: theme.space.sm }]}>
-        <StellaHeader />
+        <StellaHeader showBack={showBack} />
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}

@@ -113,7 +113,14 @@ export function ItemGrid({ items, size = 'medium', onPressItem }: ItemGridProps)
             ]}
           >
             <View style={styles.thumbWrap}>
-              <Thumb item={item} size={grid.thumb} style={styles.thumb} />
+              <Thumb
+                item={item}
+                size={grid.thumb}
+                style={[
+                  styles.thumb,
+                  { borderRadius: size === 'compact' ? 16 : 22 },
+                ]}
+              />
             </View>
             <Text
               style={{

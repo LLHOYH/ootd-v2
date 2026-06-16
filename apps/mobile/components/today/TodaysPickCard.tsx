@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Heart } from 'lucide-react-native';
-import { Card, OutfitCard, Button, SectionHeader, useTheme } from '@mei/ui';
+import { Card, Button, SectionHeader, useTheme } from '@mei/ui';
 import type { ClosetItem, Combination } from '@mei/types';
 
 export interface TodaysPickCardProps {
@@ -51,7 +51,7 @@ export function TodaysPickCard({
       <SectionHeader
         title="Today's pick"
         action={{
-          label: picking ? 'Trying…' : 'Try another →',
+          label: picking ? 'Trying...' : 'Try another',
           onPress: () => {
             if (picking) return;
             onTryAnother?.();
@@ -73,19 +73,70 @@ export function TodaysPickCard({
           {subtitle}
         </Text>
       ) : null}
-      <Card tone="accent" padding={theme.space.lg}>
+      <Card
+        tone="accent"
+        padding={theme.space.lg}
+        style={{ borderRadius: 28 }}
+      >
         <View style={picking ? styles.dim : undefined}>
-          <OutfitCard
-            combination={combination}
-            items={items}
-            style={{ backgroundColor: 'transparent', padding: 0 }}
-          />
+          <View style={[styles.photoGrid, { gap: theme.space.sm }]}>
+            {Array.from({
+              length: Math.min(Math.max(combination.itemIds.length, 1), 4),
+            }).map((_, index) => {
+              const item = items?.[index];
+              const uri = item?.thumbnailUrl || item?.tunedPhotoUrl || item?.rawPhotoUrl;
+              return (
+                <View
+                  key={`${combination.comboId}-${index}`}
+                  style={[
+                    styles.photoSlot,
+                    {
+                      backgroundColor: placeholderFor(index, item, theme.color.palette),
+                      borderRadius: 18,
+                    },
+                  ]}
+                >
+                  {uri ? (
+                    <Image
+                      source={{ uri }}
+                      resizeMode="cover"
+                      style={StyleSheet.absoluteFill}
+                      accessibilityIgnoresInvertColors
+                    />
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+          <View style={{ marginTop: theme.space.md }}>
+            <Text
+              style={{
+                color: theme.color.text.primary,
+                fontSize: 22,
+                fontWeight: theme.type.weight.medium as '500',
+              }}
+              numberOfLines={1}
+            >
+              {combination.name}
+            </Text>
+            <Text
+              style={{
+                color: theme.color.text.secondary,
+                fontSize: theme.type.size.caption,
+                fontWeight: theme.type.weight.regular as '400',
+                marginTop: theme.space.xs,
+              }}
+              numberOfLines={2}
+            >
+              Made from your closet for today's weather and plans.
+            </Text>
+          </View>
         </View>
         <View style={[styles.actions, { gap: theme.space.md, marginTop: theme.space.lg }]}>
           <Button
             variant="primary"
             onPress={onWear ?? (() => {})}
-            style={{ flex: 1 }}
+            style={{ flex: 1, minHeight: 54 }}
           >
             Wear this on me
           </Button>
@@ -122,14 +173,49 @@ export function TodaysPickCard({
   );
 }
 
+function placeholderFor(
+  index: number,
+  item: ClosetItem | undefined,
+  palette: { cream: string; mauve: string; sage: string; blue: string; tan: string },
+): string {
+  switch (item?.category) {
+    case 'DRESS':
+      return palette.blue;
+    case 'TOP':
+      return palette.cream;
+    case 'BOTTOM':
+      return palette.tan;
+    case 'OUTERWEAR':
+      return palette.mauve;
+    case 'SHOE':
+      return palette.sage;
+    case 'BAG':
+    case 'ACCESSORY':
+      return palette.tan;
+    default: {
+      const fallback = [palette.blue, palette.tan, palette.mauve, palette.sage];
+      return fallback[index % fallback.length] ?? palette.cream;
+    }
+  }
+}
+
 const styles = StyleSheet.create({
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  photoSlot: {
+    width: '48.5%',
+    aspectRatio: 3 / 4,
+    overflow: 'hidden',
+  },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   heartBtn: {
-    width: 48,
-    height: 48,
+    width: 54,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,

@@ -1,21 +1,32 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Avatar, SectionHeader, useTheme } from '@mei/ui';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SectionHeader, useTheme } from '@mei/ui';
 import type { TodayCommunityLook } from './types';
 
 export interface CommunityStripProps {
   looks: TodayCommunityLook[];
   subtitle: string; // e.g. "Singapore · 25–30 · today"
   onLookPress?: (look: TodayCommunityLook) => void;
+  onSeeAll?: () => void;
 }
 
-export function CommunityStrip({ looks, subtitle, onLookPress }: CommunityStripProps) {
+const CARD_COLORS = ['mauve', 'sage', 'tan', 'blue'] as const;
+
+export function CommunityStrip({
+  looks,
+  subtitle,
+  onLookPress,
+  onSeeAll,
+}: CommunityStripProps) {
   const theme = useTheme();
 
   if (looks.length === 0) return null;
 
   return (
     <View>
-      <SectionHeader title="What others are wearing" />
+      <SectionHeader
+        title="Community"
+        action={onSeeAll ? { label: 'See all', onPress: onSeeAll } : undefined}
+      />
       <Text
         style={{
           color: theme.color.text.tertiary,
@@ -29,34 +40,62 @@ export function CommunityStrip({ looks, subtitle, onLookPress }: CommunityStripP
         {subtitle}
       </Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // flexGrow: 0 — keeps the strip content-sized even when nested
-        // in a flex-column parent (e.g. on web where ScrollView would
-        // otherwise inflate vertically).
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ gap: theme.space.sm, paddingRight: theme.space.lg }}
-      >
-        {looks.map((look) => (
+      <View style={styles.grid}>
+        {looks.slice(0, 2).map((look, index) => {
+          const colorKey = CARD_COLORS[index % CARD_COLORS.length] ?? 'mauve';
+          return (
           <Pressable
             key={look.id}
             onPress={() => onLookPress?.(look)}
             accessibilityRole="button"
             accessibilityLabel={`Open ${look.username}'s look`}
-            style={styles.tap}
+            style={({ pressed }) => [
+              styles.card,
+              {
+                backgroundColor: theme.color.palette[colorKey],
+                borderRadius: 18,
+                marginRight: index % 2 === 0 ? '3%' : 0,
+                opacity: pressed ? 0.82 : 1,
+              },
+            ]}
           >
-            <Avatar initials={look.initials} size={70} ringed="plain" />
+            <Text
+              style={{
+                color: theme.color.text.primary,
+                fontSize: theme.type.size.h2,
+                fontWeight: theme.type.weight.medium as '500',
+              }}
+            >
+              {look.initials}
+            </Text>
+            <Text
+              style={{
+                color: theme.color.text.secondary,
+                fontSize: theme.type.size.tiny,
+                fontWeight: theme.type.weight.regular as '400',
+                marginTop: theme.space.xs,
+              }}
+              numberOfLines={1}
+            >
+              {look.username}
+            </Text>
           </Pressable>
-        ))}
-      </ScrollView>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tap: {
+  grid: {
+    flexDirection: 'row',
+  },
+  card: {
+    width: '48.5%',
+    aspectRatio: 1 / 1.08,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
 });

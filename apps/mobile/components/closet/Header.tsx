@@ -33,15 +33,59 @@ export function Header({
 
   const buttonSize = 48;
 
-  if (searching) {
-    return (
+  return (
+    <View>
+      <View style={styles.row}>
+        <View style={styles.text}>
+          <Text
+            style={{
+              color: theme.color.text.tertiary,
+              fontSize: theme.type.size.tiny,
+              fontWeight: theme.type.weight.medium as '500',
+              marginBottom: theme.space.xs,
+              textTransform: 'uppercase',
+            }}
+          >
+            {subtitle}
+          </Text>
+          <Text
+            style={{
+              color: theme.color.text.primary,
+              fontSize: theme.type.size.h1,
+              fontWeight: theme.type.weight.medium as '500',
+            }}
+          >
+            My closet
+          </Text>
+        </View>
+        <Pressable
+          onPress={onSearch}
+          accessibilityRole="button"
+          accessibilityLabel="Search closet"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.iconBtn,
+            {
+              width: buttonSize,
+              height: buttonSize,
+              borderRadius: theme.radius.pill,
+              backgroundColor: theme.color.bg.secondary,
+              borderColor: theme.color.border.default,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Search size={22} strokeWidth={1.6} color={theme.color.text.primary} />
+        </Pressable>
+      </View>
+
       <View
         style={[
           styles.searchRow,
           {
-            gap: theme.space.sm,
             borderRadius: theme.radius.pill,
             backgroundColor: theme.color.bg.secondary,
+            marginTop: theme.space.lg,
             paddingHorizontal: theme.space.lg,
           },
         ]}
@@ -50,9 +94,9 @@ export function Header({
         <TextInput
           value={query}
           onChangeText={onQueryChange}
-          placeholder="Search closet"
+          placeholder="Search dresses, colors, occasions"
           placeholderTextColor={theme.color.text.tertiary}
-          autoFocus
+          autoFocus={searching}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
@@ -65,60 +109,18 @@ export function Header({
             },
           ]}
         />
-        <Pressable
-          onPress={onCancelSearch}
-          accessibilityRole="button"
-          accessibilityLabel="Close search"
-          hitSlop={8}
-          style={styles.closeBtn}
-        >
-          <X size={22} strokeWidth={1.6} color={theme.color.text.tertiary} />
-        </Pressable>
+        {query.length > 0 ? (
+          <Pressable
+            onPress={onCancelSearch}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            hitSlop={8}
+            style={styles.closeBtn}
+          >
+            <X size={22} strokeWidth={1.6} color={theme.color.text.tertiary} />
+          </Pressable>
+        ) : null}
       </View>
-    );
-  }
-
-  return (
-    <View style={styles.row}>
-      <View style={styles.text}>
-        <Text
-          style={{
-            color: theme.color.text.primary,
-            fontSize: theme.type.size.h1,
-            fontWeight: theme.type.weight.medium as '500',
-          }}
-        >
-          My closet
-        </Text>
-        <Text
-          style={{
-            marginTop: theme.space.xs / 2,
-            color: theme.color.text.secondary,
-            fontSize: theme.type.size.tiny,
-            fontWeight: theme.type.weight.regular as '400',
-          }}
-        >
-          {subtitle}
-        </Text>
-      </View>
-      <Pressable
-        onPress={onSearch}
-        accessibilityRole="button"
-        accessibilityLabel="Search closet"
-        hitSlop={8}
-        style={({ pressed }) => [
-          styles.iconBtn,
-          {
-            width: buttonSize,
-            height: buttonSize,
-            borderRadius: theme.radius.pill,
-            backgroundColor: theme.color.bg.secondary,
-            opacity: pressed ? 0.7 : 1,
-          },
-        ]}
-      >
-        <Search size={22} strokeWidth={1.6} color={theme.color.text.primary} />
-      </Pressable>
     </View>
   );
 }
@@ -135,11 +137,13 @@ const styles = StyleSheet.create({
   iconBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   searchRow: {
-    minHeight: 52,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
   searchInput: {
     flex: 1,

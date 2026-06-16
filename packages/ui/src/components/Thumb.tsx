@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import type { ClosetItem, ClothingCategory } from '@mei/types';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -9,7 +9,7 @@ export interface ThumbProps {
   item: ClosetItem;
   size: ThumbSize;
   selected?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 const SIZE_MAP: Record<ThumbSize, number> = {

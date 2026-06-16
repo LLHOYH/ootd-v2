@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Camera, Send } from 'lucide-react-native';
+import { Send } from 'lucide-react-native';
 import { useTheme } from '@mei/ui';
 
 export interface ComposerProps {
@@ -41,25 +41,17 @@ export function Composer({ onSend, disabled }: ComposerProps) {
         {
           backgroundColor: theme.color.bg.secondary,
           borderRadius: theme.radius.pill,
-          paddingHorizontal: theme.space.sm,
-          paddingVertical: theme.space.sm,
-          gap: theme.space.sm,
+          paddingLeft: theme.space.lg,
+          paddingRight: 6,
+          paddingVertical: 6,
+          gap: 10,
         },
       ]}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Add a photo"
-        hitSlop={8}
-        style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
-      >
-        <Camera size={16} color={theme.color.text.secondary} strokeWidth={1.6} />
-      </Pressable>
-
       <TextInput
         value={value}
         onChangeText={setValue}
-        placeholder="Ask Stella anything…"
+        placeholder="Ask Stella..."
         placeholderTextColor={theme.color.text.tertiary}
         editable={!disabled}
         onSubmitEditing={handleSend}
@@ -69,7 +61,7 @@ export function Composer({ onSend, disabled }: ComposerProps) {
           styles.input,
           {
             color: theme.color.text.primary,
-            fontSize: theme.type.size.caption,
+            fontSize: theme.type.size.body,
             fontWeight: theme.type.weight.regular as '400',
           },
         ]}
@@ -90,7 +82,7 @@ export function Composer({ onSend, disabled }: ComposerProps) {
           pressed && styles.pressed,
         ]}
       >
-        <Send size={14} color={canSend ? '#FFFFFF' : theme.color.text.tertiary} strokeWidth={1.6} />
+        <Send size={18} color={canSend ? '#FFFFFF' : theme.color.text.tertiary} strokeWidth={1.6} />
       </Pressable>
     </View>
   );
@@ -98,14 +90,9 @@ export function Composer({ onSend, disabled }: ComposerProps) {
 
 const styles = StyleSheet.create({
   row: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  iconBtn: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   input: {
     flex: 1,
@@ -114,8 +101,8 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   sendBtn: {
-    width: 28,
-    height: 28,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

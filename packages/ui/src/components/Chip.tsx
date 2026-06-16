@@ -35,11 +35,11 @@ export function Chip({
 
   const containerStyle: ViewStyle = active
     ? {
-        backgroundColor: theme.color.brand,
-        borderColor: theme.color.brand,
+        backgroundColor: theme.color.text.primary,
+        borderColor: theme.color.text.primary,
       }
     : {
-        backgroundColor: 'transparent',
+        backgroundColor: theme.color.bg.primary,
         borderColor: theme.color.border.default,
       };
 

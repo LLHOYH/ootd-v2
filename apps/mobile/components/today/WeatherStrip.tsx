@@ -1,5 +1,4 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Sun } from 'lucide-react-native';
 import { Card, useTheme } from '@mei/ui';
 import type { TodayWeather } from './types';
 
@@ -9,32 +8,58 @@ export interface WeatherStripProps {
 
 export function WeatherStrip({ weather }: WeatherStripProps) {
   const theme = useTheme();
+  const note =
+    weather.tempC >= 28
+      ? 'Light fabric, easy layers, no heavy outerwear.'
+      : weather.tempC >= 22
+        ? 'Comfortable layers and breathable pieces should work well.'
+        : 'Add a warmer layer and keep the outfit easy to adjust.';
 
   return (
-    <Card>
+    <Card padding={18} style={{ borderRadius: 22 }}>
       <View style={[styles.row, { gap: theme.space.md }]}>
         <View
           style={[
             styles.icon,
             {
               backgroundColor: theme.color.palette.tan,
-              borderRadius: theme.radius.sm,
+              borderRadius: 17,
             },
           ]}
         >
-          <Sun size={24} strokeWidth={1.6} color={theme.color.text.primary} />
+          <Text
+            style={{
+              color: theme.color.text.primary,
+              fontSize: theme.type.size.body,
+              fontWeight: theme.type.weight.medium as '500',
+            }}
+          >
+            {Math.round(weather.tempC)}
+          </Text>
         </View>
-        <Text
-          style={{
-            flex: 1,
-            color: theme.color.text.primary,
-            fontSize: theme.type.size.body,
-            fontWeight: theme.type.weight.medium as '500',
-          }}
-          numberOfLines={1}
-        >
-          {`${weather.tempC}° · ${weather.condition} · ${weather.city}`}
-        </Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            style={{
+              color: theme.color.text.primary,
+              fontSize: theme.type.size.body,
+              fontWeight: theme.type.weight.medium as '500',
+            }}
+            numberOfLines={1}
+          >
+            {`${weather.condition} in ${weather.city}`}
+          </Text>
+          <Text
+            style={{
+              color: theme.color.text.secondary,
+              fontSize: theme.type.size.caption,
+              fontWeight: theme.type.weight.regular as '400',
+              marginTop: 3,
+            }}
+            numberOfLines={2}
+          >
+            {note}
+          </Text>
+        </View>
       </View>
     </Card>
   );
@@ -46,8 +71,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   icon: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },

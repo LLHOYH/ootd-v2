@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Settings } from 'lucide-react-native';
+import { Pencil } from 'lucide-react-native';
 import { useTheme } from '@mei/ui';
 
 export interface YouHeaderProps {
@@ -7,37 +7,51 @@ export interface YouHeaderProps {
 }
 
 /**
- * "You" h1 plus an optional settings button for future detail routing.
+ * "Profile / You" large-title header plus an optional edit button.
  */
 export function Header({ onSettingsPress }: YouHeaderProps) {
   const theme = useTheme();
 
   return (
     <View style={styles.row}>
-      <Text
-        style={{
-          color: theme.color.text.primary,
-          fontSize: theme.type.size.h1,
-          fontWeight: theme.type.weight.medium as '500',
-        }}
-      >
-        You
-      </Text>
+      <View>
+        <Text
+          style={{
+            color: theme.color.text.tertiary,
+            fontSize: theme.type.size.tiny,
+            fontWeight: theme.type.weight.medium as '500',
+            marginBottom: theme.space.xs,
+            textTransform: 'uppercase',
+          }}
+        >
+          Profile
+        </Text>
+        <Text
+          style={{
+            color: theme.color.text.primary,
+            fontSize: theme.type.size.h1,
+            fontWeight: theme.type.weight.medium as '500',
+          }}
+        >
+          You
+        </Text>
+      </View>
       {onSettingsPress ? (
         <Pressable
           onPress={onSettingsPress}
           accessibilityRole="button"
-          accessibilityLabel="Open settings"
+          accessibilityLabel="Edit profile"
           hitSlop={8}
           style={[
             styles.cog,
             {
               backgroundColor: theme.color.bg.secondary,
               borderRadius: theme.radius.pill,
+              borderColor: theme.color.border.default,
             },
           ]}
         >
-          <Settings size={16} strokeWidth={1.6} color={theme.color.text.secondary} />
+          <Pencil size={20} strokeWidth={1.6} color={theme.color.text.primary} />
         </Pressable>
       ) : null}
     </View>
@@ -47,14 +61,15 @@ export function Header({ onSettingsPress }: YouHeaderProps) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
     marginTop: 4,
   },
   cog: {
-    width: 32,
-    height: 32,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });
