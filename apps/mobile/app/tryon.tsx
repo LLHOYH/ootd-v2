@@ -1,13 +1,11 @@
 // Try-on preview — SPEC §10.10 (Wear-this), PR C.2 of the selfie trilogy.
 //
 // Modal route reached from Today's "Wear this on me" button. Generates a
-// photo of the user wearing the dominant garment from the combination
+// photo of the user's generated model wearing the dominant garment from the combination
 // (via the Replicate try-on provider behind the api Lambda + image-worker), shows
 // it, and offers three follow-ups:
 //
-//   - Try a different selfie — re-runs generation with another of the
-//     user's uploaded selfies. Each (selfie, combo, item) tuple is
-//     cached on the backend so swapping back is instant.
+//   - Regenerate — re-runs the model try-on if the user dislikes the output.
 //   - Done — closes the screen. Result stays in `tryon_generations`.
 //   - Share with friends — hands off to /share with the existing
 //     comboId so the user can post this look. (Posting the generated
@@ -19,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,32 +29,32 @@ import {
   RefreshCcw,
   Share2,
   Sparkles,
-  Users,
 } from 'lucide-react-native';
 import { Button, Screen, useTheme } from '@mei/ui';
 import type { Combination, TryonGeneration } from '@mei/types';
 
 import { ApiError } from '@/lib/api/client';
 import { createTryon } from '@/lib/api/tryon';
-import { useSelfies, type Selfie } from '@/lib/hooks/useSelfies';
 
 type Phase =
   | { kind: 'idle' }
-  | { kind: 'generating'; selfieId?: string }
+  | { kind: 'generating' }
   | { kind: 'ready'; data: TryonGeneration }
   | { kind: 'error'; message: string; code?: string };
+
+function displayComboName(name: string | undefined): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed || /^new combination$/i.test(trimmed)) return null;
+  return trimmed;
+}
 
 export default function TryonScreen() {
   const theme = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ comboId?: string; comboJson?: string }>();
-  const selfiesHook = useSelfies();
 
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
-  const [pickerOpen, setPickerOpen] = useState(false);
-  // Track which selfie produced the current image so we can mark it in
-  // the picker. Updated on every successful generation.
-  const lastSelfieIdRef = useRef<string | undefined>(undefined);
+  const latestRunIdRef = useRef(0);
 
   // The combination is passed in by Today (serialized) so we can show
   // its name in the loading/result chrome without a refetch.
@@ -69,10 +66,10 @@ export default function TryonScreen() {
       return null;
     }
   })();
-  const comboName = combo?.name ?? 'this look';
+  const comboName = displayComboName(combo?.name);
 
   const runGeneration = useCallback(
-    async (selfieId?: string) => {
+    async () => {
       if (!params.comboId || typeof params.comboId !== 'string') {
         setPhase({
           kind: 'error',
@@ -81,12 +78,12 @@ export default function TryonScreen() {
         });
         return;
       }
-      setPhase({ kind: 'generating', selfieId });
+      const runId = latestRunIdRef.current + 1;
+      latestRunIdRef.current = runId;
+      setPhase({ kind: 'generating' });
       try {
-        const body: { comboId: string; selfieId?: string } = { comboId: params.comboId };
-        if (selfieId) body.selfieId = selfieId;
-        const data = await createTryon(body);
-        lastSelfieIdRef.current = data.selfieId;
+        const data = await createTryon({ comboId: params.comboId });
+        if (latestRunIdRef.current !== runId) return;
         if (data.status === 'READY' && data.imageUrl) {
           setPhase({ kind: 'ready', data });
         } else if (data.status === 'FAILED') {
@@ -111,6 +108,7 @@ export default function TryonScreen() {
               ? err.message
               : 'Generation failed';
         const code = err instanceof ApiError ? err.code : undefined;
+        if (latestRunIdRef.current !== runId) return;
         setPhase({ kind: 'error', message, code });
       }
     },
@@ -122,11 +120,6 @@ export default function TryonScreen() {
     if (phase.kind === 'idle') void runGeneration();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleSwapSelfie = (s: Selfie) => {
-    setPickerOpen(false);
-    void runGeneration(s.selfieId);
-  };
 
   const handleShare = () => {
     if (phase.kind !== 'ready') return;
@@ -186,7 +179,20 @@ export default function TryonScreen() {
                   fontWeight: theme.type.weight.medium as '500',
                 }}
               >
-                Wearing {comboName}
+                Model try-on
+              </Text>
+              <Text
+                style={{
+                  color: theme.color.text.tertiary,
+                  fontSize: theme.type.size.tiny,
+                  fontWeight: theme.type.weight.regular as '400',
+                  marginTop: 2,
+                }}
+                numberOfLines={1}
+              >
+                {comboName
+                  ? `Styling ${comboName} on your model`
+                  : 'Styling this look on your model'}
               </Text>
             </View>
           </View>
@@ -226,12 +232,11 @@ export default function TryonScreen() {
               <View style={[styles.row, { gap: theme.space.sm }]}>
                 <Button
                   variant="ghost"
-                  icon={Users}
-                  onPress={() => setPickerOpen(true)}
+                  icon={RefreshCcw}
+                  onPress={() => void runGeneration()}
                   style={{ flex: 1 }}
-                  disabled={selfiesHook.count <= 1}
                 >
-                  {selfiesHook.count > 1 ? 'Different selfie' : 'Only one selfie'}
+                  Regenerate
                 </Button>
                 <Button
                   variant="ghost"
@@ -250,7 +255,7 @@ export default function TryonScreen() {
                   marginTop: theme.space.xs,
                 }}
               >
-                Saved to your try-ons. Up to 250 generations per day.
+                Generated from your model photo. Up to 250 generations per day.
               </Text>
             </View>
           ) : null}
@@ -266,11 +271,19 @@ export default function TryonScreen() {
                 >
                   Add a selfie
                 </Button>
+              ) : phase.code === 'NO_MODEL_PHOTO' ? (
+                <Button
+                  variant="primary"
+                  icon={Sparkles}
+                  onPress={() => router.replace('/selfies' as never)}
+                >
+                  Generate model photo
+                </Button>
               ) : (
                 <Button
                   variant="primary"
                   icon={RefreshCcw}
-                  onPress={() => void runGeneration(lastSelfieIdRef.current)}
+                  onPress={() => void runGeneration()}
                 >
                   Try again
                 </Button>
@@ -290,23 +303,10 @@ export default function TryonScreen() {
                 textAlign: 'center',
               }}
             >
-              Putting this on you can take a minute.
+              Dressing your model can take a minute.
             </Text>
           ) : null}
         </ScrollView>
-
-        {/* ---- Selfie picker modal ------------------------------------- */}
-        <SelfiePicker
-          visible={pickerOpen}
-          selfies={
-            selfiesHook.state.status === 'ready'
-              ? selfiesHook.state.selfies
-              : []
-          }
-          activeSelfieId={lastSelfieIdRef.current}
-          onPick={handleSwapSelfie}
-          onClose={() => setPickerOpen(false)}
-        />
       </Screen>
     </>
   );
@@ -336,7 +336,7 @@ function GeneratingState() {
           textAlign: 'center',
         }}
       >
-        Putting this on you…
+        Dressing your model…
       </Text>
       <Text
         style={{
@@ -346,7 +346,7 @@ function GeneratingState() {
           textAlign: 'center',
         }}
       >
-        Stella is dressing your photo.
+        Stella is fitting the closet item to your generated model.
       </Text>
     </View>
   );
@@ -387,106 +387,6 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
-interface SelfiePickerProps {
-  visible: boolean;
-  selfies: Selfie[];
-  activeSelfieId?: string;
-  onPick: (s: Selfie) => void;
-  onClose: () => void;
-}
-
-function SelfiePicker({
-  visible,
-  selfies,
-  activeSelfieId,
-  onPick,
-  onClose,
-}: SelfiePickerProps) {
-  const theme = useTheme();
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable
-        onPress={onClose}
-        style={[styles.modalScrim, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
-      >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          style={[
-            styles.modalCard,
-            {
-              backgroundColor: theme.color.bg.primary,
-              borderTopLeftRadius: theme.radius.lg,
-              borderTopRightRadius: theme.radius.lg,
-              padding: theme.space.lg,
-              gap: theme.space.md,
-            },
-          ]}
-        >
-          <Text
-            style={{
-              color: theme.color.text.primary,
-              fontSize: theme.type.size.h2,
-              fontWeight: theme.type.weight.medium as '500',
-            }}
-          >
-            Choose a selfie
-          </Text>
-          <Text
-            style={{
-              color: theme.color.text.tertiary,
-              fontSize: theme.type.size.tiny,
-              fontWeight: theme.type.weight.regular as '400',
-            }}
-          >
-            We'll re-run the try-on with this selfie. Cached results swap
-            back instantly.
-          </Text>
-          <View style={[styles.pickerGrid, { gap: theme.space.sm }]}>
-            {selfies.map((s) => (
-              <Pressable
-                key={s.selfieId}
-                onPress={() => onPick(s)}
-                style={({ pressed }) => [
-                  styles.pickerTile,
-                  {
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.pickerTileInner,
-                    {
-                      backgroundColor: theme.color.bg.secondary,
-                      borderRadius: theme.radius.sm,
-                      borderColor:
-                        s.selfieId === activeSelfieId
-                          ? theme.color.brand
-                          : 'transparent',
-                    },
-                  ]}
-                >
-                  {s.url ? (
-                    <Image
-                      source={{ uri: s.url }}
-                      style={StyleSheet.absoluteFill}
-                      accessibilityIgnoresInvertColors
-                    />
-                  ) : null}
-                </View>
-              </Pressable>
-            ))}
-          </View>
-          <Button variant="ghost" onPress={onClose}>
-            Cancel
-          </Button>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-const TILE_PCT = '31.5%';
 const STAGE_ASPECT = 3 / 4;
 
 const styles = StyleSheet.create({
@@ -513,25 +413,5 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  modalScrim: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    width: '100%',
-  },
-  pickerGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  pickerTile: {
-    width: TILE_PCT,
-    aspectRatio: 3 / 4,
-  },
-  pickerTileInner: {
-    flex: 1,
-    overflow: 'hidden',
-    borderWidth: 2,
   },
 });

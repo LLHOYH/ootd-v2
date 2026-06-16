@@ -7,7 +7,7 @@
 // Steps:
 //   1. Validate the body and require auth.
 //   2. Resolve the selfie: caller-supplied selfieId, else the most-recent.
-//      Default try-ons may use the user's latest model photo downstream.
+//      Default try-ons require the user's latest model photo downstream.
 //   3. Resolve the combination and pick the garment item to wear. v1
 //      picks the first item by position that the model can actually try
 //      on (DRESS > TOP > OUTERWEAR > BOTTOM; SHOE/BAG/ACCESSORY are
@@ -69,11 +69,23 @@ export const createTryonHandler: Handler = async (ctx) => {
   log(`picked garment item ${itemId.slice(0, 5)} from combo`);
 
   const preferModelPhoto = body.selfieId == null;
-  const cacheSource = await resolveTryonCacheSource(
-    supabase,
-    userId,
+  const modelPhotoId = preferModelPhoto
+    ? await pickLatestReadyModelPhotoId(supabase, userId)
+    : null;
+  if (preferModelPhoto && !modelPhotoId) {
+    throw new ApiError(
+      400,
+      'NO_MODEL_PHOTO',
+      'Generate your model photo before trying on outfits.',
+    );
+  }
+  if (modelPhotoId) {
+    log(`using model photo ${modelPhotoId.slice(0, 5)} for default try-on`);
+  }
+  const cacheSource = resolveTryonCacheSource(
     selfieId,
     preferModelPhoto,
+    modelPhotoId,
   );
   log(`cache source is ${cacheSource.label}`);
 
@@ -266,20 +278,16 @@ async function callWorker(payload: {
   // state is what we re-read next. So nothing to do with the body here.
 }
 
-async function resolveTryonCacheSource(
-  supabase: import('@supabase/supabase-js').SupabaseClient,
-  userId: string,
+function resolveTryonCacheSource(
   selfieId: string,
   preferModelPhoto: boolean,
-): Promise<{ providerIdPattern: string; label: string }> {
-  if (preferModelPhoto) {
-    const modelPhotoId = await pickLatestReadyModelPhotoId(supabase, userId);
-    if (modelPhotoId) {
-      return {
-        providerIdPattern: `${TRYON_CACHE_PREFIX}:model:${modelPhotoId}:%`,
-        label: `model photo ${modelPhotoId.slice(0, 5)}`,
-      };
-    }
+  modelPhotoId: string | null,
+): { providerIdPattern: string; label: string } {
+  if (preferModelPhoto && modelPhotoId) {
+    return {
+      providerIdPattern: `${TRYON_CACHE_PREFIX}:model:${modelPhotoId}:%`,
+      label: `model photo ${modelPhotoId.slice(0, 5)}`,
+    };
   }
 
   return {

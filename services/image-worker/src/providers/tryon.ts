@@ -5,11 +5,9 @@
 // bytes of a generated photo of the person wearing the garment.
 //
 // Two implementations:
-//   MockTryonProvider — returns the human image bytes untouched. Lets
-//                       the pipeline run end-to-end with no token; the
-//                       output is "you, unchanged" instead of "you in
-//                       the dress" which is obviously wrong but
-//                       diagnostic-friendly.
+//   MockTryonProvider — fails loudly. Returning the person reference
+//                       unchanged looks like a successful try-on in the app,
+//                       so dogfooding should not allow it.
 //   RealTryonProvider — uses Nano Banana Pro image editing with the person
 //                       image as reference 1 and garment image as reference 2.
 
@@ -61,12 +59,14 @@ function categoryLabelFor(c: ClothingCategory): string {
 }
 
 // ---------------------------------------------------------------------------
-// MockTryonProvider — pass-through (returns the person reference unchanged).
+// MockTryonProvider — no fake successes for try-on.
 // ---------------------------------------------------------------------------
 
 class MockTryonProvider implements TryonProvider {
-  async generate(input: TryonInput): Promise<TryonResult> {
-    return { image: input.humanImage };
+  async generate(): Promise<TryonResult> {
+    throw new Error(
+      'Try-on generation requires IMAGE_WORKER_MODE=real and REPLICATE_API_TOKEN.',
+    );
   }
 }
 
@@ -199,7 +199,7 @@ class RealTryonProvider implements TryonProvider {
 // ---------------------------------------------------------------------------
 
 export function getTryonProvider(cfg: ImageWorkerConfig): TryonProvider {
-  if (cfg.replicateApiToken) {
+  if (cfg.mode === 'real' && cfg.replicateApiToken) {
     return new RealTryonProvider(cfg.replicateApiToken);
   }
   return new MockTryonProvider();
@@ -227,6 +227,7 @@ function buildTryonPrompt(input: TryonInput): string {
   return [
     'Edit the first image only. The first image is the person/model reference and the second image is the garment reference.',
     `Dress the person/model in the garment from the second image: "${input.garmentDescription}" (${category}).`,
+    'The final image must clearly show the garment from the second image being worn on the person/model from the first image. Do not return the original first image unchanged.',
     'Preserve the same face identity, skin tone, hairstyle, body shape, pose, proportions, camera angle, and overall framing from the first image.',
     'Make the body slightly lean, flattering, natural, and photogenic, but do not make a different person.',
     'Preserve the real garment color, pattern, fabric texture, neckline, sleeves, length, silhouette, buttons, hardware, and distinctive details from the second image.',

@@ -2,8 +2,8 @@
 //
 // Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 // Optional: ANTHROPIC_API_KEY (vision tagging — falls back to MockVision),
-//           REPLICATE_API_TOKEN (background removal + studio light — falls
-//           back to MockImageProcess that copies raw to tuned untouched),
+//           REPLICATE_API_TOKEN (closet cleanup, model photos, and try-on;
+//           closet/model mocks exist, but try-on fails loudly without it),
 //           IMAGE_WORKER_MODE = 'mock' | 'real' (force one or the other),
 //           IMAGE_WORKER_WEBHOOK_SECRET (HMAC secret to verify Supabase
 //             database webhooks; if unset, signature checks are skipped —

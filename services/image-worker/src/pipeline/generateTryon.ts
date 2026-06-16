@@ -34,8 +34,8 @@ export interface GenerateTryonInput {
   userId: string;
   selfieId: string;
   itemId: string;
-  /** Default try-ons prefer the user's generated model photo. Explicit
-   *  selfie swaps keep using that selfie so the control still does what it says. */
+  /** Default try-ons use the user's generated model photo. Explicit
+   *  API calls with a selfieId can still opt into selfie-based try-ons. */
   preferModelPhoto?: boolean;
 }
 
@@ -106,9 +106,9 @@ export async function generateTryon(
   }
 
   try {
-    // 2. Person reference. Default "put this on me" generations use the
-    // model photo created from selfies; explicit selfie swaps use that
-    // selected selfie instead.
+    // 2. Person reference. Default "put this on me" generations require
+    // the model photo created from selfies. We do not silently fall back
+    // to raw selfies because that creates misleading "successful" outputs.
     const person = await resolvePersonReference(supabase, input, step);
     step(`using ${person.label} as person reference (${(person.image.length / 1024).toFixed(0)} KB)`);
 
@@ -233,10 +233,11 @@ async function resolvePersonReference(
           label: `model photo ${model.modelPhotoId.slice(0, 5)}`,
         };
       }
-      step('no READY model photo yet; falling back to selected selfie');
+      throw new Error('no READY model photo found');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown error';
-      step(`model photo unavailable (${msg}); falling back to selected selfie`);
+      step(`model photo unavailable (${msg})`);
+      throw new Error(`Model photo unavailable: ${msg}`);
     }
   }
 

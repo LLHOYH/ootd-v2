@@ -52,14 +52,14 @@ below and decide whether to merge this branch or keep iterating.**
 **Try-on verification action:** restart `pnpm services`, fire one
 try-on from the phone, and confirm:
 - Step logs run all the way through `complete in Ns` (not `failed`).
-- `[tryon <id>] downscaled selfie (NNN KB)` appears between the raw
-  read and the Replicate POST.
+- `[tryon <id>] using model photo ... as person reference` appears
+  before the Replicate POST.
 - The phone shows the generated image (not "Couldn't generate this
   look").
 
 If that works, this session's open product question — **how good is
-IDM-VTON output quality?** — is finally unblocked. The cost ledger
-should also show a successful $0.04 generation in Replicate.
+Nano Banana Pro try-on output quality?** — is finally unblocked. The
+cost ledger should also show a successful generation in Replicate.
 
 If it does NOT work and the log still says `fetch failed`, the
 hypothesis was wrong; investigate the network/Replicate path, not
@@ -78,8 +78,8 @@ now is:
   Supabase. `services/api` is a Node-Fastify service in front of it.
 - **Image processing:** `services/image-worker` (Fastify) handles
   closet-item promotion and try-on synthesis.
-- **External AI:** Replicate (IDM-VTON for try-on, eventually rembg
-  for closet) and Anthropic Claude (Stella conversations).
+- **External AI:** Replicate Nano Banana Pro for closet cleanup, model
+  photos, and try-on; Anthropic Claude for Stella conversations.
 - **Hosted:** None yet. Everything runs on Lloyd's machine. The phone
   reaches the backend via ngrok and Metro via Cloudflare Quick Tunnel.
 
@@ -149,16 +149,17 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
 ### Try-on flow (SPEC §10.10, PR C of the selfie trilogy)
 
 - Today → "Wear this on me" → `/tryon`.
-- Backend: `POST /tryon` accepts `{comboId, selfieId?}`. Resolves the
-  selfie (caller-supplied or most-recent), picks the first wearable
-  item from the combination (DRESS → TOP → OUTERWEAR → BOTTOM), checks
-  for a cached READY row, inserts a PENDING row, fires the
-  image-worker synchronously, returns the final row.
+- Backend: `POST /tryon` accepts `{comboId, selfieId?}`. The normal
+  mobile path omits `selfieId`, requires the latest READY model photo,
+  picks the first wearable item from the combination (DRESS → TOP →
+  OUTERWEAR → BOTTOM), checks for a cached READY row, inserts a PENDING
+  row, fires the image-worker synchronously, returns the final row.
 - `services/image-worker/src/providers/tryon.ts` wraps Replicate
-  IDM-VTON, pinned to model version `c871bb9b...`.
-- Selfies are downscaled to ≤1280px via `sharp` in the pipeline
-  before being encoded as data URIs for the Replicate POST. iPhone
-  originals (5-10 MB) would otherwise blow the JSON body up past
+  Nano Banana Pro image editing with the model photo as reference 1
+  and the closet garment as reference 2.
+- Person references are downscaled to ≤1280px via `sharp` in the
+  pipeline before being encoded as data URIs for the Replicate POST.
+  iPhone originals (5-10 MB) would otherwise blow the JSON body up past
   Replicate's accepted size and the `fetch` would die after ~40s.
 - The pipeline + provider + api emit step-narrator `console.log`s
   tagged `[tryon <gen-id>]` so the 15-30s wait is legible in
@@ -168,11 +169,12 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
   (`tryon_generations_daily_cap`): 250/user/day (was 10; bumped in
   migration `0009`). Only `PENDING` and `READY` rows count against
   the cap; `FAILED` rows are free.
-- Mobile preview screen `/tryon.tsx`: full-screen image, three
-  actions (Share with friends → `/share`, Different selfie → in-screen
-  picker modal, Done → back). Error handling per response code:
-  `NO_SELFIE` → CTA to `/selfies`, `RATE_LIMITED` → surface the cap,
-  anything else → Try again button.
+- Mobile preview screen `/tryon.tsx`: full-screen image generated from
+  the user's READY model photo, not a raw selfie. Actions are Share with
+  friends → `/share`, Regenerate, and Done → back. Error handling per
+  response code: `NO_SELFIE` → CTA to `/selfies`,
+  `NO_MODEL_PHOTO` → CTA to generate the model photo,
+  `RATE_LIMITED` → surface the cap, anything else → Try again button.
 
 ### Share flow (SPEC §10.10 form)
 
@@ -293,11 +295,20 @@ Most recent first. One line each.
 These were filed as session chips for future work. They're not in any
 issue tracker; tracking them lives here:
 
-1. **IDM-VTON output-quality assessment.** Once the downscale fix is
-   verified and Lloyd has generated a real try-on, judgement call on
-   face fidelity, garment fidelity, hand glitches. Decides whether we
-   stay on IDM-VTON or evaluate alternatives (Kling, OOTDiffusion,
-   the Replicate `cuuupid/idm-vton` v2 if it exists by then).
+1. **Try-on output-quality assessment.** Once the downscale/model
+   reference fixes are verified and Lloyd has generated a real try-on,
+   judgement call on face fidelity, garment fidelity, hand glitches.
+   Decides whether we stay on the current Replicate Nano Banana Pro
+   edit flow or evaluate alternatives.
+2. **Today carousel + overnight recommendations.** Replace the
+   section-level "Try another" action with a swipeable Today's Pick
+   carousel. Backend should pre-generate at least 4 daily outfit
+   recommendations for each active user, ideally the night before or
+   before the morning open. Inputs: closet items, weather, calendar
+   events, and future style preferences. Store both the recommended
+   combination metadata and any ready model try-on image so `/today`
+   can return finished looks immediately, with closet-photo fallback
+   only while generation is still pending.
 
 ## Conventions you'll notice in the codebase
 
