@@ -1,22 +1,29 @@
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Screen, useTheme } from '@mei/ui';
 import { Header } from '@/components/you/Header';
 import { ProfileBlock } from '@/components/you/ProfileBlock';
 import { StatsRow } from '@/components/you/StatsRow';
 import { SettingsList } from '@/components/you/SettingsList';
-import { useMyProfile } from '@/lib/hooks/useMyProfile';
+import { EditProfileModal } from '@/components/you/EditProfileModal';
+import { getAuthRedirectUrl } from '@/lib/auth/deepLinks';
+import { useMyProfile, type ProfileUpdateInput } from '@/lib/hooks/useMyProfile';
 import { supabase } from '@/lib/supabase';
 
 /**
  * You / profile — SPEC §10.11.
- * Profile fields remain read-only. Action rows route only where the
- * target flow is already wired (selfies, friends, sign-out).
+ * Profile fields are editable through a focused modal. Secondary account
+ * flows route only where the target flow is already wired.
  */
 export default function YouScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { state, refetch } = useMyProfile();
+  const { state, refetch, updateProfile } = useMyProfile();
+  const [editing, setEditing] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [sendingPasswordReset, setSendingPasswordReset] = useState(false);
 
   // ---- Loading: first paint, no data yet ------------------------------------
   if (state.status === 'loading' || state.status === 'idle') {
@@ -67,6 +74,39 @@ export default function YouScreen() {
   const profile = state.status === 'success' ? state.data : state.lastData;
   if (!profile) return null; // type-narrowing safety
 
+  const handleSaveProfile = async (input: ProfileUpdateInput) => {
+    if (savingProfile) return;
+    setSavingProfile(true);
+    setEditError(null);
+    try {
+      await updateProfile(input);
+      setEditing(false);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Could not save profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (sendingPasswordReset) return;
+    setSendingPasswordReset(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+        redirectTo: getAuthRedirectUrl(),
+      });
+      if (error) throw error;
+      Alert.alert('Check your email', `We sent a password reset link to ${profile.email}.`);
+    } catch (err) {
+      Alert.alert(
+        'Could not send reset link',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
+    } finally {
+      setSendingPasswordReset(false);
+    }
+  };
+
   return (
     <Screen>
       <ScrollView
@@ -83,7 +123,12 @@ export default function YouScreen() {
         <StatsRow profile={profile} />
         <SettingsList
           profile={profile}
+          onEditProfilePress={() => {
+            setEditError(null);
+            setEditing(true);
+          }}
           onAddFriendsPress={() => router.push('/friends/add')}
+          onPasswordPress={() => void handlePasswordReset()}
           onSelfiesPress={() => router.push('/selfies')}
           onSignOutPress={() => {
             // Don't await — fire-and-forget; SessionProvider's
@@ -95,6 +140,17 @@ export default function YouScreen() {
           }}
         />
       </ScrollView>
+      <EditProfileModal
+        visible={editing}
+        profile={profile}
+        saving={savingProfile}
+        errorMessage={editError}
+        onClose={() => {
+          if (savingProfile) return;
+          setEditing(false);
+        }}
+        onSave={handleSaveProfile}
+      />
     </Screen>
   );
 }

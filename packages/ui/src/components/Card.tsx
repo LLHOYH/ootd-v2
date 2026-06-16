@@ -21,7 +21,7 @@ export interface CardProps {
  */
 export function Card({ children, tone = 'default', padding, style }: CardProps) {
   const theme = useTheme();
-  const resolvedPadding = padding ?? theme.space.md;
+  const resolvedPadding = padding ?? theme.space.lg;
 
   const toneStyle: ViewStyle = (() => {
     switch (tone) {
@@ -39,7 +39,7 @@ export function Card({ children, tone = 'default', padding, style }: CardProps) 
     <View
       style={[
         styles.base,
-        { borderRadius: theme.radius.md, padding: resolvedPadding },
+        { borderRadius: theme.radius.lg, padding: resolvedPadding },
         toneStyle,
         style,
       ]}

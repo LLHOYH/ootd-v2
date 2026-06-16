@@ -15,3 +15,4 @@ export * from './me.js';
 export * from './stella.js';
 export * from './chat.js';
 export * from './tryon.js';
+export * from './modelPhoto.js';

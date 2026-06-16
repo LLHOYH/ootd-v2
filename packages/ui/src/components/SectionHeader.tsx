@@ -25,7 +25,8 @@ export function SectionHeader({ title, action, style }: SectionHeaderProps) {
       style={[
         styles.row,
         {
-          marginVertical: theme.space.sm,
+          marginTop: theme.space.lg,
+          marginBottom: theme.space.sm,
         },
         style,
       ]}
@@ -45,7 +46,8 @@ export function SectionHeader({ title, action, style }: SectionHeaderProps) {
           onPress={action.onPress}
           accessibilityRole="button"
           accessibilityLabel={action.label}
-          hitSlop={8}
+          hitSlop={10}
+          style={styles.action}
         >
           <Text
             style={{
@@ -67,5 +69,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
+  },
+  action: {
+    minHeight: 36,
+    justifyContent: 'center',
   },
 });

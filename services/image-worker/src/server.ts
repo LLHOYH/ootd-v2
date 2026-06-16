@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { storageWebhookRoute } from './routes/storageWebhook';
 import { tryonRoute } from './routes/tryon';
+import { modelPhotoRoute } from './routes/modelPhoto';
 import { getSupabaseAdmin } from './lib/supabase';
 import type { ImageWorkerConfig } from './config';
 
@@ -30,6 +31,7 @@ export async function buildServer(cfg: ImageWorkerConfig): Promise<FastifyInstan
   const supabase = getSupabaseAdmin(cfg);
   await app.register(storageWebhookRoute, { config: cfg, supabase });
   await app.register(tryonRoute, { config: cfg, supabase });
+  await app.register(modelPhotoRoute, { config: cfg, supabase });
 
   return app;
 }

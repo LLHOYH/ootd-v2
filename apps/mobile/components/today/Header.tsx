@@ -93,8 +93,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   bell: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -102,8 +102,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 7,
-    height: 7,
+    width: 9,
+    height: 9,
     borderRadius: 999,
   },
 });

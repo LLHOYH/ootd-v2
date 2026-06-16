@@ -21,7 +21,8 @@ export interface ButtonProps {
  * - ghost: transparent + 0.5px (hairline) border, primary text
  * - icon: circular touch target, transparent
  *
- * Pill padding 5×11. Icon size 20, stroke 1.6.
+ * Mobile-first sizing: pill buttons use a 48px minimum touch target and
+ * icon buttons use 44px.
  */
 export function Button({
   variant,
@@ -41,8 +42,9 @@ export function Button({
       return {
         backgroundColor: theme.color.brand,
         borderRadius: theme.radius.pill,
-        paddingHorizontal: 11,
-        paddingVertical: 5,
+        minHeight: 48,
+        paddingHorizontal: 18,
+        paddingVertical: 12,
       };
     }
     if (variant === 'ghost') {
@@ -51,16 +53,17 @@ export function Button({
         borderRadius: theme.radius.pill,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: theme.color.border.strong,
-        paddingHorizontal: 11,
-        paddingVertical: 5,
+        minHeight: 48,
+        paddingHorizontal: 18,
+        paddingVertical: 12,
       };
     }
     // icon
     return {
       backgroundColor: 'transparent',
       borderRadius: theme.radius.pill,
-      width: 36,
-      height: 36,
+      width: 44,
+      height: 44,
     };
   })();
 
@@ -90,9 +93,9 @@ export function Button({
         <Text
           style={[
             styles.label,
-            {
-              color: textColor,
-              fontSize: theme.type.size.body,
+          {
+            color: textColor,
+            fontSize: theme.type.size.body,
               fontWeight: theme.type.weight.medium as '500',
             },
           ]}

@@ -13,6 +13,7 @@
 //   closet-tuned  → .webp
 //   selfies       → .jpg
 //   ootd          → .webp
+//   model-photos  → .webp
 // Thumbnails live in `closet-tuned` (§9.1 image pipeline) under a
 // `_thumb` suffix so the tuned and thumbnail keys never collide for the
 // same item id.
@@ -22,6 +23,7 @@ export type BucketId =
   | 'closet-tuned'
   | 'selfies'
   | 'ootd'
+  | 'model-photos'
   | 'tryon-generated';
 
 export interface StorageKey {
@@ -57,6 +59,11 @@ export function selfieKey(userId: string, selfieId: string): StorageKey {
 /** `ootd/{user_id}/{ootd_id}.webp` — visibility-scoped RLS. */
 export function ootdKey(userId: string, ootdId: string): StorageKey {
   return { bucket: 'ootd', path: `${userId}/${ootdId}.webp` };
+}
+
+/** `model-photos/{user_id}/{model_photo_id}.webp` — owner-only RLS. */
+export function modelPhotoKey(userId: string, modelPhotoId: string): StorageKey {
+  return { bucket: 'model-photos', path: `${userId}/${modelPhotoId}.webp` };
 }
 
 /** `tryon-generated/{user_id}/{generation_id}.webp` — owner-only RLS. */

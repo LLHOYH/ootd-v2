@@ -1,6 +1,5 @@
 import { StyleSheet, View } from 'react-native';
 import {
-  Bell,
   Camera,
   Lock,
   LogOut,
@@ -15,7 +14,9 @@ import type { MyProfile } from '@/lib/hooks/useMyProfile';
 
 export interface SettingsListProps {
   profile: MyProfile;
+  onEditProfilePress?: () => void;
   onAddFriendsPress?: () => void;
+  onPasswordPress?: () => void;
   onSelfiesPress?: () => void;
   onSignOutPress?: () => void;
 }
@@ -26,7 +27,9 @@ export interface SettingsListProps {
  */
 export function SettingsList({
   profile,
+  onEditProfilePress,
   onAddFriendsPress,
+  onPasswordPress,
   onSelfiesPress,
   onSignOutPress,
 }: SettingsListProps) {
@@ -46,16 +49,19 @@ export function SettingsList({
         icon={User}
         title="Name"
         value={profile.displayName}
+        onPress={onEditProfilePress}
       />
       <SettingRow
         icon={User}
         title="Gender"
         value={profile.gender ?? '—'}
+        onPress={onEditProfilePress}
       />
       <SettingRow
         icon={User}
         title="Birth year"
         value={profile.birthYear != null ? String(profile.birthYear) : '—'}
+        onPress={onEditProfilePress}
       />
 
       {/* Style preferences */}
@@ -63,7 +69,8 @@ export function SettingsList({
       <SettingRow
         icon={Sparkles}
         title="Style tags"
-        subtitle={stylePreview}
+        subtitle={stylePreview || '—'}
+        onPress={onEditProfilePress}
       />
 
       {/* Climate & location */}
@@ -72,31 +79,13 @@ export function SettingsList({
         icon={MapPin}
         title="City"
         value={profile.city ?? '—'}
+        onPress={onEditProfilePress}
       />
       <SettingRow
         icon={MapPin}
         title="Climate profile"
         value={climateLabel}
-      />
-
-      {/* Notifications */}
-      <SectionHeader title="Notifications" />
-      <SettingRow
-        icon={Bell}
-        title="Daily Today reminder"
-        subtitle="Morning nudge with your outfit"
-      />
-      <SettingRow
-        icon={Bell}
-        title="Friend requests"
-      />
-      <SettingRow
-        icon={Bell}
-        title="Hangout invites"
-      />
-      <SettingRow
-        icon={Bell}
-        title="OOTD reactions"
+        onPress={onEditProfilePress}
       />
 
       {/* Privacy */}
@@ -106,16 +95,19 @@ export function SettingsList({
         title="Discoverable"
         subtitle="Appear in search and what others are wearing"
         value={profile.discoverable ? 'On' : 'Off'}
+        onPress={onEditProfilePress}
       />
       <SettingRow
         icon={Lock}
         title="Contribute to community looks"
         value={profile.contributesToCommunityLooks ? 'On' : 'Off'}
+        onPress={onEditProfilePress}
       />
       <SettingRow
         icon={Lock}
         title="Profile visibility"
         value={profile.discoverable ? 'Discoverable' : 'Friends only'}
+        onPress={onEditProfilePress}
       />
 
       {/* Selfies */}
@@ -157,15 +149,12 @@ export function SettingsList({
         icon={Lock}
         title="Password"
         value="Change"
+        onPress={onPasswordPress}
       />
       <SettingRow
         icon={LogOut}
         title="Sign out"
         onPress={onSignOutPress}
-      />
-      <SettingRow
-        icon={User}
-        title="Delete account"
       />
     </View>
   );

@@ -15,8 +15,8 @@ export function Screen({ children, scroll = false, padded = true, style }: Scree
   const Container: React.ComponentType<any> = scroll ? ScrollView : View;
   const innerStyle: ViewStyle = {
     flex: scroll ? undefined : 1,
-    paddingHorizontal: padded ? theme.space.lg : 0,
-    paddingTop: padded ? theme.space.lg : 0,
+    paddingHorizontal: padded ? theme.space.xl : 0,
+    paddingTop: padded ? theme.space.xl : 0,
   };
 
   return (

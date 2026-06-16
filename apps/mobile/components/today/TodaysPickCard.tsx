@@ -73,7 +73,7 @@ export function TodaysPickCard({
           {subtitle}
         </Text>
       ) : null}
-      <Card tone="pink">
+      <Card tone="pink" padding={theme.space.lg}>
         <View style={picking ? styles.dim : undefined}>
           <OutfitCard
             combination={combination}
@@ -81,7 +81,7 @@ export function TodaysPickCard({
             style={{ backgroundColor: 'transparent', padding: 0 }}
           />
         </View>
-        <View style={[styles.actions, { gap: theme.space.sm, marginTop: theme.space.sm }]}>
+        <View style={[styles.actions, { gap: theme.space.md, marginTop: theme.space.lg }]}>
           <Button
             variant="primary"
             onPress={onWear ?? (() => {})}
@@ -110,7 +110,7 @@ export function TodaysPickCard({
             ]}
           >
             <Heart
-              size={20}
+              size={24}
               strokeWidth={1.6}
               color={theme.color.brand}
               fill={saved ? theme.color.brand : 'transparent'}
@@ -128,8 +128,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heartBtn: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,

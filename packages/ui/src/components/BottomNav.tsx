@@ -51,7 +51,7 @@ export function BottomNav({ active, onSelect, style }: BottomNavProps) {
             accessibilityState={{ selected: isActive }}
             style={styles.item}
           >
-            <Icon size={22} color={tint} strokeWidth={1.6} />
+            <Icon size={24} color={tint} strokeWidth={1.7} />
             <Text style={[styles.label, { color: tint }]}>{label}</Text>
           </Pressable>
         );
@@ -62,23 +62,24 @@ export function BottomNav({ active, onSelect, style }: BottomNavProps) {
 
 const styles = StyleSheet.create({
   bar: {
-    height: 60,
+    height: 72,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 10,
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   item: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    minHeight: 56,
+    gap: 3,
   },
   label: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '500',
   },
 });

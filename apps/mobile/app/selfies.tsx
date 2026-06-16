@@ -11,7 +11,7 @@
 // top of this in PRs B + C. Both can read from the same `selfies` rows
 // without touching this screen.
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -29,7 +29,10 @@ import { useRouter } from 'expo-router';
 import { Camera, ChevronLeft, ImagePlus, Sparkles, Trash2 } from 'lucide-react-native';
 import { Button, Screen, useTheme } from '@mei/ui';
 
+import { ImageLightbox } from '@/components/media/ImageLightbox';
+import { ModelPhotoCard } from '@/components/selfies/ModelPhotoCard';
 import { MAX_SELFIES, useSelfies, type Selfie } from '@/lib/hooks/useSelfies';
+import { useModelPhoto } from '@/lib/hooks/useModelPhoto';
 import { ApiError } from '@/lib/api/client';
 
 /**
@@ -84,6 +87,7 @@ function showPickerError(err: unknown) {
 export default function SelfiesScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const [preview, setPreview] = useState<{ imageUrl: string; title?: string } | null>(null);
   const {
     state,
     count,
@@ -93,6 +97,11 @@ export default function SelfiesScreen() {
     addFromLibrary,
     remove,
   } = useSelfies();
+  const {
+    state: modelPhotoState,
+    generating: generatingModelPhoto,
+    generate: generateModelPhoto,
+  } = useModelPhoto();
 
   // ---- Picker chooser -----------------------------------------------------
   //
@@ -160,6 +169,16 @@ export default function SelfiesScreen() {
   const loading = state.status === 'loading' || state.status === 'idle';
   const selfies: Selfie[] =
     state.status === 'ready' || state.status === 'error' ? state.selfies : [];
+
+  const onGenerateModelPhoto = useCallback(async () => {
+    try {
+      await generateModelPhoto(selfies.map((s) => s.selfieId));
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not generate model photo';
+      Alert.alert('Could not generate model photo', message);
+    }
+  }, [generateModelPhoto, selfies]);
 
   return (
     <Screen>
@@ -241,6 +260,16 @@ export default function SelfiesScreen() {
           </Text>
         </View>
 
+        {!loading && count > 0 ? (
+          <ModelPhotoCard
+            state={modelPhotoState}
+            generating={generatingModelPhoto}
+            selfieCount={count}
+            onGenerate={() => void onGenerateModelPhoto()}
+            onOpenPreview={(imageUrl) => setPreview({ imageUrl, title: 'Model photo' })}
+          />
+        ) : null}
+
         {/* ---- Grid ----------------------------------------------------- */}
         {loading ? (
           <View style={[styles.center, { paddingVertical: theme.space.xxxl }]}>
@@ -260,14 +289,24 @@ export default function SelfiesScreen() {
                   ]}
                 >
                   {selfie.url ? (
-                    <Image
-                      source={{ uri: selfie.url }}
+                    <Pressable
+                      onPress={() => setPreview({ imageUrl: selfie.url, title: 'Selfie' })}
+                      accessibilityRole="imagebutton"
+                      accessibilityLabel="Open selfie preview"
                       style={StyleSheet.absoluteFill}
-                      accessibilityIgnoresInvertColors
-                    />
+                    >
+                      <Image
+                        source={{ uri: selfie.url }}
+                        style={StyleSheet.absoluteFill}
+                        accessibilityIgnoresInvertColors
+                      />
+                    </Pressable>
                   ) : null}
                   <Pressable
-                    onPress={() => onRemove(selfie.selfieId)}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      onRemove(selfie.selfieId);
+                    }}
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityLabel="Remove selfie"
@@ -407,6 +446,12 @@ export default function SelfiesScreen() {
           </View>
         ) : null}
       </ScrollView>
+      <ImageLightbox
+        visible={preview != null}
+        imageUrl={preview?.imageUrl}
+        title={preview?.title}
+        onClose={() => setPreview(null)}
+      />
     </Screen>
   );
 }

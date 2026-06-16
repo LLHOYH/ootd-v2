@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Button, Screen, useTheme } from '@mei/ui';
 import type { ClosetItem, Combination } from '@mei/types';
 
+import { ImageLightbox } from '@/components/media/ImageLightbox';
 import { Header } from '@/components/closet/Header';
 import { ProcessingBanner } from '@/components/closet/ProcessingBanner';
 import {
@@ -21,11 +24,10 @@ import {
 import { ItemGrid } from '@/components/closet/ItemGrid';
 import { CombinationsGrid } from '@/components/closet/CombinationsGrid';
 import { Fab } from '@/components/closet/Fab';
-import { UploadSheet } from '@/components/closet/UploadSheet';
 import {
   pickFromCamera,
-  pickFromLibrary,
-  uploadClosetItem,
+  pickMultipleFromLibrary,
+  uploadClosetItems,
 } from '@/lib/api/closetUpload';
 import { useCloset } from '@/lib/hooks/useCloset';
 import { invalidateClosetItemMap } from '@/lib/hooks/useClosetItemMap';
@@ -43,23 +45,31 @@ export default function ClosetScreen() {
   const router = useRouter();
   const { state, refetch } = useCloset();
   const [filter, setFilter] = useState<FilterKey>('ALL');
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [preview, setPreview] = useState<{ imageUrl: string; title?: string } | null>(null);
 
   // Common path for camera + gallery: pick → upload → close sheet → refetch.
   const handlePick = useCallback(
     async (source: 'camera' | 'library') => {
-      setSheetOpen(false);
+      if (picking || uploading) return;
+      setPicking(true);
       try {
-        setUploading(true);
         const photo =
           source === 'camera'
             ? await pickFromCamera()
-            : await pickFromLibrary();
-        if (!photo) return; // user cancelled
-        await uploadClosetItem(photo);
+            : null;
+        const photos =
+          source === 'camera'
+            ? photo
+              ? [photo]
+              : []
+            : await pickMultipleFromLibrary(20);
+        if (photos.length === 0) return; // user cancelled
+        setUploading(true);
+        await uploadClosetItems(photos);
         // Re-fetch — the row will be visible (PROCESSING) immediately, and
         // (locally) flips to READY almost instantly when the dev-mode
         // worker fire succeeds. Production: the row stays PROCESSING
@@ -72,11 +82,43 @@ export default function ClosetScreen() {
         const msg = err instanceof Error ? err.message : 'Upload failed';
         Alert.alert('Upload failed', msg);
       } finally {
+        setPicking(false);
         setUploading(false);
       }
     },
-    [refetch],
+    [picking, refetch, uploading],
   );
+
+  const openUploadChooser = useCallback(() => {
+    if (picking || uploading) return;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Take a photo', 'Choose from gallery', 'Cancel'],
+          cancelButtonIndex: 2,
+          title: 'Add a closet item',
+          message: 'Stella will tag and clean it up automatically.',
+        },
+        (idx) => {
+          if (idx === 0) void handlePick('camera');
+          else if (idx === 1) void handlePick('library');
+        },
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Add a closet item',
+      'Stella will tag and clean it up automatically.',
+      [
+        { text: 'Take a photo', onPress: () => void handlePick('camera') },
+        { text: 'Choose from gallery', onPress: () => void handlePick('library') },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true },
+    );
+  }, [handlePick, picking, uploading]);
 
   // ---- Loading: first paint -------------------------------------------------
   if (state.status === 'loading' || state.status === 'idle') {
@@ -149,8 +191,10 @@ export default function ClosetScreen() {
           combo.name.toLowerCase().includes(normalizedQuery),
         );
 
-  const handlePressItem = (_item: ClosetItem) => {
-    // Item detail not in scope for this PR.
+  const handlePressItem = (item: ClosetItem) => {
+    const imageUrl = item.tunedPhotoUrl || item.thumbnailUrl || item.rawPhotoUrl;
+    if (!imageUrl) return;
+    setPreview({ imageUrl, title: item.name });
   };
   const handlePressCombination = (combo: Combination) => {
     router.push({
@@ -162,7 +206,7 @@ export default function ClosetScreen() {
     } as never);
   };
   const handleFabPress = () => {
-    if (uploading) return;
+    if (uploading || picking) return;
     // FAB is contextual: in the COMBINATIONS view it crafts a look; in
     // every other view it opens the upload sheet for new items. The
     // single-FAB pattern keeps the bottom-right slot legible — no
@@ -171,12 +215,12 @@ export default function ClosetScreen() {
       router.push('/craft-a-look' as never);
       return;
     }
-    setSheetOpen(true);
+    openUploadChooser();
   };
 
   return (
     <Screen padded={false}>
-      <View style={[styles.body, { paddingHorizontal: theme.space.lg, paddingTop: theme.space.lg }]}>
+      <View style={[styles.body, { paddingHorizontal: theme.space.xl, paddingTop: theme.space.xl }]}>
         <Header
           itemCount={items.length}
           combinationCount={combinations.length}
@@ -200,7 +244,7 @@ export default function ClosetScreen() {
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={{
-            paddingBottom: theme.space.huge + theme.space.xxxl,
+            paddingBottom: theme.space.huge + theme.space.huge,
           }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -238,10 +282,10 @@ export default function ClosetScreen() {
               backgroundColor: theme.color.bg.secondary,
               borderRadius: theme.radius.pill,
               paddingHorizontal: theme.space.md,
-              paddingVertical: 10,
+              paddingVertical: 12,
               gap: theme.space.sm,
               right: theme.space.lg,
-              bottom: theme.space.lg + 56 + theme.space.sm,
+              bottom: theme.space.lg + 64 + theme.space.sm,
             },
           ]}
         >
@@ -258,11 +302,11 @@ export default function ClosetScreen() {
         </View>
       ) : null}
 
-      <UploadSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        onPickCamera={() => void handlePick('camera')}
-        onPickLibrary={() => void handlePick('library')}
+      <ImageLightbox
+        visible={preview != null}
+        imageUrl={preview?.imageUrl}
+        title={preview?.title}
+        onClose={() => setPreview(null)}
       />
     </Screen>
   );

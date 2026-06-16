@@ -21,6 +21,7 @@ import { Button, Screen, useTheme } from '@mei/ui';
 
 import { AuthField } from '@/components/auth/AuthField';
 import { supabase } from '@/lib/supabase';
+import { getAuthRedirectUrl } from '@/lib/auth/deepLinks';
 
 const MIN_PASSWORD = 8;
 
@@ -69,6 +70,7 @@ export default function SignUpScreen() {
       password,
       options: {
         data: { display_name: displayName.trim() },
+        emailRedirectTo: getAuthRedirectUrl(),
       },
     });
     setSubmitting(false);

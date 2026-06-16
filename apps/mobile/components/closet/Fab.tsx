@@ -7,7 +7,7 @@ import { useTheme } from '@mei/ui';
 // Screen primitive sits above the tab bar (the BottomNav is its own component
 // outside SafeAreaView), so we only need a small visual offset from the
 // Screen's bottom edge to keep the FAB clear of the bar.
-const FAB_SIZE = 56;
+const FAB_SIZE = 64;
 
 export interface FabProps {
   onPress: () => void;
@@ -45,7 +45,7 @@ export function Fab({
         },
       ]}
     >
-      <Plus size={20} strokeWidth={1.6} color={iconColor} />
+      <Plus size={26} strokeWidth={1.8} color={iconColor} />
     </Pressable>
   );
 }

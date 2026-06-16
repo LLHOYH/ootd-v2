@@ -22,7 +22,7 @@ export function WeatherStrip({ weather }: WeatherStripProps) {
             },
           ]}
         >
-          <Sun size={20} strokeWidth={1.6} color={theme.color.text.primary} />
+          <Sun size={24} strokeWidth={1.6} color={theme.color.text.primary} />
         </View>
         <Text
           style={{
@@ -46,8 +46,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   icon: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

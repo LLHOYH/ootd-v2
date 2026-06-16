@@ -39,8 +39,8 @@ export function FilterChips({ active, onChange }: FilterChipsProps) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ marginTop: theme.space.md, flexGrow: 0 }}
-      contentContainerStyle={[styles.row, { gap: theme.space.sm }]}
+      style={{ marginTop: theme.space.lg, flexGrow: 0 }}
+      contentContainerStyle={[styles.row, { gap: theme.space.sm, paddingRight: theme.space.lg }]}
     >
       {FILTER_OPTIONS.map((opt) => (
         <View key={opt.key}>

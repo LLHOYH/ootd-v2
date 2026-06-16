@@ -9,6 +9,7 @@
 import { useCallback, useState } from 'react';
 import type { AuthResponse, AuthTokenResponsePassword } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
+import { getAuthRedirectUrl } from './deepLinks';
 
 interface SignInArgs {
   email: string;
@@ -50,6 +51,7 @@ export function useSignUpWithEmail() {
           password,
           options: {
             data: displayName ? { display_name: displayName } : undefined,
+            emailRedirectTo: getAuthRedirectUrl(),
           },
         });
       } finally {

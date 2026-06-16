@@ -17,8 +17,9 @@ import type { Tables } from '@mei/types';
 import { supabase } from '../supabase';
 import { useSession } from '../auth/SessionProvider';
 
-// Mirrors the public.climate_profile enum (see entities.zClimateProfile).
-type ClimateProfile = 'TROPICAL' | 'TEMPERATE' | 'ARID' | 'COLD';
+// Mirrors the public enums/checks (see migrations/0001_init_schema.sql).
+export type ClimateProfile = 'TROPICAL' | 'TEMPERATE' | 'ARID' | 'COLD';
+export type Gender = 'F' | 'M' | 'NB' | 'PNS';
 
 export interface MyProfile {
   userId: string;
@@ -26,7 +27,7 @@ export interface MyProfile {
   displayName: string;
   email: string;
   avatarUrl?: string;
-  gender?: string;
+  gender?: Gender;
   birthYear?: number;
   city?: string;
   countryCode?: string;
@@ -53,6 +54,18 @@ export type UseMyProfileState =
 export interface UseMyProfileResult {
   state: UseMyProfileState;
   refetch: () => Promise<void>;
+  updateProfile: (input: ProfileUpdateInput) => Promise<void>;
+}
+
+export interface ProfileUpdateInput {
+  displayName: string;
+  gender?: Gender;
+  birthYear?: number;
+  city?: string;
+  climateProfile?: ClimateProfile;
+  stylePreferences: string[];
+  discoverable: boolean;
+  contributesToCommunityLooks: boolean;
 }
 
 function deriveInitials(displayName: string, username: string): string {
@@ -145,7 +158,7 @@ export function useMyProfile(): UseMyProfileResult {
           },
         };
         if (row.avatar_url) profile.avatarUrl = row.avatar_url;
-        if (row.gender) profile.gender = row.gender;
+        if (row.gender) profile.gender = row.gender as Gender;
         if (row.birth_year != null) profile.birthYear = row.birth_year;
         if (row.city) profile.city = row.city;
         if (row.country_code) profile.countryCode = row.country_code;
@@ -182,5 +195,32 @@ export function useMyProfile(): UseMyProfileResult {
     await load(ctrl.signal, true);
   }, [session, load]);
 
-  return { state, refetch };
+  const updateProfile = useCallback(
+    async (input: ProfileUpdateInput) => {
+      if (!session) throw new Error('No active session');
+      const { error } = await supabase
+        .from('users')
+        .update({
+          display_name: input.displayName.trim(),
+          gender: input.gender ?? null,
+          birth_year: input.birthYear ?? null,
+          city: input.city?.trim() || null,
+          climate_profile: input.climateProfile ?? null,
+          style_preferences: input.stylePreferences
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0)
+            .slice(0, 12),
+          discoverable: input.discoverable,
+          contributes_to_community_looks: input.contributesToCommunityLooks,
+        })
+        .eq('user_id', session.user.id);
+      if (error) throw new Error(error.message);
+
+      const ctrl = new AbortController();
+      await load(ctrl.signal, true);
+    },
+    [load, session],
+  );
+
+  return { state, refetch, updateProfile };
 }

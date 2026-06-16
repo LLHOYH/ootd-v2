@@ -72,11 +72,11 @@ export const tokens = {
       medium:  '500',
     },
     size: {
-      h1:      22,
-      h2:      16,
-      body:    14,
-      caption: 12,
-      tiny:    11,
+      h1:      30,
+      h2:      20,
+      body:    16,
+      caption: 14,
+      tiny:    12,
     },
     lineHeight: {
       tight: 1.2,
@@ -97,8 +97,8 @@ export const tokens = {
 
   radius: {
     sm:   8,
-    md:   12,
-    lg:   16,
+    md:   14,
+    lg:   18,
     pill: 999,
   },
 

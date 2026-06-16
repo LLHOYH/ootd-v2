@@ -16,6 +16,7 @@ import { friendsRoutes } from './friends';
 import { chatRoutes } from './chat';
 import { tryonRoutes } from './tryon';
 import { meRoutes } from './me';
+import { modelPhotoRoutes } from './modelPhoto';
 
 export const routes: RouteDef[] = [
   ...healthRoutes,
@@ -27,4 +28,5 @@ export const routes: RouteDef[] = [
   ...chatRoutes,
   ...tryonRoutes,
   ...meRoutes,
+  ...modelPhotoRoutes,
 ];

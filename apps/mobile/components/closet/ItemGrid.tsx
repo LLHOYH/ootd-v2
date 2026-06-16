@@ -8,12 +8,12 @@ export interface ItemGridProps {
   onPressItem?: (item: ClosetItem) => void;
 }
 
-const COLUMNS = 3;
-// Slightly under 1/3 so two cell-gaps fit between three columns.
-const CELL_WIDTH_PCT = '31.5%';
+const COLUMNS = 2;
+// Slightly under 1/2 so the cell-gap fits between two columns.
+const CELL_WIDTH_PCT = '48%';
 
 /**
- * 3-column grid of `Thumb`s. Renders inside the parent ScrollView so the
+ * 2-column photo-first grid of `Thumb`s. Renders inside the parent ScrollView so the
  * whole closet body scrolls together — closets are bounded (tens to low
  * hundreds of items in P0) so virtualization isn't needed yet.
  */
@@ -55,8 +55,8 @@ export function ItemGrid({ items, onPressItem }: ItemGridProps) {
               styles.cell,
               {
                 width: CELL_WIDTH_PCT,
-                marginRight: isEndOfRow ? 0 : '2.75%',
-                marginBottom: theme.space.md,
+                marginRight: isEndOfRow ? 0 : '4%',
+                marginBottom: theme.space.xl,
                 opacity: pressed ? 0.7 : 1,
               },
             ]}
@@ -68,7 +68,7 @@ export function ItemGrid({ items, onPressItem }: ItemGridProps) {
               style={{
                 marginTop: theme.space.xs,
                 color: theme.color.text.primary,
-                fontSize: theme.type.size.tiny,
+                fontSize: theme.type.size.caption,
                 fontWeight: theme.type.weight.medium as '500',
               }}
               numberOfLines={1}

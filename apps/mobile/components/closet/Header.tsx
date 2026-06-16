@@ -31,7 +31,7 @@ export function Header({
       ? `${combinationCount} saved combinations`
       : `${itemCount} items`;
 
-  const buttonSize = theme.space.xxxl;
+  const buttonSize = 48;
 
   if (searching) {
     return (
@@ -42,11 +42,11 @@ export function Header({
             gap: theme.space.sm,
             borderRadius: theme.radius.pill,
             backgroundColor: theme.color.bg.secondary,
-            paddingHorizontal: theme.space.md,
+            paddingHorizontal: theme.space.lg,
           },
         ]}
       >
-        <Search size={16} strokeWidth={1.6} color={theme.color.text.tertiary} />
+        <Search size={20} strokeWidth={1.6} color={theme.color.text.tertiary} />
         <TextInput
           value={query}
           onChangeText={onQueryChange}
@@ -72,7 +72,7 @@ export function Header({
           hitSlop={8}
           style={styles.closeBtn}
         >
-          <X size={18} strokeWidth={1.6} color={theme.color.text.tertiary} />
+          <X size={22} strokeWidth={1.6} color={theme.color.text.tertiary} />
         </Pressable>
       </View>
     );
@@ -117,7 +117,7 @@ export function Header({
           },
         ]}
       >
-        <Search size={16} strokeWidth={1.6} color={theme.color.text.primary} />
+        <Search size={22} strokeWidth={1.6} color={theme.color.text.primary} />
       </Pressable>
     </View>
   );
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchRow: {
-    minHeight: 44,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   closeBtn: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -53,8 +53,16 @@ export async function pickFromCamera(): Promise<PickedPhoto | null> {
   };
 }
 
-/** Open the OS gallery picker, return the photo or null if cancelled. */
+/** Open the OS gallery picker, return one photo or null if cancelled. */
 export async function pickFromLibrary(): Promise<PickedPhoto | null> {
+  const photos = await pickMultipleFromLibrary(1);
+  return photos[0] ?? null;
+}
+
+/** Open the OS gallery picker, allowing multiple photo selection. */
+export async function pickMultipleFromLibrary(
+  selectionLimit = 20,
+): Promise<PickedPhoto[]> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
     throw new ApiError(0, 'LIBRARY_DENIED', 'Photo library permission denied');
@@ -62,18 +70,18 @@ export async function pickFromLibrary(): Promise<PickedPhoto | null> {
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: false,
+    allowsMultipleSelection: selectionLimit > 1,
     quality: 0.85,
     exif: false,
-    selectionLimit: 1,
+    selectionLimit,
   });
-  if (res.canceled || res.assets.length === 0) return null;
-  const a = res.assets[0]!;
-  return {
+  if (res.canceled || res.assets.length === 0) return [];
+  return res.assets.map((a) => ({
     uri: a.uri,
     width: a.width,
     height: a.height,
     ...(a.mimeType ? { mimeType: a.mimeType } : {}),
-  };
+  }));
 }
 
 // ---------- Upload ---------------------------------------------------------
@@ -115,46 +123,66 @@ export async function uploadClosetItem(
   asset: PickedPhoto,
   opts: UploadOptions = {},
 ): Promise<UploadResult> {
+  const results = await uploadClosetItems([asset], opts);
+  const result = results[0];
+  if (!result) {
+    throw new ApiError(500, 'NO_SLOT', 'Upload response missing item slot');
+  }
+  return result;
+}
+
+/** Batch upload several picked closet photos through one API slot request. */
+export async function uploadClosetItems(
+  assets: PickedPhoto[],
+  opts: UploadOptions = {},
+): Promise<UploadResult[]> {
+  if (assets.length === 0) return [];
+
   // 1. Mint the row + signed URL.
   const upload = await apiFetch<UploadItemsResponse>('/closet/items/upload', {
     method: 'POST',
-    body: { count: 1 },
+    body: { count: assets.length },
     signal: opts.signal,
   });
-  const slot = upload.items[0];
-  if (!slot) {
-    throw new ApiError(500, 'NO_SLOT', 'Upload response missing item slot');
+  if (upload.items.length !== assets.length) {
+    throw new ApiError(500, 'NO_SLOT', 'Upload response count did not match selected photos');
   }
-  const { itemId, uploadUrl } = slot;
-
-  // 2. PUT the photo to the signed URL.
-  const mimeType = asset.mimeType ?? 'image/jpeg';
-  const bytes = await readAsBlob(asset.uri);
-  const putRes = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'content-type': mimeType,
-      'x-upsert': 'false',
-    },
-    body: bytes,
-    signal: opts.signal,
-  });
-  if (!putRes.ok) {
-    const body = await putRes.text();
-    throw new ApiError(
-      putRes.status,
-      'STORAGE_PUT_FAILED',
-      `Photo upload failed: ${body.slice(0, 200)}`,
-    );
-  }
-
-  // 3. Best-effort: poke the local image-worker (dev only).
   const workerUrl = opts.imageWorkerUrl ?? getImageWorkerUrl();
-  if (workerUrl) {
-    try {
-      const userId = (await supabase.auth.getSession()).data.session?.user.id;
-      if (userId) {
-        const rawStorageKey = inferRawStorageKey(uploadUrl, userId, itemId);
+  const userId = (await supabase.auth.getSession()).data.session?.user.id ?? '';
+
+  const results: UploadResult[] = [];
+  for (let i = 0; i < assets.length; i++) {
+    const asset = assets[i]!;
+    const slot = upload.items[i]!;
+    const { itemId, uploadUrl } = slot;
+
+    // 2. PUT the photo to the signed URL.
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    const bytes = await readAsBlob(asset.uri);
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'content-type': mimeType,
+        'x-upsert': 'false',
+      },
+      body: bytes,
+      signal: opts.signal,
+    });
+    if (!putRes.ok) {
+      const body = await putRes.text();
+      throw new ApiError(
+        putRes.status,
+        'STORAGE_PUT_FAILED',
+        `Photo upload failed: ${body.slice(0, 200)}`,
+      );
+    }
+
+    const rawStorageKey = inferRawStorageKey(uploadUrl, userId, itemId);
+    results.push({ itemId, rawStorageKey });
+
+    // 3. Best-effort: poke the local image-worker (dev only).
+    if (workerUrl && userId) {
+      try {
         await fetch(`${workerUrl}/webhooks/storage`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -165,21 +193,14 @@ export async function uploadClosetItem(
             record: { bucket_id: 'closet-raw', name: rawStorageKey },
           }),
         });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[closet-upload] worker fire failed (dev only)', err);
       }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[closet-upload] worker fire failed (dev only)', err);
     }
   }
 
-  // Caller doesn't need the storage key directly — `closet_items.raw_storage_key`
-  // is now set server-side by uploadBatch — but we return it for symmetry
-  // with the smoke (and so the optimistic UI can show the right path).
-  const userId = (await supabase.auth.getSession()).data.session?.user.id ?? '';
-  return {
-    itemId,
-    rawStorageKey: inferRawStorageKey(uploadUrl, userId, itemId),
-  };
+  return results;
 }
 
 // ---------------------------------------------------------------------------

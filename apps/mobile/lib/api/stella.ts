@@ -67,6 +67,39 @@ export interface StreamStellaMessageHandlers {
   onError?: (err: Error) => void;
 }
 
+function dispatchSseFrame(frame: string, handlers: StreamStellaMessageHandlers): boolean {
+  const dataLines = frame
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart());
+  if (dataLines.length === 0) return false;
+
+  const data = dataLines.join('\n').trim();
+  if (!data) return false;
+  if (data === '[DONE]') {
+    handlers.onDone?.();
+    return true;
+  }
+
+  try {
+    const parsed = JSON.parse(data) as StellaSseEvent;
+    handlers.onEvent(parsed);
+  } catch (err) {
+    handlers.onError?.(
+      err instanceof Error ? err : new Error('Bad SSE frame'),
+    );
+  }
+  return false;
+}
+
+function dispatchBufferedSse(text: string, handlers: StreamStellaMessageHandlers): void {
+  const frames = text.replace(/\r\n/g, '\n').split('\n\n');
+  for (const frame of frames) {
+    if (dispatchSseFrame(frame, handlers)) return;
+  }
+  handlers.onDone?.();
+}
+
 /**
  * POST text → stylist server, parse the SSE stream as it lands, dispatch
  * each `StellaSseEvent` via `onEvent`.
@@ -125,12 +158,15 @@ export async function streamStellaMessage(
     );
   }
 
-  if (!res.body) {
-    throw new ApiError(0, 'NO_BODY', 'Stylist response had no body');
+  const stream = res.body;
+  if (!stream || typeof stream.getReader !== 'function') {
+    const text = await res.text();
+    dispatchBufferedSse(text, handlers);
+    return;
   }
 
   // Read the stream chunk-by-chunk and parse SSE frames split by \n\n.
-  const reader = res.body.getReader();
+  const reader = stream.getReader();
   const decoder = new TextDecoder('utf-8');
   let buf = '';
   try {
@@ -143,21 +179,7 @@ export async function streamStellaMessage(
       while ((idx = buf.indexOf('\n\n')) !== -1) {
         const frame = buf.slice(0, idx);
         buf = buf.slice(idx + 2);
-        if (!frame.startsWith('data:')) continue;
-        const data = frame.slice(5).trim();
-        if (data === '[DONE]') {
-          handlers.onDone?.();
-          return;
-        }
-        try {
-          const parsed = JSON.parse(data) as StellaSseEvent;
-          handlers.onEvent(parsed);
-        } catch (err) {
-          // Treat as a non-fatal parse failure — keep reading the stream.
-          handlers.onError?.(
-            err instanceof Error ? err : new Error('Bad SSE frame'),
-          );
-        }
+        if (dispatchSseFrame(frame, handlers)) return;
       }
     }
     // Stream ended without a [DONE] sentinel. Treat as a clean close.

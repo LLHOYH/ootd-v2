@@ -20,7 +20,8 @@ const SIZE_MAP: Record<ThumbSize, number> = {
 
 /**
  * Clothing item thumbnail. Aspect 3:4 portrait per mockup `.thumb-look`.
- * - Renders `item.thumbnailUrl` over a category-tinted pastel placeholder.
+ * - Renders thumbnailUrl, falling back to tunedPhotoUrl/rawPhotoUrl over a
+ *   category-tinted pastel placeholder.
  * - `selected` adds a 1.5px brand-pink outline.
  */
 export function Thumb({ item, size, selected = false, style }: ThumbProps) {
@@ -30,6 +31,7 @@ export function Thumb({ item, size, selected = false, style }: ThumbProps) {
   const height = Math.round((width * 4) / 3);
 
   const placeholder = pickPlaceholder(item.category, theme.color.palette);
+  const imageUrl = item.thumbnailUrl || item.tunedPhotoUrl || item.rawPhotoUrl;
 
   return (
     <View
@@ -48,9 +50,9 @@ export function Thumb({ item, size, selected = false, style }: ThumbProps) {
       accessibilityRole="image"
       accessibilityLabel={item.name}
     >
-      {item.thumbnailUrl ? (
+      {imageUrl ? (
         <Image
-          source={{ uri: item.thumbnailUrl }}
+          source={{ uri: imageUrl }}
           style={StyleSheet.absoluteFill}
           accessibilityIgnoresInvertColors
         />

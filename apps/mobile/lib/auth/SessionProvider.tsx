@@ -10,7 +10,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import { supabase } from '../supabase';
+import { handleAuthRedirectUrl } from './deepLinks';
 
 interface SessionContextValue {
   session: Session | null;
@@ -33,12 +35,27 @@ export function SessionProvider({ children }: SessionProviderProps) {
   useEffect(() => {
     let mounted = true;
 
-    // Hydrate from storage first so we don't flicker.
-    void supabase.auth.getSession().then(({ data }) => {
+    // Hydrate from storage first so we don't flicker. If the app was opened
+    // by a Supabase email-confirmation link, consume the URL before reading
+    // the final session snapshot.
+    void (async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          await handleAuthRedirectUrl(initialUrl);
+        }
+      } catch (err) {
+        // AuthGate will keep the user on sign-in; the sign-in screen can show
+        // explicit credentials errors. This log is for dev dogfooding.
+        // eslint-disable-next-line no-console
+        console.warn('[auth] failed to consume initial redirect URL', err);
+      }
+
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setSession(data.session);
       setLoading(false);
-    });
+    })();
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, next) => {
@@ -47,10 +64,17 @@ export function SessionProvider({ children }: SessionProviderProps) {
         setLoading(false);
       },
     );
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      void handleAuthRedirectUrl(url).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] failed to consume redirect URL', err);
+      });
+    });
 
     return () => {
       mounted = false;
       subscription.subscription.unsubscribe();
+      linkingSubscription.remove();
     };
   }, []);
 

@@ -16,7 +16,7 @@ export interface ChipProps {
 /**
  * Filter / quick-reply pill. SPEC §5.3:
  * - radius 999 (pill)
- * - padding 5×11
+ * - mobile touch target, with roomy horizontal padding
  * - active: filled brand pink, white text
  * - inactive: transparent + 0.5px (hairline) border, secondary text
  */
@@ -78,10 +78,12 @@ export function Chip({
 
 const styles = StyleSheet.create({
   base: {
-    paddingHorizontal: 11,
-    paddingVertical: 5,
+    minHeight: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
     borderWidth: StyleSheet.hairlineWidth,
     alignSelf: 'flex-start',
+    justifyContent: 'center',
   },
   label: {
     includeFontPadding: false,

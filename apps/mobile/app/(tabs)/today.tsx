@@ -6,9 +6,11 @@ import { Button, Screen, useTheme } from '@mei/ui';
 
 import { Header } from '@/components/today/Header';
 import { SetupBanner } from '@/components/today/SetupBanner';
+import { SelfieStatusCard } from '@/components/today/SelfieStatusCard';
 import { WeatherStrip } from '@/components/today/WeatherStrip';
 import { CalendarStrip } from '@/components/today/CalendarStrip';
 import { TodaysPickCard } from '@/components/today/TodaysPickCard';
+import { TodaysPickEmptyCard } from '@/components/today/TodaysPickEmptyCard';
 import { CommunityStrip } from '@/components/today/CommunityStrip';
 import { FashionNowStrip } from '@/components/today/FashionNowStrip';
 import {
@@ -115,6 +117,7 @@ export default function TodayScreen() {
   const city = data.weather?.city ?? '';
   const selfieCount = profile?.selfieCount ?? 0;
   const showSetupBanner = selfieCount < 5 && !bannerDismissed;
+  const showSelfieStatus = selfieCount >= 5;
 
   const events = data.events.map(adaptEvent);
   const looks = data.communityLooks.map(adaptCommunityLook);
@@ -189,8 +192,8 @@ export default function TodayScreen() {
     <Screen>
       <ScrollView
         contentContainerStyle={{
-          gap: theme.space.md,
-          paddingBottom: theme.space.xxxl,
+          gap: theme.space.lg,
+          paddingBottom: theme.space.huge,
         }}
         refreshControl={
           <RefreshControl
@@ -206,6 +209,11 @@ export default function TodayScreen() {
           <SetupBanner
             onPress={() => router.push('/selfies')}
             onDismiss={() => setBannerDismissed(true)}
+          />
+        ) : showSelfieStatus ? (
+          <SelfieStatusCard
+            selfieCount={selfieCount}
+            onPress={() => router.push('/selfies')}
           />
         ) : null}
 
@@ -224,7 +232,13 @@ export default function TodayScreen() {
             onWear={handleWear}
             onSave={() => void handleToggleSave()}
           />
-        ) : null}
+        ) : (
+          <TodaysPickEmptyCard
+            selfieCount={selfieCount}
+            onAddClothes={() => router.navigate('/closet' as never)}
+            onViewSelfies={() => router.push('/selfies')}
+          />
+        )}
 
         <CommunityStrip
           looks={looks}
