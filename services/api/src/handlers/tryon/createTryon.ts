@@ -1,8 +1,8 @@
 // POST /tryon — generate a try-on photo of the caller wearing a combination.
 //
-// SPEC §10.10 (Wear-this) PR C. Synchronous v1: blocks while
-// the image-worker calls the Replicate try-on provider. The caller is the mobile
-// Try-on preview screen, which shows a loading state during the wait.
+// SPEC §10.10 (Wear-this) PR C. Async v1: inserts a PENDING row and
+// returns immediately. The image-worker polls PENDING rows and promotes
+// them to READY/FAILED while mobile polls GET /tryon/:id.
 //
 // Steps:
 //   1. Validate the body and require auth.
@@ -12,20 +12,16 @@
 //      picks the first item by position that the model can actually try
 //      on (DRESS > TOP > OUTERWEAR > BOTTOM; SHOE/BAG/ACCESSORY are
 //      skipped).
-//   4. Idempotency cache: if a READY generation already exists for this
-//      (user, person source, combo, item) tuple, return it without spending
-//      a Replicate call.
+//   4. Idempotency cache: if a READY or PENDING generation already exists
+//      for this (user, person source, combo, item) tuple, return it without
+//      spending or queueing another Replicate call.
 //   5. Insert a new `tryon_generations` row (status=PENDING). The DB
 //      trigger enforces the 250/day cap and surfaces a clear exception
 //      if exceeded.
-//   6. POST the worker /tryon endpoint synchronously. Worker writes back
-//      to the row.
-//   7. Re-read the row and return it shaped per the contract.
 
 import type { Handler } from '../../context';
 import {
   CreateTryonBody,
-  tryonGeneratedKey,
   type ClothingCategory,
   type CreateTryonResponse,
   type Tables,
@@ -34,7 +30,6 @@ import {
 import { ApiError } from '../../errors';
 import { requireAuthCtx } from '../../lib/handlerCtx';
 import { validate } from '../../middleware/validate';
-import { config } from '../../lib/config';
 import { signDownloadUrl } from '../../lib/storage';
 
 /** Categories worth trying on, in our preferred wear order. */
@@ -89,6 +84,12 @@ export const createTryonHandler: Handler = async (ctx) => {
   );
   log(`cache source is ${cacheSource.label}`);
 
+  const queuedProviderId = resolveQueuedProviderId(
+    selfieId,
+    preferModelPhoto,
+    modelPhotoId,
+  );
+
   // 4. Idempotency: return a cached READY generation if one exists.
   const { data: cachedRows, error: cachedErr } = await supabase
     .from('tryon_generations')
@@ -109,7 +110,26 @@ export const createTryonHandler: Handler = async (ctx) => {
     log(`cache HIT — returning cached generation ${cached.generation_id.slice(0, 5)} (no Replicate call)`);
     return { status: 200, body: await mapGeneration(cached) };
   }
-  log('cache MISS — will run a fresh generation');
+  const { data: pendingRows, error: pendingErr } = await supabase
+    .from('tryon_generations')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('selfie_id', selfieId)
+    .eq('combo_id', body.comboId)
+    .eq('item_id', itemId)
+    .eq('status', 'PENDING')
+    .eq('provider_id', queuedProviderId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (pendingErr) {
+    throw new ApiError(500, 'DB_ERROR', `pending lookup failed: ${pendingErr.message}`);
+  }
+  const pending = ((pendingRows ?? []) as GenerationRow[])[0];
+  if (pending) {
+    log(`queue HIT — returning pending generation ${pending.generation_id.slice(0, 5)}`);
+    return { status: 202, body: await mapGeneration(pending) };
+  }
+  log('cache MISS — queueing a fresh generation');
 
   // 5. Insert the new row. DB trigger enforces the daily cap.
   const { data: insertedRows, error: insertErr } = await supabase
@@ -120,6 +140,7 @@ export const createTryonHandler: Handler = async (ctx) => {
       combo_id: body.comboId,
       item_id: itemId,
       status: 'PENDING',
+      provider_id: queuedProviderId,
     })
     .select('*')
     .limit(1);
@@ -137,32 +158,8 @@ export const createTryonHandler: Handler = async (ctx) => {
   if (!row) {
     throw new ApiError(500, 'DB_ERROR', 'insert returned no row');
   }
-  log(`inserted PENDING row ${row.generation_id.slice(0, 5)} — calling image-worker`);
-
-  // 6. Fire the worker synchronously.
-  await callWorker({
-    generationId: row.generation_id,
-    userId,
-    selfieId,
-    itemId,
-    preferModelPhoto,
-  });
-  log(`image-worker returned for ${row.generation_id.slice(0, 5)} — reading final row`);
-
-  // 7. Re-read the row and shape the response.
-  const { data: finalRow, error: readErr } = await supabase
-    .from('tryon_generations')
-    .select('*')
-    .eq('generation_id', row.generation_id)
-    .maybeSingle();
-  if (readErr || !finalRow) {
-    throw new ApiError(
-      500,
-      'DB_ERROR',
-      `post-generation read failed: ${readErr?.message ?? 'no row'}`,
-    );
-  }
-  return { status: 200, body: await mapGeneration(finalRow as GenerationRow) };
+  log(`queued PENDING row ${row.generation_id.slice(0, 5)}`);
+  return { status: 202, body: await mapGeneration(row) };
 };
 
 // ---------------------------------------------------------------------------
@@ -248,36 +245,6 @@ async function pickPrimaryGarment(
   );
 }
 
-async function callWorker(payload: {
-  generationId: string;
-  userId: string;
-  selfieId: string;
-  itemId: string;
-  preferModelPhoto: boolean;
-}): Promise<void> {
-  const url = `${config.imageWorkerUrl.replace(/\/$/, '')}/tryon`;
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
-  const secret = config.imageWorkerWebhookSecret;
-  if (secret) headers['x-webhook-secret'] = secret;
-  let res: Response;
-  try {
-    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'network error';
-    throw new ApiError(502, 'WORKER_UNREACHABLE', `image-worker unreachable: ${msg}`);
-  }
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new ApiError(
-      502,
-      'WORKER_ERROR',
-      `image-worker ${res.status}: ${body.slice(0, 240)}`,
-    );
-  }
-  // Worker returns 200 even on FAILED status — the row's authoritative
-  // state is what we re-read next. So nothing to do with the body here.
-}
-
 function resolveTryonCacheSource(
   selfieId: string,
   preferModelPhoto: boolean,
@@ -294,6 +261,17 @@ function resolveTryonCacheSource(
     providerIdPattern: `${TRYON_CACHE_PREFIX}:selfie:${selfieId}:%`,
     label: `selfie ${selfieId.slice(0, 5)}`,
   };
+}
+
+function resolveQueuedProviderId(
+  selfieId: string,
+  preferModelPhoto: boolean,
+  modelPhotoId: string | null,
+): string {
+  if (preferModelPhoto && modelPhotoId) {
+    return `${TRYON_CACHE_PREFIX}:queued:model:${modelPhotoId}`;
+  }
+  return `${TRYON_CACHE_PREFIX}:queued:selfie:${selfieId}`;
 }
 
 async function pickLatestReadyModelPhotoId(

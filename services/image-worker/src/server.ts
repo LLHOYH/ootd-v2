@@ -7,6 +7,7 @@ import { tryonRoute } from './routes/tryon';
 import { modelPhotoRoute } from './routes/modelPhoto';
 import { getSupabaseAdmin } from './lib/supabase';
 import type { ImageWorkerConfig } from './config';
+import { startPendingGenerationQueue } from './queue/pendingGenerationQueue';
 
 export async function buildServer(cfg: ImageWorkerConfig): Promise<FastifyInstance> {
   const app = Fastify({
@@ -32,6 +33,10 @@ export async function buildServer(cfg: ImageWorkerConfig): Promise<FastifyInstan
   await app.register(storageWebhookRoute, { config: cfg, supabase });
   await app.register(tryonRoute, { config: cfg, supabase });
   await app.register(modelPhotoRoute, { config: cfg, supabase });
+  const stopQueue = startPendingGenerationQueue(cfg, supabase, app.log);
+  app.addHook('onClose', async () => {
+    stopQueue();
+  });
 
   return app;
 }

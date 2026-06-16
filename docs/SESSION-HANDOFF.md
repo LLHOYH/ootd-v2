@@ -152,8 +152,12 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
 - Backend: `POST /tryon` accepts `{comboId, selfieId?}`. The normal
   mobile path omits `selfieId`, requires the latest READY model photo,
   picks the first wearable item from the combination (DRESS → TOP →
-  OUTERWEAR → BOTTOM), checks for a cached READY row, inserts a PENDING
-  row, fires the image-worker synchronously, returns the final row.
+  OUTERWEAR → BOTTOM), checks for a cached READY or already-PENDING
+  row, then returns immediately. New work is represented by a PENDING
+  `tryon_generations` row.
+- `services/image-worker/src/queue/pendingGenerationQueue.ts` polls
+  PENDING `model_photos` and `tryon_generations` rows, runs the
+  generation pipelines, and promotes each row to READY or FAILED.
 - `services/image-worker/src/providers/tryon.ts` wraps Replicate
   Nano Banana Pro image editing with the model photo as reference 1
   and the closet garment as reference 2.
@@ -169,12 +173,14 @@ On the phone: open Expo Go, paste the Cloudflare URL printed by
   (`tryon_generations_daily_cap`): 250/user/day (was 10; bumped in
   migration `0009`). Only `PENDING` and `READY` rows count against
   the cap; `FAILED` rows are free.
-- Mobile preview screen `/tryon.tsx`: full-screen image generated from
-  the user's READY model photo, not a raw selfie. Actions are Share with
-  friends → `/share`, Regenerate, and Done → back. Error handling per
-  response code: `NO_SELFIE` → CTA to `/selfies`,
-  `NO_MODEL_PHOTO` → CTA to generate the model photo,
-  `RATE_LIMITED` → surface the cap, anything else → Try again button.
+- Mobile preview screen `/tryon.tsx`: queues a try-on, polls while
+  mounted, and lets the user leave while the global
+  `GenerationQueueProvider` continues polling and shows an in-app toast
+  when the result is READY/FAILED. Ready actions are Share with friends
+  → `/share`, Regenerate, and Done → back. Error handling per response
+  code: `NO_SELFIE` → CTA to `/selfies`, `NO_MODEL_PHOTO` → CTA to
+  generate the model photo, `RATE_LIMITED` → surface the cap, anything
+  else → Try again button.
 
 ### Share flow (SPEC §10.10 form)
 

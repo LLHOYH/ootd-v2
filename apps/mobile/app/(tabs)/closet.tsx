@@ -33,6 +33,7 @@ import {
 } from '@/lib/api/closetUpload';
 import { useCloset } from '@/lib/hooks/useCloset';
 import { invalidateClosetItemMap } from '@/lib/hooks/useClosetItemMap';
+import { useGenerationQueue } from '@/lib/generation/GenerationQueueProvider';
 
 const GRID_SIZE_OPTIONS: { key: ClosetGridSize; label: string }[] = [
   { key: 'compact', label: 'Compact' },
@@ -52,6 +53,7 @@ export default function ClosetScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { state, refetch } = useCloset();
+  const { showToast } = useGenerationQueue();
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [picking, setPicking] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -79,6 +81,13 @@ export default function ClosetScreen() {
         if (photos.length === 0) return; // user cancelled
         setUploading(true);
         await uploadClosetItems(photos);
+        showToast({
+          title: photos.length === 1 ? 'Closet photo queued' : 'Closet photos queued',
+          message:
+            photos.length === 1
+              ? 'Stella is cleaning it in the background.'
+              : `Stella is cleaning ${photos.length} photos in the background.`,
+        });
         // Re-fetch — the row will be visible (PROCESSING) immediately, and
         // (locally) flips to READY almost instantly when the dev-mode
         // worker fire succeeds. Production: the row stays PROCESSING
@@ -95,7 +104,7 @@ export default function ClosetScreen() {
         setUploading(false);
       }
     },
-    [picking, refetch, uploading],
+    [picking, refetch, showToast, uploading],
   );
 
   const openUploadChooser = useCallback(() => {

@@ -11,7 +11,9 @@
 //     comboId so the user can post this look. (Posting the generated
 //     image itself is a v2 polish; v1 shares the outfit composite.)
 //
-// The POST can take a moment. We show a progress UI with a clear loading cue.
+// The POST queues quickly. The image-worker promotes the row later, so this
+// screen polls while mounted and the global generation queue keeps watching
+// if the user leaves.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -34,11 +36,13 @@ import { Button, Screen, useTheme } from '@mei/ui';
 import type { Combination, TryonGeneration } from '@mei/types';
 
 import { ApiError } from '@/lib/api/client';
-import { createTryon } from '@/lib/api/tryon';
+import { createTryon, fetchTryon } from '@/lib/api/tryon';
+import { useGenerationQueue } from '@/lib/generation/GenerationQueueProvider';
 
 type Phase =
   | { kind: 'idle' }
-  | { kind: 'generating' }
+  | { kind: 'queueing' }
+  | { kind: 'pending'; data: TryonGeneration }
   | { kind: 'ready'; data: TryonGeneration }
   | { kind: 'error'; message: string; code?: string };
 
@@ -51,10 +55,16 @@ function displayComboName(name: string | undefined): string | null {
 export default function TryonScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ comboId?: string; comboJson?: string }>();
+  const params = useLocalSearchParams<{
+    comboId?: string;
+    comboJson?: string;
+    generationId?: string;
+  }>();
+  const { trackTryon } = useGenerationQueue();
 
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const latestRunIdRef = useRef(0);
+  const startedRef = useRef(false);
 
   // The combination is passed in by Today (serialized) so we can show
   // its name in the loading/result chrome without a refetch.
@@ -67,10 +77,39 @@ export default function TryonScreen() {
     }
   })();
   const comboName = displayComboName(combo?.name);
+  const comboId = typeof params.comboId === 'string' ? params.comboId : undefined;
+  const comboJson = typeof params.comboJson === 'string' ? params.comboJson : undefined;
+  const generationId =
+    typeof params.generationId === 'string' ? params.generationId : undefined;
+  const pendingGenerationId =
+    phase.kind === 'pending' ? phase.data.generationId : undefined;
+
+  const applyGeneration = useCallback(
+    (data: TryonGeneration, opts: { track?: boolean } = {}) => {
+      if (data.status === 'READY' && data.imageUrl) {
+        setPhase({ kind: 'ready', data });
+        return;
+      }
+      if (data.status === 'PENDING') {
+        setPhase({ kind: 'pending', data });
+        if (opts.track) {
+          trackTryon(data, { comboId: comboId ?? data.comboId, comboJson });
+        }
+        return;
+      }
+      setPhase({
+        kind: 'error',
+        message:
+          data.errorDetail ??
+          'Generation failed. Try again — Replicate sometimes has bad runs.',
+      });
+    },
+    [comboId, comboJson, trackTryon],
+  );
 
   const runGeneration = useCallback(
     async () => {
-      if (!params.comboId || typeof params.comboId !== 'string') {
+      if (!comboId) {
         setPhase({
           kind: 'error',
           message: 'Missing combination id.',
@@ -80,26 +119,11 @@ export default function TryonScreen() {
       }
       const runId = latestRunIdRef.current + 1;
       latestRunIdRef.current = runId;
-      setPhase({ kind: 'generating' });
+      setPhase({ kind: 'queueing' });
       try {
-        const data = await createTryon({ comboId: params.comboId });
+        const data = await createTryon({ comboId });
         if (latestRunIdRef.current !== runId) return;
-        if (data.status === 'READY' && data.imageUrl) {
-          setPhase({ kind: 'ready', data });
-        } else if (data.status === 'FAILED') {
-          setPhase({
-            kind: 'error',
-            message:
-              data.errorDetail ??
-              'Generation failed. Try again — Replicate sometimes has bad runs.',
-          });
-        } else {
-          setPhase({
-            kind: 'error',
-            message:
-              'Generation finished but no image came back. Try again, or pick a different selfie.',
-          });
-        }
+        applyGeneration(data, { track: true });
       } catch (err) {
         const message =
           err instanceof ApiError
@@ -112,14 +136,52 @@ export default function TryonScreen() {
         setPhase({ kind: 'error', message, code });
       }
     },
-    [params.comboId],
+    [applyGeneration, comboId],
   );
 
-  // Kick off the first generation on mount.
+  const loadGeneration = useCallback(
+    async (id: string) => {
+      const runId = latestRunIdRef.current + 1;
+      latestRunIdRef.current = runId;
+      if (phase.kind === 'idle') setPhase({ kind: 'queueing' });
+      try {
+        const data = await fetchTryon(id);
+        if (latestRunIdRef.current !== runId) return;
+        applyGeneration(data);
+      } catch (err) {
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Could not load try-on';
+        const code = err instanceof ApiError ? err.code : undefined;
+        if (latestRunIdRef.current !== runId) return;
+        setPhase({ kind: 'error', message, code });
+      }
+    },
+    [applyGeneration, phase.kind],
+  );
+
+  // Kick off the first generation on mount, or load an already-queued job
+  // when opened from a "ready" toast.
   useEffect(() => {
-    if (phase.kind === 'idle') void runGeneration();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (startedRef.current) return;
+    startedRef.current = true;
+    if (generationId) {
+      void loadGeneration(generationId);
+    } else {
+      void runGeneration();
+    }
+  }, [generationId, loadGeneration, runGeneration]);
+
+  useEffect(() => {
+    if (!pendingGenerationId) return undefined;
+    const timer = setInterval(() => {
+      void loadGeneration(pendingGenerationId);
+    }, 4_000);
+    return () => clearInterval(timer);
+  }, [loadGeneration, pendingGenerationId]);
 
   const handleShare = () => {
     if (phase.kind !== 'ready') return;
@@ -131,7 +193,7 @@ export default function TryonScreen() {
       params: {
         comboId: phase.data.comboId,
         ...(phase.data.imageUrl ? { tryonImageUrl: phase.data.imageUrl } : {}),
-        ...(params.comboJson ? { comboJson: params.comboJson } : {}),
+        ...(comboJson ? { comboJson } : {}),
       },
     } as never);
   };
@@ -207,7 +269,15 @@ export default function TryonScreen() {
               },
             ]}
           >
-            {phase.kind === 'generating' ? <GeneratingState /> : null}
+            {phase.kind === 'queueing' ? (
+              <GeneratingState title="Queueing try-on…" />
+            ) : null}
+            {phase.kind === 'pending' ? (
+              <GeneratingState
+                title="Dressing your model…"
+                detail="You can leave this screen. I’ll let you know when it finishes."
+              />
+            ) : null}
             {phase.kind === 'ready' && phase.data.imageUrl ? (
               <Image
                 source={{ uri: phase.data.imageUrl }}
@@ -294,7 +364,25 @@ export default function TryonScreen() {
             </View>
           ) : null}
 
-          {phase.kind === 'generating' ? (
+          {phase.kind === 'pending' ? (
+            <View style={{ gap: theme.space.sm }}>
+              <Button variant="primary" onPress={() => router.back()}>
+                Back
+              </Button>
+              <Text
+                style={{
+                  color: theme.color.text.tertiary,
+                  fontSize: theme.type.size.tiny,
+                  fontWeight: theme.type.weight.regular as '400',
+                  textAlign: 'center',
+                }}
+              >
+                This will keep running in the background.
+              </Text>
+            </View>
+          ) : null}
+
+          {phase.kind === 'queueing' ? (
             <Text
               style={{
                 color: theme.color.text.tertiary,
@@ -303,7 +391,7 @@ export default function TryonScreen() {
                 textAlign: 'center',
               }}
             >
-              Dressing your model can take a minute.
+              Starting the background job.
             </Text>
           ) : null}
         </ScrollView>
@@ -316,7 +404,13 @@ export default function TryonScreen() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function GeneratingState() {
+function GeneratingState({
+  title = 'Dressing your model…',
+  detail = 'Stella is fitting the closet item to your generated model.',
+}: {
+  title?: string;
+  detail?: string;
+}) {
   const theme = useTheme();
   return (
     <View
@@ -336,7 +430,7 @@ function GeneratingState() {
           textAlign: 'center',
         }}
       >
-        Dressing your model…
+        {title}
       </Text>
       <Text
         style={{
@@ -346,7 +440,7 @@ function GeneratingState() {
           textAlign: 'center',
         }}
       >
-        Stella is fitting the closet item to your generated model.
+        {detail}
       </Text>
     </View>
   );

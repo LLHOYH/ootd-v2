@@ -1,4 +1,6 @@
 // Model photo contracts - "Me becomes a model" from uploaded selfies.
+// POST /model-photo returns a queued PENDING row; GET /model-photo lets
+// the app poll the latest row until READY/FAILED.
 
 import { z } from 'zod';
 import { zIso } from './shared.js';

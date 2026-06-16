@@ -32,6 +32,7 @@ export function ModelPhotoCard({
   const ready = Boolean(readyUrl);
   const failed = latest?.status === 'FAILED';
   const pending = latest?.status === 'PENDING';
+  const working = generating || pending;
   const errorMessage =
     state.status === 'error'
       ? state.error.message
@@ -102,7 +103,7 @@ export function ModelPhotoCard({
               },
             ]}
           >
-            {generating ? (
+            {working ? (
               <ActivityIndicator color={theme.color.brand} />
             ) : (
               <Sparkles size={26} strokeWidth={1.6} color={theme.color.text.tertiary} />
@@ -121,10 +122,12 @@ export function ModelPhotoCard({
             variant={ready ? 'ghost' : 'primary'}
             icon={ready || failed ? RefreshCcw : Sparkles}
             onPress={onGenerate}
-            disabled={generating || state.status === 'loading' || selfieCount === 0}
+            disabled={working || state.status === 'loading' || selfieCount === 0}
           >
             {generating
-              ? 'Generating...'
+              ? 'Queueing...'
+              : pending
+                ? 'Working...'
               : ready
                 ? 'Regenerate'
                 : failed
@@ -152,9 +155,9 @@ function ModelPhotoStatusText({
 }) {
   const theme = useTheme();
   const text = generating
-    ? 'Creating your reference...'
+    ? 'Queueing your model photo...'
     : pending
-      ? 'Still working on the last request.'
+      ? 'Generating in the background. You can leave this screen.'
       : latest?.status === 'READY'
         ? 'Ready for try-ons.'
         : errorMessage

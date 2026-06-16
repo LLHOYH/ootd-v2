@@ -2,14 +2,13 @@
 //
 // Two HTTP endpoints back this surface:
 //
-//   POST /tryon             — create a generation. Synchronous in v1:
-//                             blocks while the image-worker calls Replicate.
-//                             Returns the
-//                             completed row.
+//   POST /tryon             — create or reuse a generation. Async in v1:
+//                             returns READY if cached, otherwise a PENDING
+//                             row queued for the image-worker.
 //   GET  /tryon/{id}        — read a generation by id. Used to surface
 //                             cached results on re-tap of the same
-//                             (selfie, combo) pair, and as a polling
-//                             target if we move to async in v2.
+//                             (selfie/model, combo) pair and as the polling
+//                             target for queued generations.
 
 import { z } from 'zod';
 import { zIso } from './shared.js';

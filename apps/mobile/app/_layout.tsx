@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@mei/ui';
 import { SessionProvider } from '../lib/auth/SessionProvider';
 import { AuthGate } from '../lib/auth/AuthGate';
+import { GenerationQueueProvider } from '../lib/generation/GenerationQueueProvider';
 
 export default function RootLayout() {
   return (
@@ -12,10 +13,12 @@ export default function RootLayout() {
         <ThemeProvider>
           <SessionProvider>
             <AuthGate>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(tabs)" />
-              </Stack>
+              <GenerationQueueProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="(tabs)" />
+                </Stack>
+              </GenerationQueueProvider>
             </AuthGate>
           </SessionProvider>
         </ThemeProvider>

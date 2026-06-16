@@ -6,6 +6,7 @@ import {
   fetchLatestModelPhoto,
 } from '../api/modelPhoto';
 import { useSession } from '../auth/SessionProvider';
+import { useGenerationQueue } from '../generation/GenerationQueueProvider';
 
 export type UseModelPhotoState =
   | { status: 'idle' }
@@ -22,15 +23,19 @@ export interface UseModelPhotoResult {
 
 export function useModelPhoto(): UseModelPhotoResult {
   const { session, loading: sessionLoading } = useSession();
+  const { trackModelPhoto } = useGenerationQueue();
   const [state, setState] = useState<UseModelPhotoState>({ status: 'idle' });
   const [generating, setGenerating] = useState(false);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async (
+    signal?: AbortSignal,
+    opts: { silent?: boolean } = {},
+  ) => {
     if (!session) {
       setState({ status: 'idle' });
       return;
     }
-    setState({ status: 'loading' });
+    if (!opts.silent) setState({ status: 'loading' });
     try {
       const data = await fetchLatestModelPhoto({ signal });
       if (signal?.aborted) return;
@@ -63,6 +68,7 @@ export function useModelPhoto(): UseModelPhotoResult {
         const body = selfieIds && selfieIds.length > 0 ? { selfieIds } : undefined;
         const latest = await createModelPhoto(body);
         setState({ status: 'ready', latest });
+        trackModelPhoto(latest);
         return latest;
       } catch (err) {
         const apiErr =
@@ -79,12 +85,21 @@ export function useModelPhoto(): UseModelPhotoResult {
         setGenerating(false);
       }
     },
-    [],
+    [trackModelPhoto],
   );
 
   const refetch = useCallback(async () => {
     await load();
   }, [load]);
+
+  const latest = state.status === 'ready' || state.status === 'error' ? state.latest : undefined;
+  useEffect(() => {
+    if (latest?.status !== 'PENDING') return undefined;
+    const timer = setInterval(() => {
+      void load(undefined, { silent: true });
+    }, 4_000);
+    return () => clearInterval(timer);
+  }, [latest?.status, load]);
 
   return { state, generating, refetch, generate };
 }

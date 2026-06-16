@@ -1,8 +1,8 @@
 // POST /model-photo - generate a reusable model photo from the caller's selfies.
 //
-// Synchronous v1: the API inserts a PENDING row, calls the image-worker,
-// then re-reads the terminal row and returns it. The worker owns the image
-// model call and storage upload.
+// Async v1: the API inserts a PENDING row and returns it immediately.
+// The image-worker polls PENDING model_photos rows and owns the image
+// model call, storage upload, and READY/FAILED promotion.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Handler } from '../../context';
@@ -11,7 +11,6 @@ import {
   type CreateModelPhotoResponse,
 } from '@mei/types';
 import { ApiError } from '../../errors';
-import { config } from '../../lib/config';
 import { requireAuthCtx } from '../../lib/handlerCtx';
 import { validate } from '../../middleware/validate';
 import { mapModelPhoto, type ModelPhotoRow } from './shared';
@@ -55,25 +54,10 @@ export const createModelPhotoHandler: Handler = async (ctx) => {
   if (!row) {
     throw new ApiError(500, 'DB_ERROR', 'insert returned no row');
   }
-  log(`inserted PENDING row ${row.model_photo_id.slice(0, 5)} - calling image-worker`);
+  log(`queued PENDING row ${row.model_photo_id.slice(0, 5)}`);
 
-  await callWorker({ modelPhotoId: row.model_photo_id, userId });
-
-  const { data: finalRow, error: readErr } = await supabase
-    .from('model_photos')
-    .select('*')
-    .eq('model_photo_id', row.model_photo_id)
-    .maybeSingle();
-  if (readErr || !finalRow) {
-    throw new ApiError(
-      500,
-      'DB_ERROR',
-      `post-generation read failed: ${readErr?.message ?? 'no row'}`,
-    );
-  }
-
-  const out: CreateModelPhotoResponse = await mapModelPhoto(finalRow as ModelPhotoRow);
-  return { status: 200, body: out };
+  const out: CreateModelPhotoResponse = await mapModelPhoto(row);
+  return { status: 202, body: out };
 };
 
 async function resolveSourceSelfies(
@@ -108,29 +92,4 @@ async function resolveSourceSelfies(
     throw new ApiError(500, 'DB_ERROR', `selfie lookup failed: ${error.message}`);
   }
   return ((data ?? []) as { selfie_id: string }[]).map((r) => r.selfie_id);
-}
-
-async function callWorker(payload: {
-  modelPhotoId: string;
-  userId: string;
-}): Promise<void> {
-  const url = `${config.imageWorkerUrl.replace(/\/$/, '')}/model-photo`;
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
-  const secret = config.imageWorkerWebhookSecret;
-  if (secret) headers['x-webhook-secret'] = secret;
-  let res: Response;
-  try {
-    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'network error';
-    throw new ApiError(502, 'WORKER_UNREACHABLE', `image-worker unreachable: ${msg}`);
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new ApiError(
-      502,
-      'WORKER_ERROR',
-      `image-worker ${res.status}: ${text.slice(0, 240)}`,
-    );
-  }
 }

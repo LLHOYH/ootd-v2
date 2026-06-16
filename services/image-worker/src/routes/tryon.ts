@@ -1,9 +1,9 @@
 // POST /tryon
 //
 // Called by the api Lambda after it creates a `tryon_generations` row.
-// Synchronous in v1: blocks while we call the Replicate try-on provider,
-// then returns the terminal state of the row (READY or FAILED). The
-// caller surfaces that back to the mobile screen.
+// The API normally queues rows and the worker poller drains them. This
+// route remains as a direct worker trigger for smoke tests and manual
+// retries; it runs the job immediately and returns the terminal state.
 //
 // Body shape:
 //   { generationId, userId, selfieId, itemId, preferModelPhoto? }

@@ -10,8 +10,8 @@ import { apiFetch } from './client';
 /**
  * POST /tryon — create (or return cached) try-on generation.
  *
- * Synchronous in v1: this call blocks while the worker calls Replicate.
- * Callers should show a long-running loading state.
+ * Async in v1: returns READY if cached, otherwise a PENDING row queued
+ * for the image-worker. Callers should poll GET /tryon/{id}.
  */
 export function createTryon(
   body: CreateTryonBody,
