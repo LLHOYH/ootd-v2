@@ -61,6 +61,12 @@ export default function TodayScreen() {
 
   // Today’s date in the device's local timezone. Re-rendered on each open.
   const today = useMemo(() => new Date(), []);
+  const closetItems = useMemo(() => {
+    if (itemMap.state.status !== 'ready' && itemMap.state.status !== 'error') return [];
+    return Array.from(itemMap.state.byId.values());
+  }, [itemMap.state]);
+  const closetItemsLoading =
+    itemMap.state.status === 'idle' || itemMap.state.status === 'loading';
 
   // ---- Loading: first paint, no data yet ------------------------------------
   if (state.status === 'loading' || state.status === 'idle') {
@@ -126,12 +132,6 @@ export default function TodayScreen() {
 
   // Effective pick = local override (from "Try another") if any, else server.
   const currentPick = overridePick ?? data.todaysPick;
-  const closetItems = useMemo(() => {
-    if (itemMap.state.status !== 'ready' && itemMap.state.status !== 'error') return [];
-    return Array.from(itemMap.state.byId.values());
-  }, [itemMap.state]);
-  const closetItemsLoading =
-    itemMap.state.status === 'idle' || itemMap.state.status === 'loading';
   const isSaved = currentPick
     ? combinationLikes.likedComboIds.has(currentPick.comboId)
     : false;

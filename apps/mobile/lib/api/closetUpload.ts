@@ -38,7 +38,7 @@ export async function pickFromCamera(): Promise<PickedPhoto | null> {
     throw new ApiError(0, 'CAMERA_DENIED', 'Camera permission denied');
   }
   const res = await ImagePicker.launchCameraAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ['images'],
     allowsEditing: false,
     quality: 0.85,
     exif: false,
@@ -68,7 +68,7 @@ export async function pickMultipleFromLibrary(
     throw new ApiError(0, 'LIBRARY_DENIED', 'Photo library permission denied');
   }
   const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ['images'],
     allowsEditing: false,
     allowsMultipleSelection: selectionLimit > 1,
     quality: 0.85,
