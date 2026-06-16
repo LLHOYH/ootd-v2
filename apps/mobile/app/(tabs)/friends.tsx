@@ -8,9 +8,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { UserPlus } from 'lucide-react-native';
-import { Button, Screen, useTheme } from '@mei/ui';
+import { Button, Card, Screen, useTheme } from '@mei/ui';
+import type { FriendRequestWithUser } from '@mei/types';
 
+import { FriendRow } from '@/components/friends/FriendRow';
 import { OotdPostCard } from '@/components/ootd/OotdPostCard';
+import { useFriendsHub } from '@/lib/hooks/useFriendsHub';
 import { useOotdFeed } from '@/lib/hooks/useOotdFeed';
 
 /**
@@ -29,6 +32,22 @@ export default function FriendsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { state, refetch, toggleReaction } = useOotdFeed();
+  const friendHub = useFriendsHub();
+
+  const friendsData =
+    friendHub.state.status === 'success'
+      ? friendHub.state.data
+      : friendHub.state.status === 'error'
+        ? friendHub.state.lastData
+        : undefined;
+  const inboundRequests = friendsData?.inbound ?? [];
+
+  const openPendingRequests = () => {
+    router.push({
+      pathname: '/friends/add',
+      params: { tab: 'pending' },
+    } as never);
+  };
 
   // ---- Loading: first paint -------------------------------------------------
   if (state.status === 'loading' || state.status === 'idle') {
@@ -104,6 +123,17 @@ export default function FriendsScreen() {
           Friends
         </Text>
 
+        {inboundRequests.length > 0 ? (
+          <IncomingRequestsCard
+            requests={inboundRequests}
+            isPending={friendHub.isPending}
+            onAccept={(fromUserId) => {
+              void friendHub.acceptRequest(fromUserId).then(() => refetch());
+            }}
+            onViewAll={openPendingRequests}
+          />
+        ) : null}
+
         {items.length === 0 ? (
           <View style={[styles.center, { paddingTop: theme.space.xxxl, gap: theme.space.md }]}>
             <Text
@@ -139,10 +169,99 @@ export default function FriendsScreen() {
   );
 }
 
+interface IncomingRequestsCardProps {
+  requests: FriendRequestWithUser[];
+  isPending: (userId: string) => boolean;
+  onAccept: (fromUserId: string) => void;
+  onViewAll: () => void;
+}
+
+function IncomingRequestsCard({
+  requests,
+  isPending,
+  onAccept,
+  onViewAll,
+}: IncomingRequestsCardProps) {
+  const theme = useTheme();
+  const visible = requests.slice(0, 2);
+  const extraCount = Math.max(0, requests.length - visible.length);
+
+  return (
+    <Card tone="accent" padding={theme.space.md}>
+      <View style={[styles.requestHeader, { gap: theme.space.md }]}>
+        <View style={styles.requestTitleBlock}>
+          <Text
+            style={{
+              color: theme.color.text.primary,
+              fontSize: theme.type.size.h2,
+              fontWeight: theme.type.weight.medium as '500',
+            }}
+          >
+            Friend requests
+          </Text>
+          <Text
+            style={{
+              color: theme.color.text.secondary,
+              fontSize: theme.type.size.caption,
+              fontWeight: theme.type.weight.regular as '400',
+              marginTop: 2,
+            }}
+          >
+            {requests.length === 1 ? '1 incoming request' : `${requests.length} incoming requests`}
+          </Text>
+        </View>
+        <Button variant="ghost" onPress={onViewAll}>
+          View all
+        </Button>
+      </View>
+
+      <View style={{ marginTop: theme.space.sm }}>
+        {visible.map((request) => (
+          <FriendRow
+            key={request.fromUserId}
+            user={request.user}
+            subtitle={`@${request.user.username}`}
+            trailing={
+              <Button
+                variant="primary"
+                onPress={() => onAccept(request.fromUserId)}
+                disabled={isPending(request.fromUserId)}
+              >
+                Accept
+              </Button>
+            }
+          />
+        ))}
+      </View>
+
+      {extraCount > 0 ? (
+        <Text
+          style={{
+            color: theme.color.text.secondary,
+            fontSize: theme.type.size.caption,
+            fontWeight: theme.type.weight.regular as '400',
+            marginTop: theme.space.xs,
+          }}
+        >
+          {extraCount} more pending
+        </Text>
+      ) : null}
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  requestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  requestTitleBlock: {
+    flex: 1,
+    minWidth: 0,
   },
 });

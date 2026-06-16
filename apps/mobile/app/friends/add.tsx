@@ -13,7 +13,7 @@
 //     3. Pending   — GET /friends/requests. Inbound rows have Accept +
 //                    Decline; outbound rows have Cancel.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -23,7 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Search, X } from 'lucide-react-native';
 import { Button, Screen, useTheme } from '@mei/ui';
 
@@ -40,12 +40,22 @@ const SUGGESTION_COPY: Record<string, string> = {
   MUTUAL_FRIEND: 'Mutual friend',
 };
 
+function normalizeTabParam(tab: string | string[] | undefined): TabKey | null {
+  const value = Array.isArray(tab) ? tab[0] : tab;
+  return value === 'friends' || value === 'suggested' || value === 'pending'
+    ? value
+    : null;
+}
+
 export default function AddFriendsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string | string[] }>();
+  const requestedTab = normalizeTabParam(params.tab);
   const hub = useFriendsHub();
-  const [tab, setTab] = useState<TabKey>('suggested');
+  const [tab, setTab] = useState<TabKey>(requestedTab ?? 'suggested');
   const [query, setQuery] = useState('');
+  const autoOpenedPendingRef = useRef(false);
   const search = useFriendSearch(query);
 
   const data =
@@ -57,6 +67,16 @@ export default function AddFriendsScreen() {
 
   const pendingCount = data ? data.inbound.length + data.outbound.length : 0;
   const friendsCount = data ? data.friends.length : 0;
+
+  useEffect(() => {
+    if (requestedTab) setTab(requestedTab);
+  }, [requestedTab]);
+
+  useEffect(() => {
+    if (autoOpenedPendingRef.current || requestedTab || !data?.inbound.length) return;
+    autoOpenedPendingRef.current = true;
+    setTab('pending');
+  }, [data?.inbound.length, requestedTab]);
 
   const tabs = useMemo(
     () => [

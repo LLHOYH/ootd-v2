@@ -203,7 +203,17 @@ export default function TodayScreen() {
           />
         }
       >
-        <Header firstName={firstName} date={today} unread />
+        <Header
+          firstName={firstName}
+          date={today}
+          unread
+          onBellPress={() => {
+            router.push({
+              pathname: '/friends/add',
+              params: { tab: 'pending' },
+            } as never);
+          }}
+        />
 
         {showSetupBanner ? (
           <SetupBanner
