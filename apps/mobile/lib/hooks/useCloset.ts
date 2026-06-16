@@ -11,6 +11,7 @@ import type { ClosetItem, Combination } from '@mei/types';
 import { ApiError } from '../api/client';
 import { fetchClosetCombinations, fetchClosetItems } from '../api/closet';
 import { useSession } from '../auth/SessionProvider';
+import { primeClosetItemMap } from './useClosetItemMap';
 
 const PAGE_SIZE = 100; // Generous cap — P0 closets fit comfortably.
 
@@ -47,6 +48,7 @@ export function useCloset(): UseClosetResult {
           fetchClosetCombinations({ signal, limit: PAGE_SIZE }),
         ]);
         if (signal.aborted) return;
+        primeClosetItemMap(session.user.id, items.items);
         setState({
           status: 'success',
           data: { items: items.items, combinations: combos.items },

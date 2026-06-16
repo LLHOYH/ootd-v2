@@ -29,28 +29,49 @@ import { useSession } from '../auth/SessionProvider';
 // hook is meant to fix. If a closet ever exceeds 100 items we'll need to
 // page; for P0 it's a generous ceiling.
 const PAGE_SIZE = 100;
+const CACHE_TTL_MS = 30_000;
 
 interface CacheEntry {
   /** User this cache belongs to. Sign-out / user-swap invalidates. */
   userId: string;
   /** Indexed lookup. Empty Map means "fetched, closet is empty". */
   byId: Map<string, ClosetItem>;
+  /** Signed image URLs expire and processing rows promote, so keep this short. */
+  fetchedAt: number;
 }
 
 // Module-level cache + in-flight promise. Two consumers mounting in the same
 // tick share one network call; subsequent mounts see the cached Map.
 let cache: CacheEntry | null = null;
 let inflight: { userId: string; promise: Promise<CacheEntry> } | null = null;
+const listeners = new Set<(entry: CacheEntry | null) => void>();
 
-async function loadFor(userId: string, signal?: AbortSignal): Promise<CacheEntry> {
-  if (cache && cache.userId === userId) return cache;
+function isFresh(entry: CacheEntry | null, userId: string): entry is CacheEntry {
+  return Boolean(entry && entry.userId === userId && Date.now() - entry.fetchedAt < CACHE_TTL_MS);
+}
+
+function notify(entry: CacheEntry | null): void {
+  for (const listener of listeners) listener(entry);
+}
+
+function entryFromItems(userId: string, items: ClosetItem[]): CacheEntry {
+  const byId = new Map<string, ClosetItem>();
+  for (const item of items) byId.set(item.itemId, item);
+  return { userId, byId, fetchedAt: Date.now() };
+}
+
+async function loadFor(
+  userId: string,
+  signal?: AbortSignal,
+  opts: { force?: boolean } = {},
+): Promise<CacheEntry> {
+  if (!opts.force && isFresh(cache, userId)) return cache;
   if (inflight && inflight.userId === userId) return inflight.promise;
   const promise = (async () => {
     const list = await fetchClosetItems({ limit: PAGE_SIZE, signal });
-    const byId = new Map<string, ClosetItem>();
-    for (const item of list.items) byId.set(item.itemId, item);
-    const entry: CacheEntry = { userId, byId };
+    const entry = entryFromItems(userId, list.items);
     cache = entry;
+    notify(entry);
     return entry;
   })();
   inflight = { userId, promise };
@@ -66,6 +87,17 @@ async function loadFor(userId: string, signal?: AbortSignal): Promise<CacheEntry
 export function invalidateClosetItemMap(): void {
   cache = null;
   inflight = null;
+  notify(null);
+}
+
+/** Prime the shared lookup from another fresh closet fetch. The Closet tab
+ * already loads signed item URLs; sharing them here keeps Today from rendering
+ * stale blank combination cards while its own resolver cache catches up. */
+export function primeClosetItemMap(userId: string, items: ClosetItem[]): void {
+  const entry = entryFromItems(userId, items);
+  cache = entry;
+  inflight = null;
+  notify(entry);
 }
 
 export type UseClosetItemMapState =
@@ -89,11 +121,26 @@ export function useClosetItemMap(): UseClosetItemMapResult {
   const userId = session?.user.id ?? null;
 
   const [state, setState] = useState<UseClosetItemMapState>(() => {
-    if (cache && userId && cache.userId === userId) {
+    if (userId && isFresh(cache, userId)) {
       return { status: 'ready', byId: cache.byId };
     }
     return { status: 'idle' };
   });
+
+  useEffect(() => {
+    const listener = (entry: CacheEntry | null) => {
+      if (!userId) return;
+      if (entry && entry.userId === userId) {
+        setState({ status: 'ready', byId: entry.byId });
+      } else if (entry === null) {
+        setState({ status: 'idle' });
+      }
+    };
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (sessionLoading) return;
@@ -104,7 +151,7 @@ export function useClosetItemMap(): UseClosetItemMapResult {
       setState({ status: 'idle' });
       return;
     }
-    if (cache && cache.userId === userId) {
+    if (isFresh(cache, userId)) {
       setState({ status: 'ready', byId: cache.byId });
       return;
     }
@@ -142,7 +189,7 @@ export function useClosetItemMap(): UseClosetItemMapResult {
     invalidateClosetItemMap();
     setState({ status: 'loading' });
     try {
-      const entry = await loadFor(userId);
+      const entry = await loadFor(userId, undefined, { force: true });
       setState({ status: 'ready', byId: entry.byId });
     } catch (err) {
       const apiErr =

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { ClosetItem, Combination } from '@mei/types';
 import { Button, Screen, useTheme } from '@mei/ui';
 
@@ -68,6 +68,8 @@ export default function TodayScreen() {
   const [pickError, setPickError] = useState<string | null>(null);
   const [creatingSuggestedLookId, setCreatingSuggestedLookId] = useState<string | null>(null);
   const [suggestedLookError, setSuggestedLookError] = useState<string | null>(null);
+  const lastFocusItemRefreshAtRef = useRef(0);
+  const lastPhotoRepairKeyRef = useRef('');
 
   // Today’s date in the device's local timezone. Re-rendered on each open.
   const today = useMemo(() => new Date(), []);
@@ -77,6 +79,45 @@ export default function TodayScreen() {
   }, [itemMap.state]);
   const closetItemsLoading =
     itemMap.state.status === 'idle' || itemMap.state.status === 'loading';
+  const dataForItemRepair =
+    state.status === 'success'
+      ? state.data
+      : state.status === 'error'
+        ? state.lastData
+        : undefined;
+  const pickForItemRepair = overridePick ?? dataForItemRepair?.todaysPick;
+  const pickItemsForRepair = pickForItemRepair ? itemMap.resolve(pickForItemRepair.itemIds) : [];
+  const itemMapReadyForRepair = itemMap.state.status === 'ready';
+  const photoRepairKey = itemMapReadyForRepair
+    ? [
+        pickForItemRepair &&
+        pickForItemRepair.itemIds.length > 0 &&
+        pickItemsForRepair.every((item) => !hasItemPhoto(item))
+          ? `pick:${pickForItemRepair.itemIds.join(',')}`
+          : '',
+        closetItems.length > 0 && closetItems.every((item) => !hasItemPhoto(item))
+          ? `closet:${closetItems.map((item) => item.itemId).join(',')}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('|')
+    : '';
+
+  useFocusEffect(
+    useCallback(() => {
+      if (itemMap.state.status === 'idle' || itemMap.state.status === 'loading') return;
+      const now = Date.now();
+      if (now - lastFocusItemRefreshAtRef.current < 10_000) return;
+      lastFocusItemRefreshAtRef.current = now;
+      void itemMap.refetch();
+    }, [itemMap.refetch, itemMap.state.status]),
+  );
+
+  useEffect(() => {
+    if (!photoRepairKey || lastPhotoRepairKeyRef.current === photoRepairKey) return;
+    lastPhotoRepairKeyRef.current = photoRepairKey;
+    void itemMap.refetch();
+  }, [itemMap.refetch, photoRepairKey]);
 
   // ---- Loading: first paint, no data yet ------------------------------------
   if (state.status === 'loading' || state.status === 'idle') {
