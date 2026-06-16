@@ -13,12 +13,12 @@ export interface SettingRowProps {
 }
 
 /**
- * Settings list row. Mockup `.set-row`:
- *  - rounded square icon chip (28px) on bg.secondary, brand-pink icon stroke
+ * Grouped iOS settings row:
+ *  - rounded square icon chip on primary surface, system-blue icon stroke
  *  - title (medium) + optional subtitle (tiny, tertiary)
  *  - optional `value` text on the right
  *  - chevron when interactive
- *  - 0.5px hairline separator at the bottom
+ *  - subtle hairline outline
  */
 export function SettingRow({
   icon: Icon,
@@ -46,9 +46,12 @@ export function SettingRow({
         styles.row,
         {
           gap: theme.space.md,
-          paddingVertical: 11,
-          paddingHorizontal: theme.space.xs,
-          borderBottomColor: theme.color.border.default,
+          backgroundColor: theme.color.bg.secondary,
+          borderColor: theme.color.border.default,
+          borderRadius: theme.radius.lg,
+          paddingVertical: theme.space.sm,
+          paddingHorizontal: theme.space.md,
+          marginBottom: theme.space.sm,
         },
         style,
       ]}
@@ -57,12 +60,12 @@ export function SettingRow({
         style={[
           styles.icon,
           {
-            backgroundColor: theme.color.bg.secondary,
-            borderRadius: theme.radius.sm,
+            backgroundColor: theme.color.bg.primary,
+            borderRadius: theme.radius.md,
           },
         ]}
       >
-        <Icon size={14} strokeWidth={1.6} color={theme.color.brand} />
+        <Icon size={18} strokeWidth={1.7} color={theme.color.brand} />
       </View>
 
       <View style={styles.body}>
@@ -119,11 +122,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 58,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   icon: {
-    width: 28,
-    height: 28,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -14,7 +14,7 @@ export interface AvatarProps {
 
 /**
  * Circular avatar. Falls back to monogram initials on `brand.bg` when no src.
- * `ringed` adds a 1.5px outline (pink = brand, plain = border).
+ * `ringed` adds a 1.5px outline (pink is the legacy brand alias, plain = border).
  */
 export function Avatar({ initials, size, src, ringed, style }: AvatarProps) {
   const theme = useTheme();

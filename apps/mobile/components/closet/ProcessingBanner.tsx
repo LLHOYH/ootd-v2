@@ -24,7 +24,7 @@ export function ProcessingBanner({
 
   return (
     <Card
-      tone="pink"
+      tone="accent"
       padding={theme.space.sm}
       style={{ marginTop: theme.space.md }}
     >

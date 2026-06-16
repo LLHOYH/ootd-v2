@@ -17,7 +17,7 @@ export interface ChipProps {
  * Filter / quick-reply pill. SPEC §5.3:
  * - radius 999 (pill)
  * - mobile touch target, with roomy horizontal padding
- * - active: filled brand pink, white text
+ * - active: filled system blue, white text
  * - inactive: transparent + 0.5px (hairline) border, secondary text
  */
 export function Chip({

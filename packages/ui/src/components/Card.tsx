@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export type CardTone = 'default' | 'pink' | 'plain';
+export type CardTone = 'default' | 'accent' | 'pink' | 'plain';
 
 export interface CardProps {
   children: React.ReactNode;
@@ -13,11 +13,11 @@ export interface CardProps {
 
 /**
  * Surface block. SPEC §5.3:
- * - radius 12, padding 12
- * - default surface: bg.secondary
- * - pink: pink fill (badges, highlight cards)
+ * - default surface: grouped gray
+ * - accent: soft system-blue fill for badges and highlight cards
+ * - pink: legacy alias for accent
  * - plain: transparent (when sitting on top of another surface)
- * - no border
+ * - subtle iOS hairline border
  */
 export function Card({ children, tone = 'default', padding, style }: CardProps) {
   const theme = useTheme();
@@ -25,13 +25,20 @@ export function Card({ children, tone = 'default', padding, style }: CardProps) 
 
   const toneStyle: ViewStyle = (() => {
     switch (tone) {
+      case 'accent':
       case 'pink':
-        return { backgroundColor: theme.color.brandBg };
+        return {
+          backgroundColor: theme.color.brandBg,
+          borderColor: theme.color.border.default,
+        };
       case 'plain':
-        return { backgroundColor: 'transparent' };
+        return { backgroundColor: 'transparent', borderColor: 'transparent' };
       case 'default':
       default:
-        return { backgroundColor: theme.color.bg.secondary };
+        return {
+          backgroundColor: theme.color.bg.secondary,
+          borderColor: theme.color.border.default,
+        };
     }
   })();
 
@@ -52,5 +59,6 @@ export function Card({ children, tone = 'default', padding, style }: CardProps) 
 const styles = StyleSheet.create({
   base: {
     overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

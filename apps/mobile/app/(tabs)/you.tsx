@@ -110,6 +110,7 @@ export default function YouScreen() {
   return (
     <Screen>
       <ScrollView
+        contentContainerStyle={{ paddingBottom: theme.space.huge }}
         refreshControl={
           <RefreshControl
             refreshing={state.status === 'success' && state.refetching}

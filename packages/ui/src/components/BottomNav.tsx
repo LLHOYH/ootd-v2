@@ -32,7 +32,10 @@ export function BottomNav({ active, onSelect, style }: BottomNavProps) {
       style={[
         styles.bar,
         {
-          backgroundColor: theme.color.bg.primary,
+          backgroundColor:
+            theme.mode === 'light'
+              ? 'rgba(255, 255, 255, 0.94)'
+              : 'rgba(28, 28, 30, 0.94)',
           borderTopColor: theme.color.border.default,
         },
         style,

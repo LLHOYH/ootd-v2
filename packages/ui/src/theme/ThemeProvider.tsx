@@ -27,9 +27,9 @@ export interface Theme {
 
 function buildTheme(mode: ThemeMode): Theme {
   const surfaces = mode === 'light' ? tokens.color.light : tokens.color.dark;
-  const brand = mode === 'light' ? tokens.color.pink[400] : tokens.color.pink[300];
-  const brandBg = mode === 'light' ? tokens.color.pink[50] : tokens.color.pink[800];
-  const brandOn = mode === 'light' ? tokens.color.pink[800] : tokens.color.pink[100];
+  const brand = mode === 'light' ? tokens.color.blue[400] : tokens.color.blue[300];
+  const brandBg = mode === 'light' ? tokens.color.blue[50] : tokens.color.blue[800];
+  const brandOn = mode === 'light' ? tokens.color.blue[600] : tokens.color.blue[100];
 
   return {
     mode,

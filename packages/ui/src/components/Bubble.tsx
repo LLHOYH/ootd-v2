@@ -12,7 +12,7 @@ export interface BubbleProps {
 
 /**
  * Chat bubble. SPEC §10.5/§10.7 + mockup `.bubble-ai` / `.bubble-u`.
- *  - user : filled brand pink, white text, right-aligned, tail-bottom-right
+ *  - user : filled system blue, white text, right-aligned, tail-bottom-right
  *  - ai   : bg.secondary, primary text, left-aligned, tail-bottom-left
  *  - friend: bg.tertiary, primary text, left-aligned, tail-bottom-left
  */

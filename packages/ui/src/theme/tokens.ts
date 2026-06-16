@@ -5,53 +5,52 @@
  * Consumed by the theme provider in `packages/ui`.
  *
  * Notes
- * - Brand accent is `pink.400` (#D4537E). Dark-mode brand flips to `pink.300` (#ED93B1).
- * - Light surfaces lean cream-warm (#FFFFFF / #F5F3EE) — never cool grey.
+ * - Brand accent is classic iOS system blue (#007AFF).
+ * - Light surfaces follow grouped iOS: white, grouped light gray, graphite text.
  * - Two type weights only: 400 and 500. Never 600+.
  */
 
 export const tokens = {
   color: {
-    // Brand
-    pink: {
-      50:  '#FBEAF0',
-      100: '#F4C0D1',
-      300: '#ED93B1',  // dark-mode brand
-      400: '#D4537E',  // light-mode brand
-      600: '#993556',
-      800: '#72243E',
+    // Classic iOS action blue.
+    blue: {
+      50:  '#EAF3FF',
+      100: '#D6E8FF',
+      300: '#66B2FF',
+      400: '#007AFF',
+      600: '#0051D5',
+      800: '#0A315F',
     },
 
-    // Neutral surfaces — warm, never grey
+    // Neutral surfaces - iOS grouped light/dark.
     light: {
       bgPrimary:    '#FFFFFF',
-      bgSecondary:  '#F5F3EE',
-      bgTertiary:   '#EDEAE3',
-      textPrimary:  '#1A1A1A',
-      textSecondary:'#5F5E5A',
-      textTertiary: '#888780',
-      borderDefault:'rgba(0,0,0,0.08)',
-      borderStrong: 'rgba(0,0,0,0.15)',
+      bgSecondary:  '#F2F2F7',
+      bgTertiary:   '#E5E5EA',
+      textPrimary:  '#1C1C1E',
+      textSecondary:'#636366',
+      textTertiary: '#8E8E93',
+      borderDefault:'rgba(60,60,67,0.16)',
+      borderStrong: 'rgba(60,60,67,0.28)',
     },
     dark: {
-      bgPrimary:    '#1A1714',
-      bgSecondary:  '#26221E',
-      bgTertiary:   '#332E29',
-      textPrimary:  '#F5F3EE',
-      textSecondary:'#B8B4AC',
-      textTertiary: '#7A7670',
-      borderDefault:'rgba(255,255,255,0.10)',
-      borderStrong: 'rgba(255,255,255,0.18)',
+      bgPrimary:    '#000000',
+      bgSecondary:  '#1C1C1E',
+      bgTertiary:   '#2C2C2E',
+      textPrimary:  '#FFFFFF',
+      textSecondary:'#AEAEB2',
+      textTertiary: '#8E8E93',
+      borderDefault:'rgba(84,84,88,0.48)',
+      borderStrong: 'rgba(99,99,102,0.72)',
     },
 
-    // Soft pastels — used for clothing thumbnail placeholders before photo loads,
-    // and for category accent backgrounds.
+    // Restrained wardrobe neutrals for placeholders and category accents.
     palette: {
-      cream: '#F2EAD9',
-      mauve: '#E5D5E0',
-      sage:  '#D5DDD0',
-      blue:  '#C5CFD9',
-      tan:   '#DCC9B6',
+      cream: '#F7F7F8',
+      mauve: '#E5E5EA',
+      sage:  '#D9E5DF',
+      blue:  '#DBEAFE',
+      tan:   '#DED6CC',
     },
 
     // Semantic
@@ -114,8 +113,8 @@ export const tokens = {
 
   shadow: {
     // Used sparingly — Mei prefers borders to shadows.
-    fab:   '0 6px 16px rgba(212, 83, 126, 0.35)',
-    card:  '0 1px 2px rgba(0, 0, 0, 0.04)',
+    fab:   '0 8px 22px rgba(0, 122, 255, 0.28)',
+    card:  '0 1px 2px rgba(28, 28, 30, 0.05)',
     modal: '0 10px 40px rgba(0, 0, 0, 0.18)',
   },
 } as const;

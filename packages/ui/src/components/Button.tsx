@@ -17,7 +17,7 @@ export interface ButtonProps {
 
 /**
  * Pill button. SPEC §5.3:
- * - primary: filled brand pink, white text
+ * - primary: filled system blue, white text
  * - ghost: transparent + 0.5px (hairline) border, primary text
  * - icon: circular touch target, transparent
  *
@@ -93,9 +93,9 @@ export function Button({
         <Text
           style={[
             styles.label,
-          {
-            color: textColor,
-            fontSize: theme.type.size.body,
+            {
+              color: textColor,
+              fontSize: theme.type.size.body,
               fontWeight: theme.type.weight.medium as '500',
             },
           ]}

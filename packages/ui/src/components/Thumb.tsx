@@ -22,7 +22,7 @@ const SIZE_MAP: Record<ThumbSize, number> = {
  * Clothing item thumbnail. Aspect 3:4 portrait per mockup `.thumb-look`.
  * - Renders thumbnailUrl, falling back to tunedPhotoUrl/rawPhotoUrl over a
  *   category-tinted pastel placeholder.
- * - `selected` adds a 1.5px brand-pink outline.
+ * - `selected` adds a 1.5px system-blue outline.
  */
 export function Thumb({ item, size, selected = false, style }: ThumbProps) {
   const theme = useTheme();

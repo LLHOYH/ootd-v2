@@ -5,20 +5,52 @@ import { Thumb, useTheme } from '@mei/ui';
 
 export interface ItemGridProps {
   items: ClosetItem[];
+  size?: ClosetGridSize;
   onPressItem?: (item: ClosetItem) => void;
 }
 
-const COLUMNS = 2;
-// Slightly under 1/2 so the cell-gap fits between two columns.
-const CELL_WIDTH_PCT = '48%';
+export type ClosetGridSize = 'compact' | 'medium' | 'large';
+
+const GRID_CONFIG: Record<
+  ClosetGridSize,
+  {
+    columns: number;
+    widthPct: `${number}%`;
+    marginPct: `${number}%`;
+    thumb: 'md' | 'lg';
+    labelLines: number;
+  }
+> = {
+  compact: {
+    columns: 3,
+    widthPct: '31.2%',
+    marginPct: '3.2%',
+    thumb: 'md',
+    labelLines: 2,
+  },
+  medium: {
+    columns: 2,
+    widthPct: '48%',
+    marginPct: '4%',
+    thumb: 'lg',
+    labelLines: 1,
+  },
+  large: {
+    columns: 1,
+    widthPct: '100%',
+    marginPct: '0%',
+    thumb: 'lg',
+    labelLines: 2,
+  },
+};
 
 /**
- * 2-column photo-first grid of `Thumb`s. Renders inside the parent ScrollView so the
- * whole closet body scrolls together — closets are bounded (tens to low
- * hundreds of items in P0) so virtualization isn't needed yet.
+ * Photo-first grid of `Thumb`s. The parent can switch Compact/Medium/Large so
+ * users can scan quickly or inspect garments more closely.
  */
-export function ItemGrid({ items, onPressItem }: ItemGridProps) {
+export function ItemGrid({ items, size = 'medium', onPressItem }: ItemGridProps) {
   const theme = useTheme();
+  const grid = GRID_CONFIG[size];
 
   if (items.length === 0) {
     return (
@@ -44,7 +76,7 @@ export function ItemGrid({ items, onPressItem }: ItemGridProps) {
       ]}
     >
       {items.map((item, index) => {
-        const isEndOfRow = (index + 1) % COLUMNS === 0;
+        const isEndOfRow = (index + 1) % grid.columns === 0;
         return (
           <Pressable
             key={item.itemId}
@@ -54,24 +86,24 @@ export function ItemGrid({ items, onPressItem }: ItemGridProps) {
             style={({ pressed }) => [
               styles.cell,
               {
-                width: CELL_WIDTH_PCT,
-                marginRight: isEndOfRow ? 0 : '4%',
-                marginBottom: theme.space.xl,
+                width: grid.widthPct,
+                marginRight: isEndOfRow ? 0 : grid.marginPct,
+                marginBottom: size === 'compact' ? theme.space.lg : theme.space.xl,
                 opacity: pressed ? 0.7 : 1,
               },
             ]}
           >
             <View style={styles.thumbWrap}>
-              <Thumb item={item} size="lg" style={styles.thumb} />
+              <Thumb item={item} size={grid.thumb} style={styles.thumb} />
             </View>
             <Text
               style={{
                 marginTop: theme.space.xs,
                 color: theme.color.text.primary,
-                fontSize: theme.type.size.caption,
+                fontSize: size === 'compact' ? theme.type.size.tiny : theme.type.size.caption,
                 fontWeight: theme.type.weight.medium as '500',
               }}
-              numberOfLines={1}
+              numberOfLines={grid.labelLines}
             >
               {item.name}
             </Text>

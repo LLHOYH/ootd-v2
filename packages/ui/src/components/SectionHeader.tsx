@@ -14,8 +14,8 @@ export interface SectionHeaderProps {
 }
 
 /**
- * "Title / action" pair above a section. Mockup `.section-h-sc`:
- * baseline-aligned, title at h3 weight, action label in brand-pink medium.
+ * "Title / action" pair above a section. Baseline-aligned, with the action
+ * label in system blue.
  */
 export function SectionHeader({ title, action, style }: SectionHeaderProps) {
   const theme = useTheme();

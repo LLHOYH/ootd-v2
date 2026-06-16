@@ -73,7 +73,7 @@ export function TodaysPickCard({
           {subtitle}
         </Text>
       ) : null}
-      <Card tone="pink" padding={theme.space.lg}>
+      <Card tone="accent" padding={theme.space.lg}>
         <View style={picking ? styles.dim : undefined}>
           <OutfitCard
             combination={combination}

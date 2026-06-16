@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ChevronDown } from 'lucide-react-native';
 import { Button, Screen, useTheme } from '@mei/ui';
 import type { ClosetItem, Combination } from '@mei/types';
 
@@ -21,7 +23,7 @@ import {
   FilterChips,
   type FilterKey,
 } from '@/components/closet/FilterChips';
-import { ItemGrid } from '@/components/closet/ItemGrid';
+import { ItemGrid, type ClosetGridSize } from '@/components/closet/ItemGrid';
 import { CombinationsGrid } from '@/components/closet/CombinationsGrid';
 import { Fab } from '@/components/closet/Fab';
 import {
@@ -31,6 +33,12 @@ import {
 } from '@/lib/api/closetUpload';
 import { useCloset } from '@/lib/hooks/useCloset';
 import { invalidateClosetItemMap } from '@/lib/hooks/useClosetItemMap';
+
+const GRID_SIZE_OPTIONS: { key: ClosetGridSize; label: string }[] = [
+  { key: 'compact', label: 'Compact' },
+  { key: 'medium', label: 'Medium' },
+  { key: 'large', label: 'Large' },
+];
 
 /**
  * Closet — SPEC §10.2.
@@ -49,6 +57,7 @@ export default function ClosetScreen() {
   const [uploading, setUploading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [gridSize, setGridSize] = useState<ClosetGridSize>('compact');
   const [preview, setPreview] = useState<{ imageUrl: string; title?: string } | null>(null);
 
   // Common path for camera + gallery: pick → upload → close sheet → refetch.
@@ -119,6 +128,38 @@ export default function ClosetScreen() {
       { cancelable: true },
     );
   }, [handlePick, picking, uploading]);
+
+  const openGridSizeChooser = useCallback(() => {
+    const setByIndex = (idx: number) => {
+      const option = GRID_SIZE_OPTIONS[idx];
+      if (option) setGridSize(option.key);
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [...GRID_SIZE_OPTIONS.map((opt) => opt.label), 'Cancel'],
+          cancelButtonIndex: GRID_SIZE_OPTIONS.length,
+          title: 'Wardrobe photo size',
+        },
+        setByIndex,
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Wardrobe photo size',
+      'Choose how large closet photos should appear.',
+      [
+        ...GRID_SIZE_OPTIONS.map((opt) => ({
+          text: opt.label,
+          onPress: () => setGridSize(opt.key),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ],
+      { cancelable: true },
+    );
+  }, []);
 
   // ---- Loading: first paint -------------------------------------------------
   if (state.status === 'loading' || state.status === 'idle') {
@@ -241,6 +282,47 @@ export default function ClosetScreen() {
 
         <FilterChips active={filter} onChange={setFilter} />
 
+        {filter !== 'COMBINATIONS' ? (
+          <View style={[styles.gridToolbar, { marginTop: theme.space.md }]}>
+            <Text
+              style={{
+                color: theme.color.text.secondary,
+                fontSize: theme.type.size.tiny,
+                fontWeight: theme.type.weight.medium as '500',
+              }}
+            >
+              {GRID_SIZE_OPTIONS.find((opt) => opt.key === gridSize)?.label ?? 'Compact'} grid
+            </Text>
+            <Pressable
+              onPress={openGridSizeChooser}
+              accessibilityRole="button"
+              accessibilityLabel="Choose wardrobe photo size"
+              style={({ pressed }) => [
+                styles.sizeButton,
+                {
+                  backgroundColor: theme.color.bg.secondary,
+                  borderColor: theme.color.border.default,
+                  borderRadius: theme.radius.pill,
+                  paddingLeft: theme.space.md,
+                  paddingRight: theme.space.sm,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: theme.color.text.primary,
+                  fontSize: theme.type.size.caption,
+                  fontWeight: theme.type.weight.medium as '500',
+                }}
+              >
+                Size: {GRID_SIZE_OPTIONS.find((opt) => opt.key === gridSize)?.label ?? 'Compact'}
+              </Text>
+              <ChevronDown size={16} strokeWidth={1.8} color={theme.color.text.tertiary} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={{
@@ -262,7 +344,7 @@ export default function ClosetScreen() {
               onPressCombination={handlePressCombination}
             />
           ) : (
-            <ItemGrid items={visibleItems} onPressItem={handlePressItem} />
+            <ItemGrid items={visibleItems} size={gridSize} onPressItem={handlePressItem} />
           )}
         </ScrollView>
       </View>
@@ -318,6 +400,18 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  gridToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sizeButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   center: {
     flex: 1,
