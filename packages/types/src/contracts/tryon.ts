@@ -3,8 +3,8 @@
 // Two HTTP endpoints back this surface:
 //
 //   POST /tryon             — create a generation. Synchronous in v1:
-//                             blocks for ~15-25s while the image-worker
-//                             calls Replicate (IDM-VTON). Returns the
+//                             blocks while the image-worker calls Replicate.
+//                             Returns the
 //                             completed row.
 //   GET  /tryon/{id}        — read a generation by id. Used to surface
 //                             cached results on re-tap of the same

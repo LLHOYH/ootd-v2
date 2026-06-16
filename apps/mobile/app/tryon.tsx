@@ -2,7 +2,7 @@
 //
 // Modal route reached from Today's "Wear this on me" button. Generates a
 // photo of the user wearing the dominant garment from the combination
-// (via Replicate IDM-VTON behind the api Lambda + image-worker), shows
+// (via the Replicate try-on provider behind the api Lambda + image-worker), shows
 // it, and offers three follow-ups:
 //
 //   - Try a different selfie — re-runs generation with another of the
@@ -13,8 +13,7 @@
 //     comboId so the user can post this look. (Posting the generated
 //     image itself is a v2 polish; v1 shares the outfit composite.)
 //
-// The POST blocks for 15-30s. We show a progress UI with a clear "this
-// is going to take a moment" cue.
+// The POST can take a moment. We show a progress UI with a clear loading cue.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -291,7 +290,7 @@ export default function TryonScreen() {
                 textAlign: 'center',
               }}
             >
-              Putting this on you usually takes 15–30 seconds.
+              Putting this on you can take a minute.
             </Text>
           ) : null}
         </ScrollView>

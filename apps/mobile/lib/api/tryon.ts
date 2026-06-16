@@ -10,8 +10,8 @@ import { apiFetch } from './client';
 /**
  * POST /tryon — create (or return cached) try-on generation.
  *
- * Synchronous in v1: this call blocks for ~15-30s while the worker calls
- * Replicate. Callers should show a long-running loading state.
+ * Synchronous in v1: this call blocks while the worker calls Replicate.
+ * Callers should show a long-running loading state.
  */
 export function createTryon(
   body: CreateTryonBody,

@@ -4,7 +4,8 @@
 //
 //   1. Look up the generation row (api creates it before calling us).
 //      Bail if it's already READY (idempotency on retry).
-//   2. Download the selfie bytes from the `selfies` bucket.
+//   2. Resolve the person reference: latest model photo for default try-ons,
+//      otherwise the selected selfie.
 //   3. Download the garment bytes from the `closet-tuned` bucket.
 //   4. Look up the item's name + category for the model's text/category inputs.
 //   5. Call the TryonProvider — synchronous, returns image bytes.
@@ -23,14 +24,19 @@ import type { ImageWorkerConfig } from '../config';
 import { getTryonProvider } from '../providers/tryon';
 
 const BUCKET_SELFIES = 'selfies';
+const BUCKET_MODEL_PHOTOS = 'model-photos';
 const BUCKET_TUNED = 'closet-tuned';
 const BUCKET_GENERATED = 'tryon-generated';
+const TRYON_CACHE_PREFIX = 'tryon:nano-v1';
 
 export interface GenerateTryonInput {
   generationId: string;
   userId: string;
   selfieId: string;
   itemId: string;
+  /** Default try-ons prefer the user's generated model photo. Explicit
+   *  selfie swaps keep using that selfie so the control still does what it says. */
+  preferModelPhoto?: boolean;
 }
 
 export interface GenerateTryonResult {
@@ -44,6 +50,17 @@ export interface GenerateTryonResult {
 type GenerationRow = Tables<'tryon_generations'>;
 type SelfieRow = Tables<'selfies'>;
 type ItemRow = Tables<'closet_items'>;
+
+interface ModelPhotoRow {
+  model_photo_id: string;
+  storage_key: string | null;
+}
+
+interface PersonReference {
+  image: Buffer;
+  cacheKey: string;
+  label: string;
+}
 
 export async function generateTryon(
   cfg: ImageWorkerConfig,
@@ -89,25 +106,11 @@ export async function generateTryon(
   }
 
   try {
-    // 2. Selfie bytes.
-    step('extracting your selfie from Supabase storage...');
-    const selfieRaw = await fetchSelfie(supabase, input.userId, input.selfieId);
-    step(`got selfie (${(selfieRaw.length / 1024).toFixed(0)} KB raw)`);
-
-    // 2b. Downscale. iPhone selfies are 8-12 MP raw, but IDM-VTON
-    // internally works at ~1024px tall. Sending a 5 MB JPEG balloons
-    // to ~7 MB after base64 in the Replicate JSON body and causes the
-    // upload to time out / drop ("fetch failed"). 1280px on the long
-    // side is plenty for the model and keeps the request body small.
-    // `.rotate()` also normalises EXIF orientation so we don't try on
-    // a sideways person.
-    step('downscaling selfie to ≤1280px for Replicate...');
-    const selfie = await sharp(selfieRaw)
-      .rotate()
-      .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 88 })
-      .toBuffer();
-    step(`downscaled selfie (${(selfie.length / 1024).toFixed(0)} KB)`);
+    // 2. Person reference. Default "put this on me" generations use the
+    // model photo created from selfies; explicit selfie swaps use that
+    // selected selfie instead.
+    const person = await resolvePersonReference(supabase, input, step);
+    step(`using ${person.label} as person reference (${(person.image.length / 1024).toFixed(0)} KB)`);
 
     // 3. Garment bytes.
     step('extracting garment photo from closet-tuned bucket...');
@@ -120,11 +123,11 @@ export async function generateTryon(
 
     // 5. Generate.
     step(
-      `prompting Replicate IDM-VTON: put "${itemMeta.name}" on this person`,
+      `prompting Replicate Nano Banana Pro: put "${itemMeta.name}" on this person`,
     );
     const provider = getTryonProvider(cfg);
     const out = await provider.generate({
-      humanImage: selfie,
+      humanImage: person.image,
       garmentImage: garment,
       garmentDescription: itemMeta.name,
       category: itemMeta.category,
@@ -154,7 +157,7 @@ export async function generateTryon(
       .update({
         status: 'READY',
         generated_storage_key: key,
-        provider_id: out.providerId ?? null,
+        provider_id: `${TRYON_CACHE_PREFIX}:${person.cacheKey}:${out.providerId ?? 'mock'}`,
         completed_at: new Date().toISOString(),
       })
       .eq('generation_id', input.generationId);
@@ -211,6 +214,80 @@ async function fetchSelfie(
     );
   }
   return Buffer.from(await blob.arrayBuffer());
+}
+
+async function resolvePersonReference(
+  supabase: SupabaseClient,
+  input: GenerateTryonInput,
+  step: (msg: string) => void,
+): Promise<PersonReference> {
+  if (input.preferModelPhoto) {
+    try {
+      step('looking for latest READY model photo...');
+      const model = await fetchLatestModelPhoto(supabase, input.userId);
+      if (model) {
+        step(`found model photo ${model.modelPhotoId.slice(0, 5)}; preparing it for try-on...`);
+        return {
+          image: await preparePersonImage(model.image),
+          cacheKey: `model:${model.modelPhotoId}`,
+          label: `model photo ${model.modelPhotoId.slice(0, 5)}`,
+        };
+      }
+      step('no READY model photo yet; falling back to selected selfie');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown error';
+      step(`model photo unavailable (${msg}); falling back to selected selfie`);
+    }
+  }
+
+  step('extracting selfie from Supabase storage...');
+  const selfieRaw = await fetchSelfie(supabase, input.userId, input.selfieId);
+  step(`got selfie (${(selfieRaw.length / 1024).toFixed(0)} KB raw)`);
+  return {
+    image: await preparePersonImage(selfieRaw),
+    cacheKey: `selfie:${input.selfieId}`,
+    label: `selfie ${input.selfieId.slice(0, 5)}`,
+  };
+}
+
+async function preparePersonImage(raw: Buffer): Promise<Buffer> {
+  return sharp(raw)
+    .rotate()
+    .resize({ width: 1280, height: 1707, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 88 })
+    .toBuffer();
+}
+
+async function fetchLatestModelPhoto(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ modelPhotoId: string; image: Buffer } | null> {
+  const { data, error } = await supabase
+    .from('model_photos')
+    .select('model_photo_id, storage_key')
+    .eq('user_id', userId)
+    .eq('status', 'READY')
+    .not('storage_key', 'is', null)
+    .order('completed_at', { ascending: false })
+    .limit(1);
+  if (error) {
+    throw new Error(`model photo lookup failed: ${error.message}`);
+  }
+  const row = ((data ?? []) as Pick<ModelPhotoRow, 'model_photo_id' | 'storage_key'>[])[0];
+  if (!row?.storage_key) return null;
+
+  const { data: blob, error: dlErr } = await supabase.storage
+    .from(BUCKET_MODEL_PHOTOS)
+    .download(row.storage_key);
+  if (dlErr || !blob) {
+    throw new Error(
+      `model photo download ${BUCKET_MODEL_PHOTOS}/${row.storage_key} failed: ${dlErr?.message ?? 'no body'}`,
+    );
+  }
+  return {
+    modelPhotoId: row.model_photo_id,
+    image: Buffer.from(await blob.arrayBuffer()),
+  };
 }
 
 async function fetchTunedItem(

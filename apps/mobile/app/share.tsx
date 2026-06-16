@@ -44,6 +44,13 @@ import { useSession } from '@/lib/auth/SessionProvider';
 // "Choose recipients" follow-up that needs a hangout + friend picker.
 type SimpleVisibility = Extract<OOTDVisibility, 'PUBLIC' | 'FRIENDS'>;
 
+function suggestedCaptionFor(combo: Combination, hasTryonImage: boolean): string {
+  const name = combo.name.trim() || 'this look';
+  return hasTryonImage
+    ? `Trying on ${name}. What do you think?`
+    : `Wearing ${name} today. What do you think?`;
+}
+
 export default function ShareScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -89,7 +96,10 @@ export default function ShareScreen() {
   const [loading, setLoading] = useState(initialCombo == null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [caption, setCaption] = useState('');
+  const [caption, setCaption] = useState(() =>
+    initialCombo ? suggestedCaptionFor(initialCombo, tryonImageUrl != null) : '',
+  );
+  const [captionEdited, setCaptionEdited] = useState(false);
   const [location, setLocation] = useState('');
   const [visibility, setVisibility] = useState<SimpleVisibility>('FRIENDS');
   const [submitting, setSubmitting] = useState(false);
@@ -140,6 +150,11 @@ export default function ShareScreen() {
       ctrl.abort();
     };
   }, [params.comboId, me, combo]);
+
+  useEffect(() => {
+    if (captionEdited || !combo || caption.trim().length > 0) return;
+    setCaption(suggestedCaptionFor(combo, tryonImageUrl != null));
+  }, [caption, captionEdited, combo, tryonImageUrl]);
 
   const canSubmit = !submitting && combo != null;
 
@@ -268,8 +283,11 @@ export default function ShareScreen() {
                   </Text>
                   <TextInput
                     value={caption}
-                    onChangeText={setCaption}
-                    placeholder="Say something about this look…"
+                    onChangeText={(text) => {
+                      setCaptionEdited(true);
+                      setCaption(text);
+                    }}
+                    placeholder="Add a caption..."
                     placeholderTextColor={theme.color.text.tertiary}
                     multiline
                     maxLength={280}

@@ -1,19 +1,20 @@
 // POST /tryon — generate a try-on photo of the caller wearing a combination.
 //
-// SPEC §10.10 (Wear-this) PR C. Synchronous v1: blocks for ~15-30s while
-// the image-worker calls Replicate IDM-VTON. The caller is the mobile
+// SPEC §10.10 (Wear-this) PR C. Synchronous v1: blocks while
+// the image-worker calls the Replicate try-on provider. The caller is the mobile
 // Try-on preview screen, which shows a loading state during the wait.
 //
 // Steps:
 //   1. Validate the body and require auth.
 //   2. Resolve the selfie: caller-supplied selfieId, else the most-recent.
+//      Default try-ons may use the user's latest model photo downstream.
 //   3. Resolve the combination and pick the garment item to wear. v1
 //      picks the first item by position that the model can actually try
 //      on (DRESS > TOP > OUTERWEAR > BOTTOM; SHOE/BAG/ACCESSORY are
 //      skipped).
 //   4. Idempotency cache: if a READY generation already exists for this
-//      (user, selfie, combo, item) triple, return it without spending a
-//      Replicate call.
+//      (user, person source, combo, item) tuple, return it without spending
+//      a Replicate call.
 //   5. Insert a new `tryon_generations` row (status=PENDING). The DB
 //      trigger enforces the 250/day cap and surfaces a clear exception
 //      if exceeded.
@@ -36,8 +37,9 @@ import { validate } from '../../middleware/validate';
 import { config } from '../../lib/config';
 import { signDownloadUrl } from '../../lib/storage';
 
-/** Categories IDM-VTON can actually try on, in our preferred wear order. */
+/** Categories worth trying on, in our preferred wear order. */
 const WEARABLE_ORDER: ClothingCategory[] = ['DRESS', 'TOP', 'OUTERWEAR', 'BOTTOM'];
+const TRYON_CACHE_PREFIX = 'tryon:nano-v1';
 
 type GenerationRow = Tables<'tryon_generations'>;
 
@@ -66,6 +68,15 @@ export const createTryonHandler: Handler = async (ctx) => {
   const itemId = await pickPrimaryGarment(supabase, body.comboId);
   log(`picked garment item ${itemId.slice(0, 5)} from combo`);
 
+  const preferModelPhoto = body.selfieId == null;
+  const cacheSource = await resolveTryonCacheSource(
+    supabase,
+    userId,
+    selfieId,
+    preferModelPhoto,
+  );
+  log(`cache source is ${cacheSource.label}`);
+
   // 4. Idempotency: return a cached READY generation if one exists.
   const { data: cachedRows, error: cachedErr } = await supabase
     .from('tryon_generations')
@@ -75,6 +86,7 @@ export const createTryonHandler: Handler = async (ctx) => {
     .eq('combo_id', body.comboId)
     .eq('item_id', itemId)
     .eq('status', 'READY')
+    .like('provider_id', cacheSource.providerIdPattern)
     .order('completed_at', { ascending: false })
     .limit(1);
   if (cachedErr) {
@@ -113,7 +125,7 @@ export const createTryonHandler: Handler = async (ctx) => {
   if (!row) {
     throw new ApiError(500, 'DB_ERROR', 'insert returned no row');
   }
-  log(`inserted PENDING row ${row.generation_id.slice(0, 5)} — calling image-worker (blocks 15-30s)`);
+  log(`inserted PENDING row ${row.generation_id.slice(0, 5)} — calling image-worker`);
 
   // 6. Fire the worker synchronously.
   await callWorker({
@@ -121,6 +133,7 @@ export const createTryonHandler: Handler = async (ctx) => {
     userId,
     selfieId,
     itemId,
+    preferModelPhoto,
   });
   log(`image-worker returned for ${row.generation_id.slice(0, 5)} — reading final row`);
 
@@ -228,6 +241,7 @@ async function callWorker(payload: {
   userId: string;
   selfieId: string;
   itemId: string;
+  preferModelPhoto: boolean;
 }): Promise<void> {
   const url = `${config.imageWorkerUrl.replace(/\/$/, '')}/tryon`;
   const headers: Record<string, string> = { 'content-type': 'application/json' };
@@ -250,6 +264,47 @@ async function callWorker(payload: {
   }
   // Worker returns 200 even on FAILED status — the row's authoritative
   // state is what we re-read next. So nothing to do with the body here.
+}
+
+async function resolveTryonCacheSource(
+  supabase: import('@supabase/supabase-js').SupabaseClient,
+  userId: string,
+  selfieId: string,
+  preferModelPhoto: boolean,
+): Promise<{ providerIdPattern: string; label: string }> {
+  if (preferModelPhoto) {
+    const modelPhotoId = await pickLatestReadyModelPhotoId(supabase, userId);
+    if (modelPhotoId) {
+      return {
+        providerIdPattern: `${TRYON_CACHE_PREFIX}:model:${modelPhotoId}:%`,
+        label: `model photo ${modelPhotoId.slice(0, 5)}`,
+      };
+    }
+  }
+
+  return {
+    providerIdPattern: `${TRYON_CACHE_PREFIX}:selfie:${selfieId}:%`,
+    label: `selfie ${selfieId.slice(0, 5)}`,
+  };
+}
+
+async function pickLatestReadyModelPhotoId(
+  supabase: import('@supabase/supabase-js').SupabaseClient,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('model_photos')
+    .select('model_photo_id')
+    .eq('user_id', userId)
+    .eq('status', 'READY')
+    .not('storage_key', 'is', null)
+    .order('completed_at', { ascending: false })
+    .limit(1);
+  if (error) {
+    throw new ApiError(500, 'DB_ERROR', `model photo lookup failed: ${error.message}`);
+  }
+  const row = ((data ?? []) as { model_photo_id: string }[])[0];
+  return row?.model_photo_id ?? null;
 }
 
 async function mapGeneration(row: GenerationRow): Promise<TryonGeneration> {

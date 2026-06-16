@@ -1,12 +1,12 @@
 // POST /tryon
 //
 // Called by the api Lambda after it creates a `tryon_generations` row.
-// Synchronous in v1: blocks for ~15-30s while we call Replicate IDM-VTON,
+// Synchronous in v1: blocks while we call the Replicate try-on provider,
 // then returns the terminal state of the row (READY or FAILED). The
 // caller surfaces that back to the mobile screen.
 //
 // Body shape:
-//   { generationId, userId, selfieId, itemId }
+//   { generationId, userId, selfieId, itemId, preferModelPhoto? }
 //
 // All four ids are required. We do NOT re-validate user ownership here —
 // the api Lambda already RLS-checked it. This route is server-to-server.
@@ -28,6 +28,7 @@ interface TryonBody {
   userId: string;
   selfieId: string;
   itemId: string;
+  preferModelPhoto?: boolean;
 }
 
 export const tryonRoute: FastifyPluginAsync<RouteOptions> = async (
@@ -64,7 +65,10 @@ export const tryonRoute: FastifyPluginAsync<RouteOptions> = async (
       const result = await generateTryon(
         opts.config,
         opts.supabase,
-        body,
+        {
+          ...body,
+          preferModelPhoto: body.preferModelPhoto === true,
+        },
         {
           info: (m, c) => app.log.info(c ?? {}, m),
           warn: (m, c) => app.log.warn(c ?? {}, m),

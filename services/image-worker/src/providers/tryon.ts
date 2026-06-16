@@ -1,15 +1,8 @@
-// Try-on provider — wraps Replicate IDM-VTON (cuuupid/idm-vton).
+// Try-on provider - wraps Replicate google/nano-banana-pro.
 //
-// SPEC §10.10 (Wear-this) generation flow. Given a person photo (selfie)
-// and a garment photo (closet item's `tuned` image), returns the bytes
-// of a generated photo of the person wearing the garment.
-//
-// IDM-VTON model docs: https://replicate.com/cuuupid/idm-vton
-// Required inputs:
-//   human_img    — URL or data: URI of the person photo
-//   garm_img     — URL or data: URI of the garment photo
-//   garment_des  — short text description of the garment (e.g. "white linen midi dress")
-//   category     — "upper_body" | "lower_body" | "dresses"
+// SPEC §10.10 (Wear-this) generation flow. Given a person/model reference
+// photo and a garment photo (closet item's `tuned` image), returns the
+// bytes of a generated photo of the person wearing the garment.
 //
 // Two implementations:
 //   MockTryonProvider — returns the human image bytes untouched. Lets
@@ -17,20 +10,20 @@
 //                       output is "you, unchanged" instead of "you in
 //                       the dress" which is obviously wrong but
 //                       diagnostic-friendly.
-//   RealTryonProvider — posts to Replicate, polls until done, downloads
-//                       the resulting image bytes.
+//   RealTryonProvider — uses Nano Banana Pro image editing with the person
+//                       image as reference 1 and garment image as reference 2.
 
 import type { ClothingCategory } from '@mei/types';
 import type { ImageWorkerConfig } from '../config';
 
 export interface TryonInput {
-  /** Raw bytes of the user's selfie. */
+  /** Raw bytes of the person/model reference image. */
   humanImage: Buffer;
   /** Raw bytes of the garment photo (typically the closet item's tuned/webp). */
   garmentImage: Buffer;
   /** Free-text garment description for the model — usually the item's name. */
   garmentDescription: string;
-  /** Mei `clothing_category`. Maps to IDM-VTON's three-bucket scheme. */
+  /** Mei `clothing_category`. Used to clarify the edit prompt. */
   category: ClothingCategory;
   /** Optional short tag used to prefix step-narrator logs so concurrent
    *  generations stay legible in the dev terminal. */
@@ -38,8 +31,7 @@ export interface TryonInput {
 }
 
 export interface TryonResult {
-  /** Bytes of the generated image. Format follows the model output —
-   *  IDM-VTON returns PNG by default. We re-encode to WebP downstream. */
+  /** Bytes of the generated image. We re-encode to WebP downstream. */
   image: Buffer;
   /** Replicate prediction id, useful for log forensics. */
   providerId?: string;
@@ -49,31 +41,27 @@ export interface TryonProvider {
   generate(input: TryonInput): Promise<TryonResult>;
 }
 
-/** Map Mei clothing categories to IDM-VTON's `category` argument. The
- *  model only accepts three values; anything else (SHOE, BAG, etc.)
- *  has no meaningful try-on output. Callers should pre-filter — the
- *  provider throws a clear error rather than silently returning the
- *  wrong thing. */
-export function idmVtonCategoryFor(c: ClothingCategory): 'upper_body' | 'lower_body' | 'dresses' {
+function categoryLabelFor(c: ClothingCategory): string {
   switch (c) {
     case 'DRESS':
-      return 'dresses';
+      return 'dress or one-piece outfit';
     case 'TOP':
+      return 'top';
     case 'OUTERWEAR':
-      return 'upper_body';
+      return 'outerwear layer';
     case 'BOTTOM':
-      return 'lower_body';
+      return 'bottom';
     case 'SHOE':
+      return 'shoes';
     case 'BAG':
+      return 'bag';
     case 'ACCESSORY':
-      throw new Error(
-        `IDM-VTON cannot try on category=${c}. Pre-filter the combination to a DRESS/TOP/OUTERWEAR/BOTTOM item before generation.`,
-      );
+      return 'accessory';
   }
 }
 
 // ---------------------------------------------------------------------------
-// MockTryonProvider — pass-through (returns the selfie unchanged).
+// MockTryonProvider — pass-through (returns the person reference unchanged).
 // ---------------------------------------------------------------------------
 
 class MockTryonProvider implements TryonProvider {
@@ -83,19 +71,18 @@ class MockTryonProvider implements TryonProvider {
 }
 
 // ---------------------------------------------------------------------------
-// RealTryonProvider — Replicate IDM-VTON.
+// RealTryonProvider - Replicate Nano Banana Pro.
 // ---------------------------------------------------------------------------
 
-// Resolved model version of `cuuupid/idm-vton`. Pinned so a publisher
-// re-release doesn't change our output shape silently. Bump when we
-// re-evaluate the model.
-const IDM_VTON_VERSION = 'cuuupid/idm-vton:c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4';
+const NANO_BANANA_MODEL = 'google/nano-banana-pro';
+const NANO_BANANA_PREDICTIONS_URL =
+  `https://api.replicate.com/v1/models/${NANO_BANANA_MODEL}/predictions`;
 
 // Replicate's prediction lifecycle: starting → processing → succeeded |
 // failed | canceled. We poll until terminal. Cap total wait — a stuck
 // queue shouldn't block /tryon indefinitely.
 const POLL_INTERVAL_MS = 1_500;
-const MAX_WAIT_MS = 90_000;
+const MAX_WAIT_MS = 120_000;
 
 class RealTryonProvider implements TryonProvider {
   constructor(private readonly apiToken: string) {}
@@ -106,37 +93,41 @@ class RealTryonProvider implements TryonProvider {
     const log = (msg: string) => console.log(`[tryon ${tag}] ${msg}`);
     const elapsed = () => ((Date.now() - t0) / 1000).toFixed(1);
 
-    // Convert both image buffers to data URIs so we don't need to upload
-    // them to a public CDN first. Replicate accepts data: URIs for image
-    // inputs. ~3 MB selfies stay well under the request size limit.
+    // Convert both image buffers to data URIs so we don't need to upload them
+    // to a public CDN first. Reference order matters to the prompt below:
+    // first is the person/model, second is the cleaned garment.
     log(
-      `encoding image inputs as data URIs (selfie ${(input.humanImage.length / 1024).toFixed(0)} KB, garment ${(input.garmentImage.length / 1024).toFixed(0)} KB)`,
+      `encoding image inputs as data URIs (person ${(input.humanImage.length / 1024).toFixed(0)} KB, garment ${(input.garmentImage.length / 1024).toFixed(0)} KB)`,
     );
     const humanDataUri = toDataUri(input.humanImage);
     const garmDataUri = toDataUri(input.garmentImage);
+    const prompt = buildTryonPrompt(input);
 
     // 1. Create the prediction.
-    log('POST https://api.replicate.com/v1/predictions');
-    const createRes = await fetch('https://api.replicate.com/v1/predictions', {
+    log(`POST Replicate ${NANO_BANANA_MODEL} try-on edit`);
+    const createRes = await fetch(NANO_BANANA_PREDICTIONS_URL, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${this.apiToken}`,
         'content-type': 'application/json',
+        prefer: 'wait=60',
       },
       body: JSON.stringify({
-        version: IDM_VTON_VERSION.split(':')[1],
         input: {
-          human_img: humanDataUri,
-          garm_img: garmDataUri,
-          garment_des: input.garmentDescription,
-          category: idmVtonCategoryFor(input.category),
+          prompt,
+          image_input: [humanDataUri, garmDataUri],
+          aspect_ratio: '3:4',
+          resolution: '1K',
+          output_format: 'jpg',
+          safety_filter_level: 'block_medium_and_above',
+          allow_fallback_model: false,
         },
       }),
     });
     if (!createRes.ok) {
       const body = await safeText(createRes);
       throw new Error(
-        `Replicate predictions.create failed: ${createRes.status} ${body.slice(0, 240)}`,
+        `Replicate ${NANO_BANANA_MODEL} create failed: ${createRes.status} ${body.slice(0, 240)}`,
       );
     }
     const created = (await createRes.json()) as ReplicatePrediction;
@@ -162,7 +153,7 @@ class RealTryonProvider implements TryonProvider {
       if (!getRes.ok) {
         const body = await safeText(getRes);
         throw new Error(
-          `Replicate predictions.get ${id} failed: ${getRes.status} ${body.slice(0, 240)}`,
+          `Replicate prediction ${id} get failed: ${getRes.status} ${body.slice(0, 240)}`,
         );
       }
       pred = (await getRes.json()) as ReplicatePrediction;
@@ -180,9 +171,8 @@ class RealTryonProvider implements TryonProvider {
     }
     log(`prediction ${id} succeeded after ${elapsed()}s`);
 
-    // 3. Download the resulting image. IDM-VTON returns a single URL
-    //    (string) in `output`. Some models return an array; we accept
-    //    both shapes defensively.
+    // 3. Download the resulting image. Replicate model outputs vary between
+    //    a single URL string and an array; accept both shapes defensively.
     const outputUrl = Array.isArray(pred.output)
       ? pred.output[0]
       : typeof pred.output === 'string'
@@ -195,12 +185,12 @@ class RealTryonProvider implements TryonProvider {
     const imgRes = await fetch(outputUrl);
     if (!imgRes.ok) {
       throw new Error(
-        `Failed to download IDM-VTON output from ${outputUrl}: ${imgRes.status}`,
+        `Failed to download ${NANO_BANANA_MODEL} output from ${outputUrl}: ${imgRes.status}`,
       );
     }
     const buf = Buffer.from(await imgRes.arrayBuffer());
     log(`downloaded ${(buf.length / 1024).toFixed(0)} KB`);
-    return { image: buf, providerId: id };
+    return { image: buf, providerId: `${NANO_BANANA_MODEL}:${id}` };
   }
 }
 
@@ -227,9 +217,23 @@ interface ReplicatePrediction {
 }
 
 function toDataUri(buf: Buffer): string {
-  // IDM-VTON accepts JPEG/PNG/WebP. We don't sniff — pass through as
-  // image/jpeg, which the model handles regardless of true format.
+  // Nano Banana accepts JPEG/PNG/WebP data URIs. We normalize upstream, so
+  // image/jpeg is a safe transport label here.
   return `data:image/jpeg;base64,${buf.toString('base64')}`;
+}
+
+function buildTryonPrompt(input: TryonInput): string {
+  const category = categoryLabelFor(input.category);
+  return [
+    'Edit the first image only. The first image is the person/model reference and the second image is the garment reference.',
+    `Dress the person/model in the garment from the second image: "${input.garmentDescription}" (${category}).`,
+    'Preserve the same face identity, skin tone, hairstyle, body shape, pose, proportions, camera angle, and overall framing from the first image.',
+    'Make the body slightly lean, flattering, natural, and photogenic, but do not make a different person.',
+    'Preserve the real garment color, pattern, fabric texture, neckline, sleeves, length, silhouette, buttons, hardware, and distinctive details from the second image.',
+    'For a dress, replace the full outfit with the dress. For a top or outerwear, replace only the upper-body garment and keep simple neutral lower-body clothing. For bottoms, replace only the lower-body garment.',
+    'Make the result look like a clean fashion try-on photo with realistic fit, fabric drape, shadows, and body contact.',
+    'No extra people, no duplicate bodies, no mannequins, no hangers, no text, no logo, no messy background, no distorted hands or face.',
+  ].join(' ');
 }
 
 function sleep(ms: number): Promise<void> {
