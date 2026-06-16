@@ -36,8 +36,10 @@ export function OutfitCard({ combination, name, items, style }: OutfitCardProps)
     return {
       bg: palette[key],
       // Prefer the small thumbnail (image-worker output). Fall back to the
-      // tuned full-size if the worker hasn't produced a thumb yet.
-      uri: item?.thumbnailUrl || item?.tunedPhotoUrl || null,
+      // tuned full-size, then the raw upload if the worker hasn't produced
+      // processed assets yet. This keeps brand-new combinations from looking
+      // empty while closet processing catches up.
+      uri: item?.thumbnailUrl || item?.tunedPhotoUrl || item?.rawPhotoUrl || null,
     };
   });
 
@@ -71,6 +73,7 @@ export function OutfitCard({ combination, name, items, style }: OutfitCardProps)
             {slot.uri ? (
               <Image
                 source={{ uri: slot.uri }}
+                resizeMode="cover"
                 style={StyleSheet.absoluteFill}
                 accessibilityIgnoresInvertColors
               />
