@@ -11,7 +11,10 @@ import { WeatherStrip } from '@/components/today/WeatherStrip';
 import { CalendarStrip } from '@/components/today/CalendarStrip';
 import { TodaysPickCard } from '@/components/today/TodaysPickCard';
 import { TodaysPickEmptyCard } from '@/components/today/TodaysPickEmptyCard';
-import { ClosetStarterCarousel } from '@/components/today/ClosetStarterCarousel';
+import {
+  ClosetStarterCarousel,
+  type SuggestedTodayLook,
+} from '@/components/today/ClosetStarterCarousel';
 import { CommunityStrip } from '@/components/today/CommunityStrip';
 import { FashionNowStrip } from '@/components/today/FashionNowStrip';
 import {
@@ -28,6 +31,7 @@ import { useCombinationLikes } from '@/lib/hooks/useCombinationLikes';
 import { useCalendarEventsSync } from '@/lib/hooks/useCalendarEventsSync';
 import { useWeatherLocationSync } from '@/lib/hooks/useWeatherLocationSync';
 import { postAnotherPick } from '@/lib/api/today';
+import { createCombination } from '@/lib/api/closet';
 import { ApiError } from '@/lib/api/client';
 
 export default function TodayScreen() {
@@ -58,6 +62,8 @@ export default function TodayScreen() {
   const [seenComboIds, setSeenComboIds] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
+  const [creatingSuggestedLookId, setCreatingSuggestedLookId] = useState<string | null>(null);
+  const [suggestedLookError, setSuggestedLookError] = useState<string | null>(null);
 
   // Today’s date in the device's local timezone. Re-rendered on each open.
   const today = useMemo(() => new Date(), []);
@@ -195,6 +201,38 @@ export default function TodayScreen() {
     } as never);
   };
 
+  const handleWearSuggestedLook = async (look: SuggestedTodayLook) => {
+    if (creatingSuggestedLookId) return;
+    setCreatingSuggestedLookId(look.id);
+    setSuggestedLookError(null);
+    try {
+      const combo = await createCombination({
+        name: look.name,
+        itemIds: look.items.map((item) => item.itemId),
+        source: 'TODAY_PICK',
+      });
+      setOverridePick(combo);
+      setSeenComboIds((prev) => Array.from(new Set([...prev, combo.comboId])));
+      router.push({
+        pathname: '/tryon',
+        params: {
+          comboId: combo.comboId,
+          comboJson: JSON.stringify(combo),
+        },
+      } as never);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not prepare this look';
+      setSuggestedLookError(msg);
+    } finally {
+      setCreatingSuggestedLookId(null);
+    }
+  };
+
   return (
     <Screen>
       <ScrollView
@@ -253,8 +291,10 @@ export default function TodayScreen() {
           <ClosetStarterCarousel
             items={closetItems}
             selfieCount={selfieCount}
+            creatingLookId={creatingSuggestedLookId}
+            errorMessage={suggestedLookError}
             onAddClothes={() => router.navigate('/closet' as never)}
-            onCraftLook={() => router.push('/craft-a-look' as never)}
+            onWearSuggestedLook={(look) => void handleWearSuggestedLook(look)}
             onViewSelfies={() => router.push('/selfies')}
           />
         ) : (
