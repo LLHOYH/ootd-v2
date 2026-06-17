@@ -83,6 +83,8 @@ const NANO_BANANA_PREDICTIONS_URL =
 // queue shouldn't block /tryon indefinitely.
 const POLL_INTERVAL_MS = 1_500;
 const MAX_WAIT_MS = 120_000;
+const CREATE_RETRY_LIMIT = 3;
+const CREATE_RETRY_FALLBACK_MS = 12_000;
 
 class RealTryonProvider implements TryonProvider {
   constructor(private readonly apiToken: string) {}
@@ -102,34 +104,25 @@ class RealTryonProvider implements TryonProvider {
     const humanDataUri = toDataUri(input.humanImage);
     const garmDataUri = toDataUri(input.garmentImage);
     const prompt = buildTryonPrompt(input);
+    const predictionBody = JSON.stringify({
+      input: {
+        prompt,
+        image_input: [humanDataUri, garmDataUri],
+        aspect_ratio: '3:4',
+        resolution: '1K',
+        output_format: 'jpg',
+        safety_filter_level: 'block_medium_and_above',
+        allow_fallback_model: false,
+      },
+    });
 
     // 1. Create the prediction.
     log(`POST Replicate ${NANO_BANANA_MODEL} try-on edit`);
-    const createRes = await fetch(NANO_BANANA_PREDICTIONS_URL, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${this.apiToken}`,
-        'content-type': 'application/json',
-        prefer: 'wait=60',
-      },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          image_input: [humanDataUri, garmDataUri],
-          aspect_ratio: '3:4',
-          resolution: '1K',
-          output_format: 'jpg',
-          safety_filter_level: 'block_medium_and_above',
-          allow_fallback_model: false,
-        },
-      }),
+    const createRes = await createPredictionWithRetry({
+      apiToken: this.apiToken,
+      body: predictionBody,
+      log,
     });
-    if (!createRes.ok) {
-      const body = await safeText(createRes);
-      throw new Error(
-        `Replicate ${NANO_BANANA_MODEL} create failed: ${createRes.status} ${body.slice(0, 240)}`,
-      );
-    }
     const created = (await createRes.json()) as ReplicatePrediction;
     const id = created.id;
     if (!id) {
@@ -192,6 +185,52 @@ class RealTryonProvider implements TryonProvider {
     log(`downloaded ${(buf.length / 1024).toFixed(0)} KB`);
     return { image: buf, providerId: `${NANO_BANANA_MODEL}:${id}` };
   }
+}
+
+async function createPredictionWithRetry(input: {
+  apiToken: string;
+  body: string;
+  log: (msg: string) => void;
+}): Promise<Response> {
+  let lastBody = '';
+  for (let attempt = 1; attempt <= CREATE_RETRY_LIMIT; attempt += 1) {
+    const createRes = await fetch(NANO_BANANA_PREDICTIONS_URL, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${input.apiToken}`,
+        'content-type': 'application/json',
+        prefer: 'wait=60',
+      },
+      body: input.body,
+    });
+
+    if (createRes.ok) return createRes;
+
+    lastBody = await safeText(createRes);
+    if (createRes.status !== 429 || attempt === CREATE_RETRY_LIMIT) {
+      throw new Error(
+        `Replicate ${NANO_BANANA_MODEL} create failed: ${createRes.status} ${lastBody.slice(0, 240)}`,
+      );
+    }
+
+    const waitMs = retryDelayMs(createRes, lastBody);
+    input.log(
+      `Replicate throttled prediction create; retrying in ${(waitMs / 1000).toFixed(0)}s (attempt ${attempt + 1}/${CREATE_RETRY_LIMIT})`,
+    );
+    await sleep(waitMs);
+  }
+
+  throw new Error(
+    `Replicate ${NANO_BANANA_MODEL} create failed: 429 ${lastBody.slice(0, 240)}`,
+  );
+}
+
+function retryDelayMs(res: Response, body: string): number {
+  const header = Number(res.headers.get('retry-after'));
+  if (Number.isFinite(header) && header > 0) return header * 1000 + 1_500;
+  const match = body.match(/"retry_after"\s*:\s*(\d+)/);
+  if (match?.[1]) return Number(match[1]) * 1000 + 1_500;
+  return CREATE_RETRY_FALLBACK_MS;
 }
 
 // ---------------------------------------------------------------------------
