@@ -22,8 +22,8 @@ export const zTryonGeneration = z.object({
   userId: z.string(),
   selfieId: z.string(),
   comboId: z.string(),
-  /** The single item within `comboId` that was the garment input. v1
-   *  picks one per generation; v2 may chain multiple passes. */
+  /** Primary garment within `comboId`. The worker may render multiple combo
+   *  items, but this stays as a stable legacy/index field. */
   itemId: z.string(),
   status: zTryonStatus,
   /** Short-lived signed URL for the generated image when status='READY'.

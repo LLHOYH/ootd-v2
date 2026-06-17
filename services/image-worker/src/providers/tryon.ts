@@ -1,15 +1,15 @@
 // Try-on provider - wraps Replicate google/nano-banana-pro.
 //
 // SPEC §10.10 (Wear-this) generation flow. Given a person/model reference
-// photo and a garment photo (closet item's `tuned` image), returns the
-// bytes of a generated photo of the person wearing the garment.
+// photo and one or more garment photos (closet item `tuned` images), returns
+// the bytes of a generated photo of the person wearing the combo.
 //
 // Two implementations:
 //   MockTryonProvider — fails loudly. Returning the person reference
 //                       unchanged looks like a successful try-on in the app,
 //                       so dogfooding should not allow it.
 //   RealTryonProvider — uses Nano Banana Pro image editing with the person
-//                       image as reference 1 and garment image as reference 2.
+//                       image as reference 1 and combo garments after it.
 
 import type { ClothingCategory } from '@mei/types';
 import type { ImageWorkerConfig } from '../config';
@@ -17,12 +17,15 @@ import type { ImageWorkerConfig } from '../config';
 export interface TryonInput {
   /** Raw bytes of the person/model reference image. */
   humanImage: Buffer;
-  /** Raw bytes of the garment photo (typically the closet item's tuned/webp). */
-  garmentImage: Buffer;
-  /** Free-text garment description for the model — usually the item's name. */
-  garmentDescription: string;
-  /** Mei `clothing_category`. Used to clarify the edit prompt. */
-  category: ClothingCategory;
+  /** Garment references from the selected closet combination. */
+  garments: {
+    /** Raw bytes of the garment photo (typically closet item's tuned/webp). */
+    image: Buffer;
+    /** Free-text garment description for the model — usually the item's name. */
+    description: string;
+    /** Mei `clothing_category`. Used to clarify the edit prompt. */
+    category: ClothingCategory;
+  }[];
   /** Optional short tag used to prefix step-narrator logs so concurrent
    *  generations stay legible in the dev terminal. */
   logTag?: string;
@@ -90,6 +93,10 @@ class RealTryonProvider implements TryonProvider {
   constructor(private readonly apiToken: string) {}
 
   async generate(input: TryonInput): Promise<TryonResult> {
+    if (input.garments.length === 0) {
+      throw new Error('Try-on generation needs at least one garment reference.');
+    }
+
     const tag = input.logTag ?? 'replicate';
     const t0 = Date.now();
     const log = (msg: string) => console.log(`[tryon ${tag}] ${msg}`);
@@ -97,17 +104,17 @@ class RealTryonProvider implements TryonProvider {
 
     // Convert both image buffers to data URIs so we don't need to upload them
     // to a public CDN first. Reference order matters to the prompt below:
-    // first is the person/model, second is the cleaned garment.
+    // first is the person/model, then the selected combo garment references.
     log(
-      `encoding image inputs as data URIs (person ${(input.humanImage.length / 1024).toFixed(0)} KB, garment ${(input.garmentImage.length / 1024).toFixed(0)} KB)`,
+      `encoding image inputs as data URIs (person ${(input.humanImage.length / 1024).toFixed(0)} KB, garments ${input.garments.map((g) => `${(g.image.length / 1024).toFixed(0)} KB`).join(', ')})`,
     );
     const humanDataUri = toDataUri(input.humanImage);
-    const garmDataUri = toDataUri(input.garmentImage);
+    const garmentDataUris = input.garments.map((garment) => toDataUri(garment.image));
     const prompt = buildTryonPrompt(input);
     const predictionBody = JSON.stringify({
       input: {
         prompt,
-        image_input: [humanDataUri, garmDataUri],
+        image_input: [humanDataUri, ...garmentDataUris],
         aspect_ratio: '3:4',
         resolution: '1K',
         output_format: 'jpg',
@@ -262,15 +269,24 @@ function toDataUri(buf: Buffer): string {
 }
 
 function buildTryonPrompt(input: TryonInput): string {
-  const category = categoryLabelFor(input.category);
+  const garmentLines = input.garments
+    .map((garment, index) => {
+      const label = garment.description.trim() || `closet item ${index + 1}`;
+      return `Reference image ${index + 2}: "${label}" (${categoryLabelFor(garment.category)}).`;
+    })
+    .join('\n');
+  const hasMultipleGarments = input.garments.length > 1;
   return [
-    'Edit the first image only. The first image is the person/model reference and the second image is the garment reference.',
-    `Dress the person/model in the garment from the second image: "${input.garmentDescription}" (${category}).`,
-    'The final image must clearly show the garment from the second image being worn on the person/model from the first image. Do not return the original first image unchanged.',
+    'Edit the first image only. The first image is the person/model reference. The remaining images are clothing and accessory references from one selected outfit combination.',
+    garmentLines,
+    hasMultipleGarments
+      ? 'Dress the person/model in a coherent complete outfit using all compatible reference garments. If two garments occupy the same body area, choose the more visually dominant one and layer the other only if it looks natural.'
+      : 'Dress the person/model in the garment from the second image.',
+    'The final image must clearly show the selected closet garment references being worn or styled on the person/model from the first image. Do not return the original first image unchanged.',
     'Preserve the same face identity, skin tone, hairstyle, body shape, pose, proportions, camera angle, and overall framing from the first image.',
     'Make the body slightly lean, flattering, natural, and photogenic, but do not make a different person.',
-    'Preserve the real garment color, pattern, fabric texture, neckline, sleeves, length, silhouette, buttons, hardware, and distinctive details from the second image.',
-    'For a dress, replace the full outfit with the dress. For a top or outerwear, replace only the upper-body garment and keep simple neutral lower-body clothing. For bottoms, replace only the lower-body garment.',
+    'Preserve the real garment colors, patterns, fabric textures, necklines, sleeves, lengths, silhouettes, buttons, hardware, and distinctive details from the reference images.',
+    'For a dress, replace the full outfit with the dress. For tops, outerwear, and bottoms, replace the matching body-area garments. Include shoes, bags, and accessories only when they are present and can look natural.',
     'Make the result look like a clean fashion try-on photo with realistic fit, fabric drape, shadows, and body contact.',
     'No extra people, no duplicate bodies, no mannequins, no hangers, no text, no logo, no messy background, no distorted hands or face.',
   ].join(' ');

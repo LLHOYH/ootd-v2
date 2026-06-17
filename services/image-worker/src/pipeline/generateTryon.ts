@@ -6,8 +6,8 @@
 //      Bail if it's already READY (idempotency on retry).
 //   2. Resolve the person reference: latest model photo for default try-ons,
 //      otherwise the selected selfie.
-//   3. Download the garment bytes from the `closet-tuned` bucket.
-//   4. Look up the item's name + category for the model's text/category inputs.
+//   3. Download the combo garment bytes from the `closet-tuned` bucket.
+//   4. Look up item names + categories for the model's text/category inputs.
 //   5. Call the TryonProvider — synchronous, returns image bytes.
 //   6. Re-encode to WebP and upload to `tryon-generated`.
 //   7. Update the row: status=READY, set generated_storage_key, completed_at.
@@ -27,7 +27,8 @@ const BUCKET_SELFIES = 'selfies';
 const BUCKET_MODEL_PHOTOS = 'model-photos';
 const BUCKET_TUNED = 'closet-tuned';
 const BUCKET_GENERATED = 'tryon-generated';
-const TRYON_CACHE_PREFIX = 'tryon:nano-v1';
+const TRYON_CACHE_PREFIX = 'tryon:nano-v2';
+const MAX_GARMENT_REFERENCES = 4;
 
 export interface GenerateTryonInput {
   generationId: string;
@@ -62,6 +63,14 @@ interface PersonReference {
   label: string;
 }
 
+interface GarmentReference {
+  itemId: string;
+  image: Buffer;
+  name: string;
+  category: ClothingCategory;
+  position: number;
+}
+
 export async function generateTryon(
   cfg: ImageWorkerConfig,
   supabase: SupabaseClient,
@@ -89,7 +98,7 @@ export async function generateTryon(
   // 1. Look up the generation row.
   const { data: genData, error: genErr } = await supabase
     .from('tryon_generations')
-    .select('generation_id, status')
+    .select('generation_id, status, combo_id, item_id')
     .eq('generation_id', input.generationId)
     .maybeSingle();
   if (genErr) {
@@ -99,7 +108,7 @@ export async function generateTryon(
   if (!genData) {
     return { status: 'failed', generationId: input.generationId, detail: 'no row' };
   }
-  const genRow = genData as Pick<GenerationRow, 'generation_id' | 'status'>;
+  const genRow = genData as Pick<GenerationRow, 'generation_id' | 'status' | 'combo_id' | 'item_id'>;
   if (genRow.status === 'READY') {
     logger.info('tryon already READY — skipping', ctx);
     return { status: 'already-ready', generationId: input.generationId };
@@ -112,25 +121,27 @@ export async function generateTryon(
     const person = await resolvePersonReference(supabase, input, step);
     step(`using ${person.label} as person reference (${(person.image.length / 1024).toFixed(0)} KB)`);
 
-    // 3. Garment bytes.
-    step('extracting garment photo from closet-tuned bucket...');
-    const garment = await fetchTunedItem(supabase, input.itemId);
-    step(`got garment (${(garment.length / 1024).toFixed(0)} KB)`);
-
-    // 4. Item metadata (name + category) for the model's text inputs.
-    const itemMeta = await fetchItemMeta(supabase, input.itemId);
-    step(`item is "${itemMeta.name}" (${itemMeta.category})`);
+    // 3/4. Garment bytes + metadata. The API row keeps a primary item_id, but
+    // the visual generation should honor the whole selected combo.
+    const garments = await resolveGarmentReferences(
+      supabase,
+      genRow.combo_id,
+      genRow.item_id ?? input.itemId,
+      step,
+    );
 
     // 5. Generate.
     step(
-      `prompting Replicate Nano Banana Pro: put "${itemMeta.name}" on this person`,
+      `prompting Replicate Nano Banana Pro: dress model in ${garments.length} combo item${garments.length === 1 ? '' : 's'}`,
     );
     const provider = getTryonProvider(cfg);
     const out = await provider.generate({
       humanImage: person.image,
-      garmentImage: garment,
-      garmentDescription: itemMeta.name,
-      category: itemMeta.category,
+      garments: garments.map((g) => ({
+        image: g.image,
+        description: g.name,
+        category: g.category,
+      })),
       logTag: shortId,
     });
 
@@ -313,6 +324,134 @@ async function fetchTunedItem(
   if (dlErr || !blob) {
     throw new Error(
       `garment download ${BUCKET_TUNED}/${itemRow.tuned_storage_key} failed: ${dlErr?.message ?? 'no body'}`,
+    );
+  }
+  return Buffer.from(await blob.arrayBuffer());
+}
+
+async function resolveGarmentReferences(
+  supabase: SupabaseClient,
+  comboId: string,
+  fallbackItemId: string,
+  step: (msg: string) => void,
+): Promise<GarmentReference[]> {
+  step('looking up full combo garments...');
+  const { data, error } = await supabase
+    .from('combinations')
+    .select(
+      `combo_id,
+       combination_items (
+         item_id,
+         position,
+         closet_items (
+           item_id,
+           name,
+           category,
+           status,
+           tuned_storage_key
+         )
+       )`,
+    )
+    .eq('combo_id', comboId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`combo ${comboId} lookup failed: ${error.message}`);
+  }
+
+  type JoinedItem = {
+    item_id: string;
+    position: number;
+    closet_items:
+      | {
+          item_id: string;
+          name: string;
+          category: ClothingCategory;
+          status: string;
+          tuned_storage_key: string | null;
+        }
+      | {
+          item_id: string;
+          name: string;
+          category: ClothingCategory;
+          status: string;
+          tuned_storage_key: string | null;
+        }[]
+      | null;
+  };
+  type Joined = { combination_items?: JoinedItem[] | null };
+  const joined = (data as unknown as Joined | null)?.combination_items ?? [];
+  const candidates = joined
+    .map((j) => {
+      const item = Array.isArray(j.closet_items) ? j.closet_items[0] : j.closet_items;
+      if (!item?.tuned_storage_key) return null;
+      return {
+        itemId: j.item_id,
+        position: j.position,
+        name: item.name,
+        category: item.category,
+        storageKey: item.tuned_storage_key,
+      };
+    })
+    .filter(
+      (x): x is {
+        itemId: string;
+        position: number;
+        name: string;
+        category: ClothingCategory;
+        storageKey: string;
+      } => x != null,
+    )
+    .sort((a, b) => a.position - b.position)
+    .slice(0, MAX_GARMENT_REFERENCES);
+
+  if (candidates.length === 0) {
+    step('combo had no tuned garments; falling back to primary item');
+    const image = await fetchTunedItem(supabase, fallbackItemId);
+    const itemMeta = await fetchItemMeta(supabase, fallbackItemId);
+    return [{
+      itemId: fallbackItemId,
+      image,
+      name: itemMeta.name,
+      category: itemMeta.category,
+      position: 0,
+    }];
+  }
+
+  step(
+    `found ${candidates.length} combo garment${candidates.length === 1 ? '' : 's'}: ${
+      candidates
+        .map((item) => `${item.itemId.slice(0, 5)} ${item.category}`)
+        .join(', ')
+    }`,
+  );
+
+  const garments: GarmentReference[] = [];
+  for (const item of candidates) {
+    step(`downloading combo garment ${item.itemId.slice(0, 5)} from closet-tuned...`);
+    const image = await downloadTunedStorageKey(supabase, item.storageKey, item.itemId);
+    step(`got ${item.itemId.slice(0, 5)} (${(image.length / 1024).toFixed(0)} KB)`);
+    garments.push({
+      itemId: item.itemId,
+      image,
+      name: item.name,
+      category: item.category,
+      position: item.position,
+    });
+  }
+  return garments;
+}
+
+async function downloadTunedStorageKey(
+  supabase: SupabaseClient,
+  storageKey: string,
+  itemId: string,
+): Promise<Buffer> {
+  const { data: blob, error: dlErr } = await supabase.storage
+    .from(BUCKET_TUNED)
+    .download(storageKey);
+  if (dlErr || !blob) {
+    throw new Error(
+      `garment download ${BUCKET_TUNED}/${storageKey} for ${itemId} failed: ${dlErr?.message ?? 'no body'}`,
     );
   }
   return Buffer.from(await blob.arrayBuffer());

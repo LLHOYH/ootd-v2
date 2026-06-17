@@ -202,8 +202,8 @@ async function promoteFromCachedReady(
 
 function queuedProviderPrefersModel(providerId: string | null): boolean {
   // New async rows are stamped as:
-  //   tryon:nano-v1:queued:model:<modelPhotoId>
-  //   tryon:nano-v1:queued:selfie:<selfieId>
+  //   tryon:nano-v2:queued:model:<modelPhotoId>
+  //   tryon:nano-v2:queued:selfie:<selfieId>
   // Older PENDING rows predate the stamp; the current product default is
   // model-photo try-ons, so those should prefer model too.
   if (!providerId) return true;

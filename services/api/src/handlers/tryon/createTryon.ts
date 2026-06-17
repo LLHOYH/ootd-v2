@@ -8,10 +8,9 @@
 //   1. Validate the body and require auth.
 //   2. Resolve the selfie: caller-supplied selfieId, else the most-recent.
 //      Default try-ons require the user's latest model photo downstream.
-//   3. Resolve the combination and pick the garment item to wear. v1
-//      picks the first item by position that the model can actually try
-//      on (DRESS > TOP > OUTERWEAR > BOTTOM; SHOE/BAG/ACCESSORY are
-//      skipped).
+//   3. Resolve the combination and pick a primary garment item. The worker
+//      now renders the full combo, but the DB row still keeps one item_id for
+//      legacy queries/indexes.
 //   4. Idempotency cache: if a READY or PENDING generation already exists
 //      for this (user, person source, combo, item) tuple, return it without
 //      spending or queueing another Replicate call.
@@ -34,7 +33,7 @@ import { signDownloadUrl } from '../../lib/storage';
 
 /** Categories worth trying on, in our preferred wear order. */
 const WEARABLE_ORDER: ClothingCategory[] = ['DRESS', 'TOP', 'OUTERWEAR', 'BOTTOM'];
-const TRYON_CACHE_PREFIX = 'tryon:nano-v1';
+const TRYON_CACHE_PREFIX = 'tryon:nano-v2';
 
 type GenerationRow = Tables<'tryon_generations'>;
 
@@ -59,7 +58,8 @@ export const createTryonHandler: Handler = async (ctx) => {
   }
   log(`picked selfie ${selfieId.slice(0, 5)}${body.selfieId ? ' (caller-supplied)' : ' (most recent)'}`);
 
-  // 3. Pick the garment item from the combination.
+  // 3. Pick the primary garment item from the combination. Full-combo image
+  // inputs are resolved by the worker from combo_id when it processes the row.
   const itemId = await pickPrimaryGarment(supabase, body.comboId);
   log(`picked garment item ${itemId.slice(0, 5)} from combo`);
 
