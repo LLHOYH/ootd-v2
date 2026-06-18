@@ -1,61 +1,86 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { Heart } from 'lucide-react-native';
 import { Card, Button, SectionHeader, Thumb, useTheme } from '@mei/ui';
 import type { ClosetItem, Combination } from '@mei/types';
 
-export interface TodaysPickCardProps {
+export interface TodaysPickCarouselItem {
   combination: Combination;
-  /** Resolved items aligned with `combination.itemIds`. Forwarded straight to
-   * the slots render real photos instead of pastel rectangles. */
-  items?: (ClosetItem | undefined)[];
-  /** True when the user has tapped the heart for this combo. Renders a filled
-   * heart instead of an outline. State is owned by the parent so it can later
-   * be persisted to the server without changing this component's shape. */
-  saved?: boolean;
-  /** True while a "Try another" request is in flight. Disables the action and
-   * swaps in a spinner so the user gets clear feedback. */
-  picking?: boolean;
-  /** Optional error from the most recent "Try another" request. Rendered as a
-   * thin caption under the section header so the user knows the swap failed
-   * without a disruptive toast. */
+  /** Resolved items aligned with `combination.itemIds`. */
+  items: (ClosetItem | undefined)[];
+  saved: boolean;
+}
+
+export interface TodaysPickCardProps {
+  picks: TodaysPickCarouselItem[];
+  activeIndex: number;
+  /** True while additional picks are being fetched into the carousel. */
+  loadingMore?: boolean;
+  /** Optional error from loading additional picks or saving. */
   errorMessage?: string | null;
-  onTryAnother?: () => void;
-  onWear?: () => void;
-  onSave?: () => void;
+  onActiveIndexChange?: (index: number) => void;
+  onLoadMore?: () => void;
+  onWear?: (combination: Combination) => void;
+  onSave?: (combination: Combination) => void;
 }
 
 export function TodaysPickCard({
-  combination,
-  items,
-  saved = false,
-  picking = false,
+  picks,
+  activeIndex,
+  loadingMore = false,
   errorMessage = null,
-  onTryAnother,
+  onActiveIndexChange,
+  onLoadMore,
   onWear,
   onSave,
 }: TodaysPickCardProps) {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView | null>(null);
 
-  // Loading + error caption text. Kept tiny on purpose — the section
-  // header's "Try another" action carries the eye, this is a footnote.
-  const subtitle = picking
-    ? 'Finding another look…'
-    : errorMessage
-      ? errorMessage
+  const gap = theme.space.md;
+  const cardWidth = Math.max(280, width - theme.space.xl * 2);
+  const safeActiveIndex = Math.min(Math.max(activeIndex, 0), Math.max(picks.length - 1, 0));
+
+  const subtitle = errorMessage
+    ? errorMessage
+    : loadingMore
+      ? 'Finding more closet looks…'
       : null;
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      x: safeActiveIndex * (cardWidth + gap),
+      animated: false,
+    });
+  }, [cardWidth, gap, safeActiveIndex]);
+
+  const handleMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const rawIndex = Math.round(e.nativeEvent.contentOffset.x / (cardWidth + gap));
+    const nextIndex = Math.min(Math.max(rawIndex, 0), Math.max(picks.length - 1, 0));
+    onActiveIndexChange?.(nextIndex);
+    if (nextIndex >= picks.length - 2) onLoadMore?.();
+  };
+
+  const dots = useMemo(
+    () => picks.map((pick) => pick.combination.comboId),
+    [picks],
+  );
+
+  if (picks.length === 0) return null;
 
   return (
     <View>
-      <SectionHeader
-        title="Today's pick"
-        action={{
-          label: picking ? 'Trying...' : 'Try another',
-          onPress: () => {
-            if (picking) return;
-            onTryAnother?.();
-          },
-        }}
-      />
+      <SectionHeader title="Today's pick" />
       {subtitle ? (
         <Text
           style={{
@@ -71,94 +96,123 @@ export function TodaysPickCard({
           {subtitle}
         </Text>
       ) : null}
-      <Card
-        tone="accent"
-        padding={theme.space.lg}
-        style={{ borderRadius: 28 }}
+
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={cardWidth + gap}
+        decelerationRate="fast"
+        onMomentumScrollEnd={handleMomentumEnd}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ gap, paddingRight: gap }}
       >
-        <View style={picking ? styles.dim : undefined}>
-          <View style={[styles.photoGrid, { gap: theme.space.sm }]}>
-            {Array.from({
-              length: Math.min(Math.max(combination.itemIds.length, 1), 4),
-            }).map((_, index) => {
-              const item = items?.[index];
-              return (
-                <View
-                  key={`${combination.comboId}-${index}`}
-                  style={[
-                    styles.photoSlot,
-                    {
-                      backgroundColor: placeholderFor(index, item, theme.color.palette),
-                      borderRadius: 18,
-                    },
-                  ]}
+        {picks.map(({ combination, items, saved }) => (
+          <Card
+            key={combination.comboId}
+            tone="accent"
+            padding={theme.space.lg}
+            style={{ width: cardWidth, borderRadius: 28 }}
+          >
+            <View>
+              <View style={[styles.photoGrid, { gap: theme.space.sm }]}>
+                {Array.from({
+                  length: Math.min(Math.max(combination.itemIds.length, 1), 4),
+                }).map((_, index) => {
+                  const item = items[index];
+                  return (
+                    <View
+                      key={`${combination.comboId}-${index}`}
+                      style={[
+                        styles.photoSlot,
+                        {
+                          backgroundColor: placeholderFor(index, item, theme.color.palette),
+                          borderRadius: 18,
+                        },
+                      ]}
+                    >
+                      {item ? <Thumb item={item} size="lg" style={styles.photoThumb} /> : null}
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={{ marginTop: theme.space.md }}>
+                <Text
+                  style={{
+                    color: theme.color.text.primary,
+                    fontSize: 22,
+                    fontWeight: theme.type.weight.medium as '500',
+                  }}
+                  numberOfLines={1}
                 >
-                  {item ? <Thumb item={item} size="lg" style={styles.photoThumb} /> : null}
-                </View>
-              );
-            })}
-          </View>
-          <View style={{ marginTop: theme.space.md }}>
-            <Text
-              style={{
-                color: theme.color.text.primary,
-                fontSize: 22,
-                fontWeight: theme.type.weight.medium as '500',
-              }}
-              numberOfLines={1}
-            >
-              {combination.name}
-            </Text>
-            <Text
-              style={{
-                color: theme.color.text.secondary,
-                fontSize: theme.type.size.caption,
-                fontWeight: theme.type.weight.regular as '400',
-                marginTop: theme.space.xs,
-              }}
-              numberOfLines={2}
-            >
-              Made from your closet for today's weather and plans.
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.actions, { gap: theme.space.md, marginTop: theme.space.lg }]}>
-          <Button
-            variant="primary"
-            onPress={onWear ?? (() => {})}
-            style={{ flex: 1, minHeight: 54 }}
-          >
-            Wear this on me
-          </Button>
-          {/* Heart toggle. We render a Pressable directly (not <Button>) so
-              we can fill the icon based on `saved` — Button doesn't expose
-              an icon-fill prop and the design calls for a clear filled vs
-              outline distinction (SPEC §10.1 ghost ♡ save action). */}
-          <Pressable
-            onPress={onSave ?? (() => {})}
-            accessibilityRole="button"
-            accessibilityLabel={saved ? 'Unsave this look' : 'Save this look'}
-            accessibilityState={{ selected: saved }}
-            hitSlop={4}
-            style={({ pressed }) => [
-              styles.heartBtn,
-              {
-                borderRadius: theme.radius.pill,
-                borderColor: theme.color.border.strong,
-                backgroundColor: saved ? theme.color.brandBg : 'transparent',
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Heart
-              size={24}
-              strokeWidth={1.6}
-              color={theme.color.brand}
-              fill={saved ? theme.color.brand : 'transparent'}
+                  {combination.name}
+                </Text>
+                <Text
+                  style={{
+                    color: theme.color.text.secondary,
+                    fontSize: theme.type.size.caption,
+                    fontWeight: theme.type.weight.regular as '400',
+                    marginTop: theme.space.xs,
+                  }}
+                  numberOfLines={2}
+                >
+                  Made from your closet for today's weather and plans.
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.actions, { gap: theme.space.md, marginTop: theme.space.lg }]}>
+              <Button
+                variant="primary"
+                onPress={() => onWear?.(combination)}
+                style={{ flex: 1, minHeight: 54 }}
+              >
+                Wear this on me
+              </Button>
+              <Pressable
+                onPress={() => onSave?.(combination)}
+                accessibilityRole="button"
+                accessibilityLabel={saved ? 'Unsave this look' : 'Save this look'}
+                accessibilityState={{ selected: saved }}
+                hitSlop={4}
+                style={({ pressed }) => [
+                  styles.heartBtn,
+                  {
+                    borderRadius: theme.radius.pill,
+                    borderColor: theme.color.border.strong,
+                    backgroundColor: saved ? theme.color.brandBg : 'transparent',
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <Heart
+                  size={24}
+                  strokeWidth={1.6}
+                  color={theme.color.brand}
+                  fill={saved ? theme.color.brand : 'transparent'}
+                />
+              </Pressable>
+            </View>
+          </Card>
+        ))}
+      </ScrollView>
+
+      {dots.length > 1 ? (
+        <View style={[styles.dots, { gap: theme.space.xs, marginTop: theme.space.md }]}>
+          {dots.map((id, index) => (
+            <View
+              key={id}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor:
+                    index === safeActiveIndex ? theme.color.brand : theme.color.border.strong,
+                  width: index === safeActiveIndex ? 18 : 6,
+                },
+              ]}
             />
-          </Pressable>
+          ))}
         </View>
-      </Card>
+      ) : null}
     </View>
   );
 }
@@ -215,7 +269,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
   },
-  dim: {
-    opacity: 0.55,
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  dot: {
+    height: 6,
+    borderRadius: 999,
   },
 });

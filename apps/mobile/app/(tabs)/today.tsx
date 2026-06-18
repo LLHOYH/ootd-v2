@@ -34,6 +34,9 @@ import { postAnotherPick } from '@/lib/api/today';
 import { createCombination } from '@/lib/api/closet';
 import { ApiError } from '@/lib/api/client';
 
+const TARGET_PICK_CARDS = 4;
+const MAX_PICK_CANDIDATES = 8;
+
 function hasItemPhoto(item: ClosetItem | undefined): boolean {
   return Boolean(item?.thumbnailUrl || item?.tunedPhotoUrl || item?.rawPhotoUrl);
 }
@@ -56,15 +59,14 @@ export default function TodayScreen() {
   });
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // ---- Today's pick: local overrides --------------------------------------
-  // The /today payload gives us the server's recommended pick. The user can
-  // either re-roll it ("Try another") — handled by POST /today/another-pick —
-  // or like it via /me/likes. The override lets the UI swap without a full
-  // /today refetch and lets us pass the *current* pick (not the initial one)
-  // into the try-on modal.
-  const [overridePick, setOverridePick] = useState<Combination | null>(null);
-  const [seenComboIds, setSeenComboIds] = useState<string[]>([]);
-  const [picking, setPicking] = useState(false);
+  // ---- Today's pick carousel ----------------------------------------------
+  // The backend still returns one pick. Until the planned recommendation
+  // service lands, the client builds a small local deck by asking the existing
+  // "another pick" endpoint for more options and preserving each card.
+  const [extraPicks, setExtraPicks] = useState<Combination[]>([]);
+  const [activePickIndex, setActivePickIndex] = useState(0);
+  const [loadingMorePicks, setLoadingMorePicks] = useState(false);
+  const [pickDeckExhausted, setPickDeckExhausted] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
   const [creatingSuggestedLookId, setCreatingSuggestedLookId] = useState<string | null>(null);
   const [suggestedLookError, setSuggestedLookError] = useState<string | null>(null);
@@ -77,23 +79,49 @@ export default function TodayScreen() {
     if (itemMap.state.status !== 'ready' && itemMap.state.status !== 'error') return [];
     return Array.from(itemMap.state.byId.values());
   }, [itemMap.state]);
-  const closetItemsLoading =
-    itemMap.state.status === 'idle' || itemMap.state.status === 'loading';
-  const dataForItemRepair =
+  const dataForToday =
     state.status === 'success'
       ? state.data
       : state.status === 'error'
         ? state.lastData
         : undefined;
-  const pickForItemRepair = overridePick ?? dataForItemRepair?.todaysPick;
-  const pickItemsForRepair = pickForItemRepair ? itemMap.resolve(pickForItemRepair.itemIds) : [];
+  const basePick = dataForToday?.todaysPick;
+  const serverPickId = basePick?.comboId ?? null;
+  const itemMapReady = itemMap.state.status === 'ready' || itemMap.state.status === 'error';
+  const pickCandidates = useMemo(() => {
+    const byId = new Map<string, Combination>();
+    if (basePick) byId.set(basePick.comboId, basePick);
+    for (const pick of extraPicks) byId.set(pick.comboId, pick);
+    return Array.from(byId.values());
+  }, [basePick, extraPicks]);
+  const pickCards = useMemo(() => {
+    if (!itemMapReady) return [];
+    return pickCandidates
+      .map((combination) => {
+        const items = itemMap.resolve(combination.itemIds);
+        return { combination, items };
+      })
+      .filter(
+        ({ combination, items }) =>
+          combination.itemIds.length >= 2 && items.some(hasItemPhoto),
+      );
+  }, [itemMap.resolve, itemMapReady, pickCandidates]);
+  const activePick = pickCards[activePickIndex] ?? pickCards[0] ?? null;
+  const activePickForRepair = activePick?.combination ?? basePick;
+  const activePickItemsForRepair = activePick
+    ? activePick.items
+    : activePickForRepair
+      ? itemMap.resolve(activePickForRepair.itemIds)
+      : [];
+  const closetItemsLoading =
+    itemMap.state.status === 'idle' || itemMap.state.status === 'loading';
   const itemMapReadyForRepair = itemMap.state.status === 'ready';
   const photoRepairKey = itemMapReadyForRepair
     ? [
-        pickForItemRepair &&
-        pickForItemRepair.itemIds.length > 0 &&
-        pickItemsForRepair.every((item) => !hasItemPhoto(item))
-          ? `pick:${pickForItemRepair.itemIds.join(',')}`
+        activePickForRepair &&
+        activePickForRepair.itemIds.length > 0 &&
+        activePickItemsForRepair.every((item) => !hasItemPhoto(item))
+          ? `pick:${activePickForRepair.itemIds.join(',')}`
           : '',
         closetItems.length > 0 && closetItems.every((item) => !hasItemPhoto(item))
           ? `closet:${closetItems.map((item) => item.itemId).join(',')}`
@@ -102,6 +130,78 @@ export default function TodayScreen() {
         .filter(Boolean)
         .join('|')
     : '';
+
+  useEffect(() => {
+    setExtraPicks([]);
+    setActivePickIndex(0);
+    setPickError(null);
+    setPickDeckExhausted(false);
+  }, [serverPickId]);
+
+  useEffect(() => {
+    setActivePickIndex((current) =>
+      Math.min(current, Math.max(pickCards.length - 1, 0)),
+    );
+  }, [pickCards.length]);
+
+  const loadMorePickCards = useCallback(async () => {
+    if (!basePick || loadingMorePicks || pickDeckExhausted) return;
+    if (pickCandidates.length >= MAX_PICK_CANDIDATES) {
+      setPickDeckExhausted(true);
+      return;
+    }
+
+    setLoadingMorePicks(true);
+    setPickError(null);
+    try {
+      const excludeComboIds = Array.from(
+        new Set([basePick.comboId, ...extraPicks.map((pick) => pick.comboId)]),
+      );
+      const res = await postAnotherPick({ excludeComboIds });
+      setExtraPicks((prev) => {
+        if (
+          res.pick.comboId === basePick.comboId ||
+          prev.some((pick) => pick.comboId === res.pick.comboId)
+        ) {
+          return prev;
+        }
+        return [...prev, res.pick];
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NO_PICK') {
+        setPickDeckExhausted(true);
+        return;
+      }
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not load more looks';
+      setPickError(msg);
+    } finally {
+      setLoadingMorePicks(false);
+    }
+  }, [
+    basePick,
+    extraPicks,
+    loadingMorePicks,
+    pickCandidates.length,
+    pickDeckExhausted,
+  ]);
+
+  useEffect(() => {
+    if (!basePick || !itemMapReady || loadingMorePicks || pickDeckExhausted) return;
+    if (pickCards.length >= TARGET_PICK_CARDS) return;
+    void loadMorePickCards();
+  }, [
+    basePick,
+    itemMapReady,
+    loadMorePickCards,
+    loadingMorePicks,
+    pickCards.length,
+    pickDeckExhausted,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -169,7 +269,7 @@ export default function TodayScreen() {
   }
 
   // ---- Success path (or stale-with-error) -----------------------------------
-  const data = state.status === 'success' ? state.data : state.lastData;
+  const data = dataForToday;
   if (!data) {
     // Type-narrowing safety; should be unreachable given the branches above.
     return null;
@@ -185,69 +285,11 @@ export default function TodayScreen() {
   const looks = data.communityLooks.map(adaptCommunityLook);
   const fashion = data.fashionNow.map(adaptFashionNow);
 
-  // Effective pick = local override (from "Try another") if any, else server.
-  // Guard against old/bad combinations that have no attached items or cannot
-  // resolve to any displayable photo. In that state, Today should recommend
-  // from the closet instead of showing a blank "New combination" hero.
-  const rawCurrentPick = overridePick ?? data.todaysPick;
-  const currentPickItems = rawCurrentPick ? itemMap.resolve(rawCurrentPick.itemIds) : [];
-  const itemMapReady = itemMap.state.status === 'ready' || itemMap.state.status === 'error';
-  const currentPick =
-    rawCurrentPick &&
-    rawCurrentPick.itemIds.length >= 2 &&
-    itemMapReady &&
-    currentPickItems.some(hasItemPhoto)
-      ? rawCurrentPick
-      : null;
-  const isSaved = currentPick
-    ? combinationLikes.likedComboIds.has(currentPick.comboId)
-    : false;
-
-  const handleTryAnother = async () => {
-    if (picking) return;
-    setPicking(true);
-    setPickError(null);
-    try {
-      // Exclude both the current pick and anything we've already shown so
-      // the server doesn't hand back the same combo twice in a row.
-      const exclude = Array.from(
-        new Set(
-          [
-            ...seenComboIds,
-            currentPick?.comboId,
-            data.todaysPick?.comboId,
-          ].filter((x): x is string => Boolean(x)),
-        ),
-      );
-      const res = await postAnotherPick(
-        exclude.length > 0 ? { excludeComboIds: exclude } : undefined,
-      );
-      setOverridePick(res.pick);
-      setSeenComboIds((prev) => {
-        const next = new Set(prev);
-        next.add(res.pick.comboId);
-        return Array.from(next);
-      });
-    } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Could not load another look';
-      setPickError(msg);
-    } finally {
-      setPicking(false);
-    }
+  const handleToggleSave = async (combination: Combination) => {
+    await combinationLikes.toggleLike(combination.comboId);
   };
 
-  const handleToggleSave = async () => {
-    if (!currentPick) return;
-    await combinationLikes.toggleLike(currentPick.comboId);
-  };
-
-  const handleWear = () => {
-    if (!currentPick) return;
+  const handleWear = (combination: Combination) => {
     // SPEC §10.10 split (PR C.2): "Wear this on me" goes to the try-on
     // preview, NOT directly to the share modal. From the preview the
     // user can opt in to share — the share form is no longer the only
@@ -256,8 +298,8 @@ export default function TodayScreen() {
     router.push({
       pathname: '/tryon',
       params: {
-        comboId: currentPick.comboId,
-        comboJson: JSON.stringify(currentPick),
+        comboId: combination.comboId,
+        comboJson: JSON.stringify(combination),
       },
     } as never);
   };
@@ -272,8 +314,9 @@ export default function TodayScreen() {
         itemIds: look.items.map((item) => item.itemId),
         source: 'TODAY_PICK',
       });
-      setOverridePick(combo);
-      setSeenComboIds((prev) => Array.from(new Set([...prev, combo.comboId])));
+      setExtraPicks((prev) =>
+        prev.some((pick) => pick.comboId === combo.comboId) ? prev : [...prev, combo],
+      );
       router.push({
         pathname: '/tryon',
         params: {
@@ -337,16 +380,19 @@ export default function TodayScreen() {
 
         <CalendarStrip events={events} />
 
-        {currentPick ? (
+        {pickCards.length > 0 ? (
           <TodaysPickCard
-            combination={currentPick}
-            items={currentPickItems}
-            saved={isSaved}
-            picking={picking}
+            picks={pickCards.map((pick) => ({
+              ...pick,
+              saved: combinationLikes.likedComboIds.has(pick.combination.comboId),
+            }))}
+            activeIndex={activePickIndex}
+            loadingMore={loadingMorePicks}
             errorMessage={pickError ?? combinationLikes.error?.message ?? null}
-            onTryAnother={() => void handleTryAnother()}
+            onActiveIndexChange={setActivePickIndex}
+            onLoadMore={() => void loadMorePickCards()}
             onWear={handleWear}
-            onSave={() => void handleToggleSave()}
+            onSave={(combination) => void handleToggleSave(combination)}
           />
         ) : closetItems.length > 0 ? (
           <ClosetStarterCarousel
