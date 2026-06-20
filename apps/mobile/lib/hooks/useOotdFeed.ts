@@ -23,10 +23,18 @@ export interface OotdFeedItem {
   authorInitials: string;
   /** Underlying combination's name, when available. */
   comboName?: string;
+  /** Closet photos for the post's combination, used when no generated OOTD image exists yet. */
+  outfitPreviewItems: OotdFeedPreviewItem[];
   /** Number of ♡ reactions. */
   reactionCount: number;
   /** Did the caller themselves react? Drives the heart-fill state. */
   iReacted: boolean;
+}
+
+export interface OotdFeedPreviewItem {
+  itemId: string;
+  name: string;
+  imageUrl?: string;
 }
 
 export type UseOotdFeedState =
@@ -50,6 +58,28 @@ type UserSummaryRow = Pick<
 
 type ComboRow = Pick<Tables<'combinations'>, 'combo_id' | 'name'>;
 
+type ComboItemPreviewRow = {
+  combo_id: string;
+  item_id: string;
+  position: number;
+  closet_items:
+    | {
+        item_id: string;
+        name: string;
+        thumbnail_storage_key: string | null;
+        tuned_storage_key: string | null;
+      }
+    | {
+        item_id: string;
+        name: string;
+        thumbnail_storage_key: string | null;
+        tuned_storage_key: string | null;
+      }[]
+    | null;
+};
+
+const SIGNED_PREVIEW_TTL_SEC = 60 * 60;
+
 function deriveInitials(displayName: string, fallback: string): string {
   const cleaned = displayName.trim().replace(/[^a-zA-Z\s]/g, '');
   const parts = cleaned.split(/\s+/).filter(Boolean);
@@ -58,6 +88,20 @@ function deriveInitials(displayName: string, fallback: string): string {
   if (first && second) return (first + second).toUpperCase();
   if (first) return first.toUpperCase();
   return (fallback[0] ?? '?').toUpperCase();
+}
+
+async function signClosetPreviewUrl(
+  thumbnailKey: string | null | undefined,
+  tunedKey: string | null | undefined,
+): Promise<string | undefined> {
+  const path = thumbnailKey ?? tunedKey;
+  if (!path) return undefined;
+  const { data, error } = await supabase
+    .storage
+    .from('closet-tuned')
+    .createSignedUrl(path, SIGNED_PREVIEW_TTL_SEC);
+  if (error || !data?.signedUrl) return undefined;
+  return data.signedUrl;
 }
 
 export function useOotdFeed(): UseOotdFeedResult {
@@ -82,26 +126,37 @@ export function useOotdFeed(): UseOotdFeedResult {
         const authorIds = Array.from(new Set(posts.map((p) => p.userId)));
         const comboIds = Array.from(new Set(posts.map((p) => p.comboId)));
 
-        const [usersRes, combosRes] =
-          authorIds.length === 0 && comboIds.length === 0
-            ? [
-                { data: [] as UserSummaryRow[], error: null },
-                { data: [] as ComboRow[], error: null },
-              ]
-            : await Promise.all([
-                authorIds.length > 0
-                  ? supabase
-                      .from('users')
-                      .select('user_id, username, display_name, avatar_url')
-                      .in('user_id', authorIds)
-                  : Promise.resolve({ data: [] as UserSummaryRow[], error: null }),
-                comboIds.length > 0
-                  ? supabase
-                      .from('combinations')
-                      .select('combo_id, name')
-                      .in('combo_id', comboIds)
-                  : Promise.resolve({ data: [] as ComboRow[], error: null }),
-              ]);
+        const [usersRes, combosRes, comboItemsRes] = await Promise.all([
+          authorIds.length > 0
+            ? supabase
+                .from('users')
+                .select('user_id, username, display_name, avatar_url')
+                .in('user_id', authorIds)
+            : Promise.resolve({ data: [] as UserSummaryRow[], error: null }),
+          comboIds.length > 0
+            ? supabase
+                .from('combinations')
+                .select('combo_id, name')
+                .in('combo_id', comboIds)
+            : Promise.resolve({ data: [] as ComboRow[], error: null }),
+          comboIds.length > 0
+            ? supabase
+                .from('combination_items')
+                .select(
+                  `combo_id,
+                   item_id,
+                   position,
+                   closet_items (
+                     item_id,
+                     name,
+                     thumbnail_storage_key,
+                     tuned_storage_key
+                   )`,
+                )
+                .in('combo_id', comboIds)
+                .order('position', { ascending: true })
+            : Promise.resolve({ data: [] as ComboItemPreviewRow[], error: null }),
+        ]);
 
         if (signal.aborted) return;
 
@@ -113,6 +168,41 @@ export function useOotdFeed(): UseOotdFeedResult {
         for (const c of (combosRes.data ?? []) as ComboRow[]) {
           comboById.set(c.combo_id, c);
         }
+        const previewByCombo = new Map<string, OotdFeedPreviewItem[]>();
+        if (comboItemsRes.error) {
+          // eslint-disable-next-line no-console
+          console.warn('[ootd-feed] failed to load combo preview items', comboItemsRes.error);
+        } else {
+          const previewRows = ((comboItemsRes.data ?? []) as ComboItemPreviewRow[])
+            .slice()
+            .sort((a, b) => a.position - b.position);
+          const previews = await Promise.all(
+            previewRows.map(async (row) => {
+              const item = Array.isArray(row.closet_items)
+                ? row.closet_items[0]
+                : row.closet_items;
+              if (!item) return null;
+              const imageUrl = await signClosetPreviewUrl(
+                item.thumbnail_storage_key,
+                item.tuned_storage_key,
+              );
+              return {
+                comboId: row.combo_id,
+                item: {
+                  itemId: row.item_id,
+                  name: item.name,
+                  ...(imageUrl ? { imageUrl } : {}),
+                } satisfies OotdFeedPreviewItem,
+              };
+            }),
+          );
+          for (const preview of previews) {
+            if (!preview) continue;
+            const list = previewByCombo.get(preview.comboId) ?? [];
+            list.push(preview.item);
+            previewByCombo.set(preview.comboId, list);
+          }
+        }
 
         const items: OotdFeedItem[] = posts.map((p) => {
           const u = userById.get(p.userId);
@@ -123,6 +213,7 @@ export function useOotdFeed(): UseOotdFeedResult {
             post: p,
             authorName,
             authorInitials: deriveInitials(authorName, p.userId),
+            outfitPreviewItems: previewByCombo.get(p.comboId) ?? [],
             reactionCount,
             iReacted,
           };

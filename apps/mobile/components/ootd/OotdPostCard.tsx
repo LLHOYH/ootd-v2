@@ -46,6 +46,7 @@ export function OotdPostCard({
   const theme = useTheme();
   const { post, authorName, authorAvatarUrl, authorInitials, reactionCount, iReacted, comboName } = item;
   const photoUrl = post.tryOnPhotoUrl ?? post.fallbackOutfitCardUrl;
+  const previewItems = item.outfitPreviewItems.slice(0, 4);
   const time = formatRelative(post.createdAt);
 
   return (
@@ -106,6 +107,42 @@ export function OotdPostCard({
             style={styles.photoImg}
             accessibilityIgnoresInvertColors
           />
+        ) : previewItems.length > 0 ? (
+          <View style={[styles.previewGrid, { gap: theme.space.xs }]}>
+            {previewItems.map((preview) => (
+              <View
+                key={preview.itemId}
+                style={[
+                  styles.previewSlot,
+                  {
+                    width: previewItems.length === 1 ? '100%' : '48.8%',
+                    borderRadius: theme.radius.sm,
+                    backgroundColor: theme.color.bg.tertiary,
+                  },
+                ]}
+              >
+                {preview.imageUrl ? (
+                  <Image
+                    source={{ uri: preview.imageUrl }}
+                    style={styles.photoImg}
+                    accessibilityIgnoresInvertColors
+                  />
+                ) : (
+                  <Text
+                    style={{
+                      color: theme.color.text.tertiary,
+                      fontSize: theme.type.size.tiny,
+                      fontWeight: theme.type.weight.regular as '400',
+                      textAlign: 'center',
+                    }}
+                    numberOfLines={2}
+                  >
+                    {preview.name}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
         ) : (
           <View style={[styles.photoEmpty, { borderRadius: theme.radius.sm }]}>
             <Text
@@ -204,6 +241,17 @@ const styles = StyleSheet.create({
   photoImg: {
     width: '100%',
     height: '100%',
+  },
+  previewGrid: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  previewSlot: {
+    aspectRatio: 3 / 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   photoEmpty: {
     flex: 1,
