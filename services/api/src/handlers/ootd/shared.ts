@@ -12,10 +12,10 @@
 //      caller can't see the object, the signed-URL request itself fails
 //      (we degrade to omitting the URL).
 //
-// Pure-ish: no calls to lib/storage.ts here because that module signs
-// with the service-role key (bypasses RLS). For OOTD reads we want the
-// caller's RLS to apply, so we go through the user-scoped client we
-// already have on `ctx.supabase`.
+// Pure-ish for normal `ootd` bucket reads: those are signed with the
+// user-scoped client so RLS applies. Shared try-on images live in the
+// private `tryon-generated` bucket, so those are signed with service-role
+// only after the parent OOTD row has already passed visibility RLS.
 //
 // Also encodes the same opaque base64 `{ offset }` cursor as
 // `today/shared.ts` and `mock-server` so the frontend pages identically
@@ -24,6 +24,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@mei/types';
 import type { OOTDPost, OOTDVisibility } from '@mei/types';
+import { signDownloadUrl } from '../../lib/storage';
 
 // ---------------------------------------------------------------------------
 // Cursor — base64url `{ offset }`. Same shape as today/shared.ts so the
@@ -153,6 +154,7 @@ export async function fetchReactionCount(
 // ---------------------------------------------------------------------------
 
 const OOTD_SIGNED_URL_TTL_SEC = 60 * 60; // 1 hour — matches lib/storage default.
+const TRYON_GENERATED_STORAGE_PREFIX = 'tryon-generated:';
 
 /**
  * Sign a download URL with the user-scoped client. Returns `undefined`
@@ -171,6 +173,21 @@ async function signOotdObjectUrl(
   return data.signedUrl;
 }
 
+async function signTryOnObjectUrl(
+  supabase: SupabaseClient,
+  storageKey: string,
+): Promise<string | undefined> {
+  if (!storageKey.startsWith(TRYON_GENERATED_STORAGE_PREFIX)) {
+    return signOotdObjectUrl(supabase, storageKey);
+  }
+  const path = storageKey.slice(TRYON_GENERATED_STORAGE_PREFIX.length);
+  try {
+    return await signDownloadUrl({ bucket: 'tryon-generated', path });
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Resolve both image URLs for an OOTD post in parallel. Either may be
  * `undefined` (e.g. P0 posts have no try-on photo until the image-worker
@@ -185,7 +202,7 @@ export async function resolveOotdImageUrls(
 ): Promise<{ tryOnPhotoUrl?: string; fallbackOutfitCardUrl?: string }> {
   const [tryOn, fallback] = await Promise.all([
     row.try_on_storage_key
-      ? signOotdObjectUrl(supabase, row.try_on_storage_key)
+      ? signTryOnObjectUrl(supabase, row.try_on_storage_key)
       : Promise.resolve(undefined),
     row.fallback_outfit_card_storage_key
       ? signOotdObjectUrl(supabase, row.fallback_outfit_card_storage_key)

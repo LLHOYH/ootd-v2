@@ -12,6 +12,8 @@ export const CreateOotdBody = z
     comboId: z.string(),
     caption: z.string().max(280).optional(),
     locationName: z.string().max(120).optional(),
+    /** READY try-on generation to attach as the shared model photo. */
+    tryonGenerationId: z.string().optional(),
     visibility: zOOTDVisibility,
     visibilityTargets: z.array(z.string()).optional(),
   })

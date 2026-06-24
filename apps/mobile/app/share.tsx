@@ -57,6 +57,7 @@ export default function ShareScreen() {
   const params = useLocalSearchParams<{
     comboId?: string;
     comboJson?: string;
+    tryonGenerationId?: string;
     tryonImageUrl?: string;
   }>();
   const { session } = useSession();
@@ -90,6 +91,10 @@ export default function ShareScreen() {
   const tryonImageUrl =
     typeof params.tryonImageUrl === 'string' && params.tryonImageUrl.length > 0
       ? params.tryonImageUrl
+      : undefined;
+  const tryonGenerationId =
+    typeof params.tryonGenerationId === 'string' && params.tryonGenerationId.length > 0
+      ? params.tryonGenerationId
       : undefined;
 
   const [combo, setCombo] = useState<Combination | null>(initialCombo);
@@ -167,6 +172,7 @@ export default function ShareScreen() {
         comboId: combo.comboId,
         visibility,
       };
+      if (tryonGenerationId) body.tryonGenerationId = tryonGenerationId;
       const trimmedCaption = caption.trim();
       const trimmedLocation = location.trim();
       if (trimmedCaption.length > 0) body.caption = trimmedCaption;

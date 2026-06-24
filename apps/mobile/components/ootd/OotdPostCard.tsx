@@ -2,7 +2,7 @@
 //
 // Layout:
 //   Avatar · name · time
-//   Photo (try-on or fallback OutfitCard image; gracefully empty if neither)
+//   Photo (generated model + closet items when available)
 //   Caption (one-line)
 //   Reaction row: ♡ count · Coordinate ↗ CTA
 //
@@ -101,7 +101,49 @@ export function OotdPostCard({
           },
         ]}
       >
-        {photoUrl ? (
+        {photoUrl && previewItems.length > 0 ? (
+          <View style={[styles.photoComposite, { gap: theme.space.xs }]}>
+            <Image
+              source={{ uri: photoUrl }}
+              style={[styles.modelImg, { borderRadius: theme.radius.sm }]}
+              accessibilityIgnoresInvertColors
+            />
+            <View style={[styles.sidePreviewColumn, { gap: theme.space.xs }]}>
+              {previewItems.map((preview) => (
+                <View
+                  key={preview.itemId}
+                  style={[
+                    styles.sidePreviewSlot,
+                    {
+                      borderRadius: theme.radius.sm,
+                      backgroundColor: theme.color.bg.tertiary,
+                    },
+                  ]}
+                >
+                  {preview.imageUrl ? (
+                    <Image
+                      source={{ uri: preview.imageUrl }}
+                      style={styles.photoImg}
+                      accessibilityIgnoresInvertColors
+                    />
+                  ) : (
+                    <Text
+                      style={{
+                        color: theme.color.text.tertiary,
+                        fontSize: theme.type.size.tiny,
+                        fontWeight: theme.type.weight.regular as '400',
+                        textAlign: 'center',
+                      }}
+                      numberOfLines={2}
+                    >
+                      {preview.name}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : photoUrl ? (
           <Image
             source={{ uri: photoUrl }}
             style={styles.photoImg}
@@ -241,6 +283,24 @@ const styles = StyleSheet.create({
   photoImg: {
     width: '100%',
     height: '100%',
+  },
+  photoComposite: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  modelImg: {
+    flex: 1,
+    height: '100%',
+  },
+  sidePreviewColumn: {
+    width: 92,
+  },
+  sidePreviewSlot: {
+    flex: 1,
+    minHeight: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   previewGrid: {
     flex: 1,

@@ -11,10 +11,11 @@
 //      to the requester, so a missing row could be either "doesn't
 //      exist" or "isn't theirs"; we collapse to a uniform 404 to avoid
 //      leaking existence (same pattern used by stella/getConversation).
-//   3. Insert the OOTD row. RLS (`ootd_posts_owner_insert`) also
+//   3. Optionally attach the just-generated model try-on image.
+//   4. Insert the OOTD row. RLS (`ootd_posts_owner_insert`) also
 //      enforces `auth.uid() = user_id`; we set it explicitly because
 //      `user_id` is non-default.
-//   4. Return `{ ootdId, status }`. The contract enum is
+//   5. Return `{ ootdId, status }`. The contract enum is
 //      `'PROCESSING' | 'READY'` — the try-on photo is async (P1, §9.3)
 //      and the fallback OutfitCard is composed by the image-worker out
 //      of band, so we return `PROCESSING`. The mock-server returns
@@ -28,6 +29,8 @@ import type { Handler } from '../../context';
 import { ApiError } from '../../errors';
 import { requireAuthCtx } from '../../lib/handlerCtx';
 import { validate } from '../../middleware/validate';
+
+const TRYON_GENERATED_STORAGE_PREFIX = 'tryon-generated:';
 
 export const createPostHandler: Handler = async (ctx) => {
   const { userId, supabase } = requireAuthCtx(ctx);
@@ -48,10 +51,33 @@ export const createPostHandler: Handler = async (ctx) => {
     throw new ApiError(404, 'NOT_FOUND', 'Combination not found');
   }
 
-  // 2. Insert the post. The schema defaults take care of `ootd_id`,
+  let tryOnStorageKey: string | null = null;
+  if (body.tryonGenerationId) {
+    const { data: tryon, error: tryonErr } = await supabase
+      .from('tryon_generations')
+      .select('generation_id, combo_id, status, generated_storage_key')
+      .eq('generation_id', body.tryonGenerationId)
+      .eq('user_id', userId)
+      .eq('combo_id', body.comboId)
+      .maybeSingle();
+    if (tryonErr) {
+      throw new ApiError(500, 'DB_ERROR', `Failed to load try-on: ${tryonErr.message}`);
+    }
+    if (!tryon || tryon.status !== 'READY' || !tryon.generated_storage_key) {
+      throw new ApiError(
+        400,
+        'TRYON_NOT_READY',
+        'Generate this look before sharing the model photo.',
+      );
+    }
+    tryOnStorageKey = `${TRYON_GENERATED_STORAGE_PREFIX}${tryon.generated_storage_key}`;
+  }
+
+  // 4. Insert the post. The schema defaults take care of `ootd_id`,
   //    `created_at`, and `visibility_targets` (`'{}'`); leaving
-  //    `try_on_storage_key` and `fallback_outfit_card_storage_key` NULL
-  //    so the image-worker can fill them in asynchronously.
+  //    `fallback_outfit_card_storage_key` NULL so the image-worker can fill
+  //    it in asynchronously. When present, `try_on_storage_key` points at an
+  //    existing tryon-generated object using the `tryon-generated:<path>` tag.
   //
   //    TODO(image-worker): generate fallback OutfitCard composite into
   //    `ootd/{user_id}/{ootd_id}_card.webp` and patch the row with
@@ -62,6 +88,7 @@ export const createPostHandler: Handler = async (ctx) => {
     combo_id: string;
     visibility: Tables<'ootd_posts'>['visibility'];
     visibility_targets: string[];
+    try_on_storage_key?: string | null;
     caption?: string | null;
     location_name?: string | null;
   } = {
@@ -70,6 +97,7 @@ export const createPostHandler: Handler = async (ctx) => {
     visibility: body.visibility,
     visibility_targets: body.visibilityTargets ?? [],
   };
+  if (tryOnStorageKey) insertRow.try_on_storage_key = tryOnStorageKey;
   if (body.caption !== undefined) insertRow.caption = body.caption;
   if (body.locationName !== undefined) insertRow.location_name = body.locationName;
 
@@ -88,7 +116,7 @@ export const createPostHandler: Handler = async (ctx) => {
 
   const responseBody: CreateOotdResponse = {
     ootdId: inserted.ootd_id,
-    status: 'PROCESSING',
+    status: tryOnStorageKey ? 'READY' : 'PROCESSING',
   };
   return { status: 201, body: responseBody };
 };

@@ -192,6 +192,7 @@ export default function TryonScreen() {
       pathname: '/share',
       params: {
         comboId: phase.data.comboId,
+        tryonGenerationId: phase.data.generationId,
         ...(phase.data.imageUrl ? { tryonImageUrl: phase.data.imageUrl } : {}),
         ...(comboJson ? { comboJson } : {}),
       },
