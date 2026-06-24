@@ -124,7 +124,9 @@ export function useOotdFeed(): UseOotdFeedResult {
 
         // Batch enrichment: author + combo lookups.
         const authorIds = Array.from(new Set(posts.map((p) => p.userId)));
-        const comboIds = Array.from(new Set(posts.map((p) => p.comboId)));
+        const comboIds = Array.from(
+          new Set(posts.filter((p) => p.shareDresses !== false).map((p) => p.comboId)),
+        );
 
         const [usersRes, combosRes, comboItemsRes] = await Promise.all([
           authorIds.length > 0
@@ -213,7 +215,8 @@ export function useOotdFeed(): UseOotdFeedResult {
             post: p,
             authorName,
             authorInitials: deriveInitials(authorName, p.userId),
-            outfitPreviewItems: previewByCombo.get(p.comboId) ?? [],
+            outfitPreviewItems:
+              p.shareDresses === false ? [] : previewByCombo.get(p.comboId) ?? [],
             reactionCount,
             iReacted,
           };

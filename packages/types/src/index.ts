@@ -117,6 +117,8 @@ export interface OOTDPost {
   locationName?: string;
   tryOnPhotoUrl?: string;
   fallbackOutfitCardUrl?: string;
+  shareDresses?: boolean;
+  shareModel?: boolean;
   visibility: OOTDVisibility;
   visibilityTargets?: string[];
   reactions: { userId: string; type: '♡' }[];

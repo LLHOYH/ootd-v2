@@ -32,6 +32,8 @@ const ootdRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       if (!combo || combo.userId !== userId) {
         return sendError(reply, 404, 'NOT_FOUND', 'Combination not found');
       }
+      const shareDresses = body.shareDresses ?? true;
+      const shareModel = body.shareModel ?? body.tryonGenerationId != null;
       const ootdId = store.nextId('o');
       const ootd: OOTDPost = {
         ootdId,
@@ -41,8 +43,10 @@ const ootdRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
         ...(body.locationName !== undefined && { locationName: body.locationName }),
         // try-on photo "generates async" — for the mock we hand back a
         // ready URL so the demo is single-step.
-        tryOnPhotoUrl: PHOTO,
-        fallbackOutfitCardUrl: PHOTO,
+        ...(shareModel && { tryOnPhotoUrl: PHOTO }),
+        ...(shareDresses && { fallbackOutfitCardUrl: PHOTO }),
+        shareDresses,
+        shareModel,
         visibility: body.visibility,
         ...(body.visibilityTargets && { visibilityTargets: body.visibilityTargets }),
         reactions: [],

@@ -67,6 +67,8 @@ export interface OotdPostRowWithReactions
     | 'combo_id'
     | 'caption'
     | 'location_name'
+    | 'share_dresses'
+    | 'share_model'
     | 'try_on_storage_key'
     | 'fallback_outfit_card_storage_key'
     | 'visibility'
@@ -87,6 +89,8 @@ export function mapOotdPost(
     userId: row.user_id,
     comboId: row.combo_id,
     visibility: row.visibility as OOTDVisibility,
+    shareDresses: row.share_dresses,
+    shareModel: row.share_model,
     reactions: (row.ootd_reactions ?? [])
       // Only the literal '♡' reaction is part of the contract; defensively
       // map and let the schema reject anything unexpected.
@@ -96,10 +100,10 @@ export function mapOotdPost(
   };
   if (row.caption) out.caption = row.caption;
   if (row.location_name) out.locationName = row.location_name;
-  if (row.try_on_storage_key) {
+  if (row.share_model && row.try_on_storage_key) {
     out.tryOnPhotoUrl = publicOotdUrl(supabaseUrl, row.try_on_storage_key);
   }
-  if (row.fallback_outfit_card_storage_key) {
+  if (row.share_dresses && row.fallback_outfit_card_storage_key) {
     out.fallbackOutfitCardUrl = publicOotdUrl(
       supabaseUrl,
       row.fallback_outfit_card_storage_key,

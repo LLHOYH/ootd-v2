@@ -197,14 +197,17 @@ export async function resolveOotdImageUrls(
   supabase: SupabaseClient,
   row: Pick<
     Tables<'ootd_posts'>,
-    'try_on_storage_key' | 'fallback_outfit_card_storage_key'
+    | 'try_on_storage_key'
+    | 'fallback_outfit_card_storage_key'
+    | 'share_dresses'
+    | 'share_model'
   >,
 ): Promise<{ tryOnPhotoUrl?: string; fallbackOutfitCardUrl?: string }> {
   const [tryOn, fallback] = await Promise.all([
-    row.try_on_storage_key
+    row.share_model && row.try_on_storage_key
       ? signTryOnObjectUrl(supabase, row.try_on_storage_key)
       : Promise.resolve(undefined),
-    row.fallback_outfit_card_storage_key
+    row.share_dresses && row.fallback_outfit_card_storage_key
       ? signOotdObjectUrl(supabase, row.fallback_outfit_card_storage_key)
       : Promise.resolve(undefined),
   ]);
@@ -236,6 +239,8 @@ export function mapOotdPost(
     visibility: row.visibility as OOTDVisibility,
     reactions: reactions.reactions,
     createdAt: row.created_at,
+    shareDresses: row.share_dresses,
+    shareModel: row.share_model,
   };
   if (row.caption != null) out.caption = row.caption;
   if (row.location_name != null) out.locationName = row.location_name;

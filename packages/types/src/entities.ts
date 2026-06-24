@@ -176,6 +176,8 @@ export const zOOTDPost = z.object({
   locationName: z.string().optional(),
   tryOnPhotoUrl: z.string().optional(),
   fallbackOutfitCardUrl: z.string().optional(),
+  shareDresses: z.boolean().optional(),
+  shareModel: z.boolean().optional(),
   visibility: zOOTDVisibility,
   visibilityTargets: z.array(z.string()).optional(),
   reactions: z.array(zOOTDReaction),

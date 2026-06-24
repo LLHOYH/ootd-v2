@@ -28,6 +28,7 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ChevronLeft,
+  Check,
   RefreshCcw,
   Share2,
   Sparkles,
@@ -63,6 +64,8 @@ export default function TryonScreen() {
   const { trackTryon } = useGenerationQueue();
 
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+  const [shareDresses, setShareDresses] = useState(true);
+  const [shareModel, setShareModel] = useState(true);
   const latestRunIdRef = useRef(0);
   const startedRef = useRef(false);
 
@@ -83,6 +86,7 @@ export default function TryonScreen() {
     typeof params.generationId === 'string' ? params.generationId : undefined;
   const pendingGenerationId =
     phase.kind === 'pending' ? phase.data.generationId : undefined;
+  const canShare = shareDresses || shareModel;
 
   const applyGeneration = useCallback(
     (data: TryonGeneration, opts: { track?: boolean } = {}) => {
@@ -184,7 +188,7 @@ export default function TryonScreen() {
   }, [loadGeneration, pendingGenerationId]);
 
   const handleShare = () => {
-    if (phase.kind !== 'ready') return;
+    if (phase.kind !== 'ready' || !canShare) return;
     // Hand off to the existing share modal. We pass through the combo
     // payload to avoid a round-trip and the signed try-on image URL so
     // the confirmation preview matches what the user just generated.
@@ -192,8 +196,12 @@ export default function TryonScreen() {
       pathname: '/share',
       params: {
         comboId: phase.data.comboId,
-        tryonGenerationId: phase.data.generationId,
-        ...(phase.data.imageUrl ? { tryonImageUrl: phase.data.imageUrl } : {}),
+        shareDresses: shareDresses ? '1' : '0',
+        shareModel: shareModel ? '1' : '0',
+        ...(shareModel ? { tryonGenerationId: phase.data.generationId } : {}),
+        ...(shareModel && phase.data.imageUrl
+          ? { tryonImageUrl: phase.data.imageUrl }
+          : {}),
         ...(comboJson ? { comboJson } : {}),
       },
     } as never);
@@ -293,13 +301,29 @@ export default function TryonScreen() {
           {/* ---- Action buttons ----------------------------------------- */}
           {phase.kind === 'ready' ? (
             <View style={{ gap: theme.space.sm }}>
-              <Button
-                variant="primary"
-                icon={Share2}
-                onPress={handleShare}
-              >
-                Share with friends
-              </Button>
+              <View style={[styles.shareRow, { gap: theme.space.sm }]}>
+                <View style={[styles.shareOptions, { gap: 6 }]}>
+                  <ShareChoice
+                    checked={shareDresses}
+                    label="Dresses"
+                    onPress={() => setShareDresses((value) => !value)}
+                  />
+                  <ShareChoice
+                    checked={shareModel}
+                    label="Model"
+                    onPress={() => setShareModel((value) => !value)}
+                  />
+                </View>
+                <Button
+                  variant="primary"
+                  icon={Share2}
+                  onPress={handleShare}
+                  disabled={!canShare}
+                  style={{ flex: 1 }}
+                >
+                  Share with friends
+                </Button>
+              </View>
               <View style={[styles.row, { gap: theme.space.sm }]}>
                 <Button
                   variant="ghost"
@@ -482,6 +506,57 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
+function ShareChoice({
+  checked,
+  label,
+  onPress,
+}: {
+  checked: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={`Share ${label.toLowerCase()}`}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.shareChoice,
+        { gap: 7 },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <View
+        style={[
+          styles.checkbox,
+          {
+            borderRadius: 5,
+            borderColor: checked ? theme.color.brand : theme.color.border.strong,
+            backgroundColor: checked ? theme.color.brand : theme.color.bg.primary,
+          },
+        ]}
+      >
+        {checked ? (
+          <Check size={12} strokeWidth={2.2} color={theme.color.bg.primary} />
+        ) : null}
+      </View>
+      <Text
+        style={{
+          color: theme.color.text.secondary,
+          fontSize: theme.type.size.tiny,
+          fontWeight: theme.type.weight.medium as '500',
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const STAGE_ASPECT = 3 / 4;
 
 const styles = StyleSheet.create({
@@ -508,5 +583,25 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  shareOptions: {
+    width: 104,
+    justifyContent: 'center',
+  },
+  shareChoice: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

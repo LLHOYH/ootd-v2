@@ -51,8 +51,21 @@ export const createPostHandler: Handler = async (ctx) => {
     throw new ApiError(404, 'NOT_FOUND', 'Combination not found');
   }
 
+  const shareDresses = body.shareDresses ?? true;
+  const shareModel = body.shareModel ?? body.tryonGenerationId != null;
+  if (!shareDresses && !shareModel) {
+    throw new ApiError(400, 'VALIDATION_ERROR', 'Choose at least one thing to share.');
+  }
+
   let tryOnStorageKey: string | null = null;
-  if (body.tryonGenerationId) {
+  if (shareModel) {
+    if (!body.tryonGenerationId) {
+      throw new ApiError(
+        400,
+        'TRYON_REQUIRED',
+        'Generate this look before sharing the model photo.',
+      );
+    }
     const { data: tryon, error: tryonErr } = await supabase
       .from('tryon_generations')
       .select('generation_id, combo_id, status, generated_storage_key')
@@ -88,6 +101,8 @@ export const createPostHandler: Handler = async (ctx) => {
     combo_id: string;
     visibility: Tables<'ootd_posts'>['visibility'];
     visibility_targets: string[];
+    share_dresses: boolean;
+    share_model: boolean;
     try_on_storage_key?: string | null;
     caption?: string | null;
     location_name?: string | null;
@@ -96,6 +111,8 @@ export const createPostHandler: Handler = async (ctx) => {
     combo_id: body.comboId,
     visibility: body.visibility,
     visibility_targets: body.visibilityTargets ?? [],
+    share_dresses: shareDresses,
+    share_model: tryOnStorageKey != null,
   };
   if (tryOnStorageKey) insertRow.try_on_storage_key = tryOnStorageKey;
   if (body.caption !== undefined) insertRow.caption = body.caption;

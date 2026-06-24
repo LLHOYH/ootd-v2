@@ -51,12 +51,21 @@ function suggestedCaptionFor(combo: Combination, hasTryonImage: boolean): string
     : `Wearing ${name} today. What do you think?`;
 }
 
+function readRouteBool(value: string | string[] | undefined, fallback: boolean): boolean {
+  if (typeof value !== 'string') return fallback;
+  if (value === '1' || value.toLowerCase() === 'true') return true;
+  if (value === '0' || value.toLowerCase() === 'false') return false;
+  return fallback;
+}
+
 export default function ShareScreen() {
   const theme = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{
     comboId?: string;
     comboJson?: string;
+    shareDresses?: string;
+    shareModel?: string;
     tryonGenerationId?: string;
     tryonImageUrl?: string;
   }>();
@@ -88,14 +97,20 @@ export default function ShareScreen() {
       return null;
     }
   }, [params.comboJson]);
-  const tryonImageUrl =
-    typeof params.tryonImageUrl === 'string' && params.tryonImageUrl.length > 0
-      ? params.tryonImageUrl
-      : undefined;
-  const tryonGenerationId =
+  const rawTryonGenerationId =
     typeof params.tryonGenerationId === 'string' && params.tryonGenerationId.length > 0
       ? params.tryonGenerationId
       : undefined;
+  const shareDresses = readRouteBool(params.shareDresses, true);
+  const shareModel =
+    readRouteBool(params.shareModel, rawTryonGenerationId != null) &&
+    rawTryonGenerationId != null;
+  const tryonImageUrl =
+    shareModel &&
+    typeof params.tryonImageUrl === 'string' && params.tryonImageUrl.length > 0
+      ? params.tryonImageUrl
+      : undefined;
+  const tryonGenerationId = shareModel ? rawTryonGenerationId : undefined;
 
   const [combo, setCombo] = useState<Combination | null>(initialCombo);
   const [loading, setLoading] = useState(initialCombo == null);
@@ -161,7 +176,7 @@ export default function ShareScreen() {
     setCaption(suggestedCaptionFor(combo, tryonImageUrl != null));
   }, [caption, captionEdited, combo, tryonImageUrl]);
 
-  const canSubmit = !submitting && combo != null;
+  const canSubmit = !submitting && combo != null && (shareDresses || shareModel);
 
   const handleSubmit = async () => {
     if (!canSubmit || !combo) return;
@@ -171,8 +186,10 @@ export default function ShareScreen() {
       const body: Parameters<typeof createOotd>[0] = {
         comboId: combo.comboId,
         visibility,
+        shareDresses,
+        shareModel,
       };
-      if (tryonGenerationId) body.tryonGenerationId = tryonGenerationId;
+      if (shareModel && tryonGenerationId) body.tryonGenerationId = tryonGenerationId;
       const trimmedCaption = caption.trim();
       const trimmedLocation = location.trim();
       if (trimmedCaption.length > 0) body.caption = trimmedCaption;

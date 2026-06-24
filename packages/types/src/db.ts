@@ -460,6 +460,8 @@ export type Database = {
           fallback_outfit_card_storage_key: string | null
           location_name: string | null
           ootd_id: string
+          share_dresses: boolean
+          share_model: boolean
           selfie_id: string | null
           try_on_storage_key: string | null
           user_id: string
@@ -473,6 +475,8 @@ export type Database = {
           fallback_outfit_card_storage_key?: string | null
           location_name?: string | null
           ootd_id?: string
+          share_dresses?: boolean
+          share_model?: boolean
           selfie_id?: string | null
           try_on_storage_key?: string | null
           user_id: string
@@ -486,6 +490,8 @@ export type Database = {
           fallback_outfit_card_storage_key?: string | null
           location_name?: string | null
           ootd_id?: string
+          share_dresses?: boolean
+          share_model?: boolean
           selfie_id?: string | null
           try_on_storage_key?: string | null
           user_id?: string

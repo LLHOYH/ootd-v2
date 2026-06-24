@@ -12,6 +12,10 @@ export const CreateOotdBody = z
     comboId: z.string(),
     caption: z.string().max(280).optional(),
     locationName: z.string().max(120).optional(),
+    /** Include the closet/dress photos from the combination in social cards. */
+    shareDresses: z.boolean().optional(),
+    /** Include the generated try-on/model photo in social cards. */
+    shareModel: z.boolean().optional(),
     /** READY try-on generation to attach as the shared model photo. */
     tryonGenerationId: z.string().optional(),
     visibility: zOOTDVisibility,
@@ -27,6 +31,22 @@ export const CreateOotdBody = z
           path: ['visibilityTargets'],
         });
       }
+    }
+    const shareDresses = val.shareDresses ?? true;
+    const shareModel = val.shareModel ?? val.tryonGenerationId != null;
+    if (!shareDresses && !shareModel) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Choose at least one thing to share.',
+        path: ['shareDresses'],
+      });
+    }
+    if (shareModel && !val.tryonGenerationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'tryonGenerationId required when sharing a model photo',
+        path: ['tryonGenerationId'],
+      });
     }
   });
 export type CreateOotdBody = z.infer<typeof CreateOotdBody>;

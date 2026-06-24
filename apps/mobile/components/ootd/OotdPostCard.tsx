@@ -2,7 +2,7 @@
 //
 // Layout:
 //   Avatar · name · time
-//   Photo (generated model + closet items when available)
+//   Photo carousel (generated model first, then closet items)
 //   Caption (one-line)
 //   Reaction row: ♡ count · Coordinate ↗ CTA
 //
@@ -10,7 +10,17 @@
 // trust the user to type the coordination ask. A deeper Stella deep-link
 // (with the friend's ootdId pre-filled) lands in feat/wire-stella-tools.
 
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Heart, Sparkles } from 'lucide-react-native';
 import { Avatar, Card, useTheme } from '@mei/ui';
 import type { OotdFeedItem } from '@/lib/hooks/useOotdFeed';
@@ -20,6 +30,12 @@ export interface OotdPostCardProps {
   onToggleReaction: () => void;
   onCoordinate: () => void;
 }
+
+type MediaSlide = {
+  id: string;
+  imageUrl?: string;
+  label: string;
+};
 
 function formatRelative(at: string): string {
   const t = new Date(at).getTime();
@@ -45,9 +61,45 @@ export function OotdPostCard({
 }: OotdPostCardProps) {
   const theme = useTheme();
   const { post, authorName, authorAvatarUrl, authorInitials, reactionCount, iReacted, comboName } = item;
-  const photoUrl = post.tryOnPhotoUrl ?? post.fallbackOutfitCardUrl;
-  const previewItems = item.outfitPreviewItems.slice(0, 4);
+  const modelPhotoUrl = post.tryOnPhotoUrl ?? post.fallbackOutfitCardUrl;
+  const previewItems = useMemo(
+    () => item.outfitPreviewItems.slice(0, 12),
+    [item.outfitPreviewItems],
+  );
+  const media = useMemo<MediaSlide[]>(() => {
+    const slides: MediaSlide[] = [];
+    if (modelPhotoUrl) {
+      slides.push({
+        id: 'model',
+        imageUrl: modelPhotoUrl,
+        label: 'Model',
+      });
+    }
+    for (const preview of previewItems) {
+      slides.push({
+        id: `dress-${preview.itemId}`,
+        imageUrl: preview.imageUrl,
+        label: preview.name,
+      });
+    }
+    return slides;
+  }, [modelPhotoUrl, previewItems]);
+  const [photoWidth, setPhotoWidth] = useState(0);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const time = formatRelative(post.createdAt);
+
+  useEffect(() => {
+    if (activeMediaIndex >= media.length) setActiveMediaIndex(0);
+  }, [activeMediaIndex, media.length]);
+
+  const handleMediaScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (photoWidth <= 0) return;
+      const nextIndex = Math.round(event.nativeEvent.contentOffset.x / photoWidth);
+      setActiveMediaIndex(Math.max(0, Math.min(media.length - 1, nextIndex)));
+    },
+    [media.length, photoWidth],
+  );
 
   return (
     <Card>
@@ -100,30 +152,39 @@ export function OotdPostCard({
             backgroundColor: theme.color.bg.secondary,
           },
         ]}
+        onLayout={(event) => {
+          const nextWidth = Math.round(event.nativeEvent.layout.width);
+          if (nextWidth > 0 && nextWidth !== photoWidth) setPhotoWidth(nextWidth);
+        }}
       >
-        {photoUrl && previewItems.length > 0 ? (
-          <View style={[styles.photoComposite, { gap: theme.space.xs }]}>
-            <Image
-              source={{ uri: photoUrl }}
-              style={[styles.modelImg, { borderRadius: theme.radius.sm }]}
-              accessibilityIgnoresInvertColors
-            />
-            <View style={[styles.sidePreviewColumn, { gap: theme.space.xs }]}>
-              {previewItems.map((preview) => (
+        {media.length > 0 ? (
+          <>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              bounces={media.length > 1}
+              scrollEnabled={media.length > 1}
+              onMomentumScrollEnd={handleMediaScrollEnd}
+              scrollEventThrottle={16}
+              style={styles.carousel}
+            >
+              {media.map((slide) => (
                 <View
-                  key={preview.itemId}
+                  key={slide.id}
                   style={[
-                    styles.sidePreviewSlot,
+                    styles.mediaSlide,
                     {
-                      borderRadius: theme.radius.sm,
+                      width: photoWidth > 0 ? photoWidth : 1,
                       backgroundColor: theme.color.bg.tertiary,
                     },
                   ]}
                 >
-                  {preview.imageUrl ? (
+                  {slide.imageUrl ? (
                     <Image
-                      source={{ uri: preview.imageUrl }}
+                      source={{ uri: slide.imageUrl }}
                       style={styles.photoImg}
+                      resizeMode="cover"
                       accessibilityIgnoresInvertColors
                     />
                   ) : (
@@ -136,55 +197,40 @@ export function OotdPostCard({
                       }}
                       numberOfLines={2}
                     >
-                      {preview.name}
+                      {slide.label}
                     </Text>
                   )}
                 </View>
               ))}
-            </View>
-          </View>
-        ) : photoUrl ? (
-          <Image
-            source={{ uri: photoUrl }}
-            style={styles.photoImg}
-            accessibilityIgnoresInvertColors
-          />
-        ) : previewItems.length > 0 ? (
-          <View style={[styles.previewGrid, { gap: theme.space.xs }]}>
-            {previewItems.map((preview) => (
+            </ScrollView>
+            {media.length > 1 ? (
               <View
-                key={preview.itemId}
                 style={[
-                  styles.previewSlot,
-                  {
-                    width: previewItems.length === 1 ? '100%' : '48.8%',
-                    borderRadius: theme.radius.sm,
-                    backgroundColor: theme.color.bg.tertiary,
-                  },
+                  styles.carouselDots,
+                  { gap: 5, bottom: theme.space.sm },
                 ]}
               >
-                {preview.imageUrl ? (
-                  <Image
-                    source={{ uri: preview.imageUrl }}
-                    style={styles.photoImg}
-                    accessibilityIgnoresInvertColors
+                {media.map((slide, index) => (
+                  <View
+                    key={`dot-${slide.id}`}
+                    style={[
+                      styles.carouselDot,
+                      {
+                        backgroundColor:
+                          index === activeMediaIndex
+                            ? theme.color.brand
+                            : theme.color.bg.primary,
+                        borderColor:
+                          index === activeMediaIndex
+                            ? theme.color.brand
+                            : theme.color.border.strong,
+                      },
+                    ]}
                   />
-                ) : (
-                  <Text
-                    style={{
-                      color: theme.color.text.tertiary,
-                      fontSize: theme.type.size.tiny,
-                      fontWeight: theme.type.weight.regular as '400',
-                      textAlign: 'center',
-                    }}
-                    numberOfLines={2}
-                  >
-                    {preview.name}
-                  </Text>
-                )}
+                ))}
               </View>
-            ))}
-          </View>
+            ) : null}
+          </>
         ) : (
           <View style={[styles.photoEmpty, { borderRadius: theme.radius.sm }]}>
             <Text
@@ -284,34 +330,28 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  photoComposite: {
+  carousel: {
     flex: 1,
-    flexDirection: 'row',
   },
-  modelImg: {
-    flex: 1,
+  mediaSlide: {
     height: '100%',
-  },
-  sidePreviewColumn: {
-    width: 92,
-  },
-  sidePreviewSlot: {
-    flex: 1,
-    minHeight: 0,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  previewGrid: {
-    flex: 1,
+  carouselDots: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  previewSlot: {
-    aspectRatio: 3 / 4,
-    alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    alignItems: 'center',
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 1,
   },
   photoEmpty: {
     flex: 1,

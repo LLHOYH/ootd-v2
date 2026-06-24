@@ -55,6 +55,8 @@ export const listUserOotdsHandler: Handler = async (ctx) => {
        combo_id,
        caption,
        location_name,
+       share_dresses,
+       share_model,
        try_on_storage_key,
        fallback_outfit_card_storage_key,
        visibility,
